@@ -12,9 +12,9 @@ from extra_funcs import progress_bar, progress_msg, number_to_3digits
 
 # Testing Imports.
 from random import choice
-from pprint import pprint
 from time_keeper import TimeKeeper
 from extra_funcs import big_number
+# from pprint import pprint
 
 
 class PapersCord19(CorpusCord19):
@@ -23,7 +23,7 @@ class PapersCord19(CorpusCord19):
     information for later use.
     """
     # CORD-19 Data Location
-    cord19_data_folder = 'cord19_data'
+    cord19_data_folder = 'cord19_datasets'
     default_dataset = '2020-05-31'
     metadata_file = 'metadata.csv'
     embeddings_file = 'cord_19_embeddings_2020-05-31.csv'
@@ -621,11 +621,11 @@ if __name__ == '__main__':
     cord19_ids = the_papers.papers_cord_uids()
     rand_cord_uid = choice(cord19_ids)
 
-    # # Getting the embedding of one of the papers.
-    # print(f"\nGetting the Embedding for the Paper <{rand_cord_uid}>...")
-    # result = the_papers.paper_embedding(rand_cord_uid)
-    # print(f"The Embedding is:")
-    # print(result)
+    # Getting the embedding of one of the papers.
+    print(f"\nGetting the Embedding for the Paper <{rand_cord_uid}>...")
+    result = the_papers.paper_embedding(rand_cord_uid)
+    print(f"The Embedding is:")
+    print(result)
 
     # Getting the text of one of the papers.
     print(f"\nGetting the content of the Paper <{rand_cord_uid}>...")
@@ -633,7 +633,7 @@ if __name__ == '__main__':
     # Trim the size of the paper's content.
     if len(result) > 1_500:
         result = result[:1_500] + '...'
-    print("The Content of the paper.")
+    print("The Content of the paper:")
     print(result)
 
     # Display the Information of the Paper.
@@ -646,11 +646,11 @@ if __name__ == '__main__':
     print(f"  Publish Time: {the_time}")
     print(f"  Authors: {the_authors}")
 
-    # Test Formatted Paper's Author & Publish Date.
-    print("\nFormatted Author Info: ")
-    pprint(the_papers.paper_authors(rand_cord_uid))
-    print("\nFormatted Publication Date:")
-    pprint(the_papers.paper_publish_date(rand_cord_uid))
+    # # Test Formatted Paper's Author & Publish Date.
+    # print("\nFormatted Author Info: ")
+    # pprint(the_papers.paper_authors(rand_cord_uid))
+    # print("\nFormatted Publication Date:")
+    # pprint(the_papers.paper_publish_date(rand_cord_uid))
 
     # # Quit Loop (If Using a Loop to Test)..
     # user_input = input("\nType [q/quit] to Exit Loop.\n")
