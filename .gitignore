@@ -1,3 +1,10 @@
+# Data Folders.
+corpora_data/
+cord19_datasets/
+doc_models/
+fasttext_models/
+project_data/
+temp_data/
 
 # Virtual Environment.
 venv-visual-topics/
