@@ -550,14 +550,14 @@ def paper_json_body_text(json_file_path: str):
         # Get all the sections in the body of the document.
         last_section = ''
         for paragraph_dict in full_text_dict['body_text']:
-            section_name = paragraph_dict['section']
-            paragraph_text = paragraph_dict['text']
+            section_name = paragraph_dict['section'].strip()
+            paragraph_text = paragraph_dict['text'].strip()
             # Check if we are still on the same section, or a new one.
             if section_name == last_section:
-                paper_body_text += paragraph_text + '\n\n'
+                paper_body_text += '\n' + paragraph_text + '\n'
             # Check that the new section name is not empty.
             elif section_name:
-                paper_body_text += '<< ' + section_name + ' >>\n' + paragraph_text + '\n\n'
+                paper_body_text += '\n<< ' + section_name + ' >>\n' + paragraph_text + '\n'
             # Save the section name for the next iteration.
             last_section = section_name
 
@@ -619,7 +619,7 @@ if __name__ == '__main__':
 
     # Get the 'cord_uid' of one of the papers.
     cord19_ids = the_papers.papers_cord_uids()
-    rand_cord_uid = choice(cord19_ids)
+    rand_cord_uid = 'f5wpqxkw'  # choice(cord19_ids)
 
     # Getting the embedding of one of the papers.
     print(f"\nGetting the Embedding for the Paper <{rand_cord_uid}>...")
