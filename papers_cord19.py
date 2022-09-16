@@ -30,7 +30,7 @@ class PapersCord19(CorpusCord19):
 
     # Project Data Location
     project_data_folder = 'project_data'
-    papers_data_folder = 'papers_data'
+    papers_data_folder = 'papers_cord19_files'
     project_embeds_folder = 'papers_embedding_dicts'
     papers_index_file = 'papers_index.json'
     embeds_index_file = 'papers_embeddings_index.json'
