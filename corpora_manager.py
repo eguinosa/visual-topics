@@ -7,7 +7,6 @@ from shutil import rmtree
 from os.path import join, isdir, isfile
 
 from topic_corpus import TopicCorpus
-from corpus_cord19 import CorpusCord19
 from papers_cord19 import PapersCord19
 from lang_detect import LangDetect
 from extra_funcs import progress_bar, progress_msg, big_number
@@ -32,8 +31,9 @@ class CorporaManager(TopicCorpus):
     single_embeds_folder = 'single_specter_embeddings'
     specter_embeds_file = 'specter_embeddings.json'
     corpus_index_file = 'corpus_index.json'
+    basic_info_file = 'corpus_basic_info.json'
 
-    def __init__(self, corpus_id='', corpus: CorpusCord19 = None, show_progress=False):
+    def __init__(self, corpus_id='', corpus: PapersCord19 = None, show_progress=False):
         """
         Extract from a Corpus of the Cord19 Dataset the viable documents for
         Topic Modeling, saving all their metadata of interest.
@@ -46,8 +46,8 @@ class CorporaManager(TopicCorpus):
 
         Args:
             corpus_id: String with the ID of the corpus we are going to load.
-            corpus: CorpusCord19 class containing all the papers we can use to
-                create our random subset.
+            corpus: PapersCord19 class containing the papers we are going to
+                analyse and store.
             show_progress: Bool representing whether we show the progress of
                 the function or not.
         """
@@ -268,7 +268,7 @@ class CorporaManager(TopicCorpus):
 
         # Progress Variables.
         count = 0
-        total = len(corpus) + 2  # saving index & embeddings dict.
+        total = len(corpus) + 3  # saving index, embeddings dict & basic info.
         without_title = 0
         without_abstract = 0
         with_text = 0
@@ -298,8 +298,9 @@ class CorporaManager(TopicCorpus):
             # Get Body Text.
             doc_body_text = corpus.paper_body_text(doc_id)
             # Check the document is in English.
-            in_english = lang_detector.doc_in_english(title=doc_title, abstract=doc_abstract,
-                                                      body_text=doc_body_text)
+            in_english = lang_detector.doc_in_english(
+                title=doc_title, abstract=doc_abstract, body_text=doc_body_text
+            )
             # Skip Documents that are not in English.
             if not in_english:
                 not_english_doc += 1
@@ -376,10 +377,26 @@ class CorporaManager(TopicCorpus):
         if show_progress:
             count += 1
             progress_bar(count, total)
+
+        # Create dictionary with basic information about the corpus.
+        basic_info = {
+            'corpus_size': len(docs_index),
+            'full_size_docs': with_text,
+            'original_dataset': corpus.current_dataset,
+            'original_size': len(corpus),
+        }
+        # Save basic information of the corpus.
+        basic_info_path = join(folder_path, self.basic_info_file)
+        with open(basic_info_path, 'w') as f:
+            json.dump(basic_info, f)
+        if show_progress:
+            count += 1
+            progress_bar(count, total)
             # Final Progress Report.
             progress_msg("<------------------>")
             docs_saved = big_number(len(docs_index))
             total_docs = big_number(len(corpus))
+            progress_msg(f"Original CORD-19 Dataset <{corpus.current_dataset}>")
             progress_msg(f"{docs_saved} documents out of {total_docs} saved.")
             progress_msg(f"{big_number(without_title)} docs without title.")
             progress_msg(f"{big_number(without_abstract)} docs without abstract.")
@@ -451,6 +468,30 @@ class CorporaManager(TopicCorpus):
         corpora_ids.sort()
         return corpora_ids
 
+    @classmethod
+    def corpus_basic_info(cls, corpus_id=''):
+        """
+        Load the Basic Info about the provided corpus 'corpus_id'. If no corpus
+        ID is provided, load the basic info of the default corpus.
+        """
+        # Check we have an ID.
+        if not corpus_id:
+            corpus_id = cls.default_corpus_id
+
+        # Check the corpus is saved.
+        if not cls.corpus_saved(corpus_id=corpus_id):
+            raise Exception(f"The Corpus <{corpus_id}> is not saved.")
+
+        # Load the basic info of the corpus.
+        corpus_folder_name = cls.corpus_folder_prefix + corpus_id
+        corpus_folder_path = join(cls.corpora_data_folder, corpus_folder_name)
+        basic_info_path = join(corpus_folder_path, cls.basic_info_file)
+        with open(basic_info_path, 'r') as f:
+            basic_info = json.load(f)
+
+        # The Basic Info of the Corpus.
+        return basic_info
+
 
 if __name__ == '__main__':
     # Record Runtime of the Program.
@@ -475,7 +516,9 @@ if __name__ == '__main__':
     else:
         print("\nThere is no Corpora Saved and Ready to be Loaded.")
     for the_corpus_id in the_corpora_list:
-        print(f"  -> {the_corpus_id}")
+        the_basic_info = CorporaManager.corpus_basic_info(the_corpus_id)
+        the_corpus_size = big_number(the_basic_info['corpus_size'])
+        print(f"  -> {the_corpus_id} ({the_corpus_size} docs)")
 
     print("\nDone.")
     print(f"[{stopwatch.formatted_runtime()}]\n")
