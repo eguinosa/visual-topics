@@ -107,6 +107,7 @@ class CorporaManager(TopicCorpus):
         result = len(self.corpus_doc_ids)
         return result
 
+    @property
     def doc_ids(self):
         """
         Get the Ids of the documents in the current corpus.
