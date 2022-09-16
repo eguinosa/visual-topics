@@ -619,7 +619,7 @@ if __name__ == '__main__':
 
     # Get the 'cord_uid' of one of the papers.
     cord19_ids = the_papers.papers_cord_uids()
-    rand_cord_uid = 'f5wpqxkw'  # choice(cord19_ids)
+    rand_cord_uid = choice(cord19_ids)
 
     # Getting the embedding of one of the papers.
     print(f"\nGetting the Embedding for the Paper <{rand_cord_uid}>...")
