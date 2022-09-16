@@ -6,6 +6,7 @@ from os import mkdir, listdir
 from shutil import rmtree
 from os.path import join, isdir, isfile
 
+from topic_corpus import TopicCorpus
 from corpus_cord19 import CorpusCord19
 from papers_cord19 import PapersCord19
 from lang_detect import LangDetect
@@ -16,7 +17,7 @@ from extra_funcs import progress_bar, progress_msg, big_number
 from time_keeper import TimeKeeper
 
 
-class CorporaManager:
+class CorporaManager(TopicCorpus):
     """
     Class to manage the documents, document's embeddings and vocabulary's
     embeddings belonging to a Corpus.
@@ -106,34 +107,67 @@ class CorporaManager:
         result = len(self.corpus_doc_ids)
         return result
 
-    def doc_content(self, doc_id: str, full_content=False):
+    def doc_ids(self):
         """
-        Get the content of the document. Title & Abstract by default, all the
-        available content of the document if 'full_content' is True.
+        Get the Ids of the documents in the current corpus.
+
+        Returns:
+            List[str] with the IDs of the documents.
+        """
+        return self.corpus_doc_ids
+
+    def doc_title(self, doc_id: str):
+        """
+        Get the title of the document 'doc_id'.
 
         Args:
             doc_id: String with the ID of the document.
-            full_content: Bool indicating if we also need to include the body
-                text in the content of the document.
 
         Returns:
-            String with the content of the document.
+            String with the title of the document.
         """
-        # Get Document Dictionary.
         doc_info = self.corpus_index[doc_id]
-        # Get Content.
-        doc_title = doc_info['title']
-        doc_abstract = doc_info['abstract']
-        doc_content = doc_title + '\n' + doc_abstract
-        if full_content and doc_info['body_text_path']:
-            body_text_path = doc_info['body_text_path']
-            with open(body_text_path, 'r') as f:
-                body_text = f.read()
-            doc_content += '\n' + body_text
-        # The Content of the Document.
-        return doc_content
+        title = doc_info['title']
+        return title
 
-    def doc_embed(self, doc_id: str):
+    def doc_abstract(self, doc_id: str):
+        """
+        Get the abstract of the document 'doc_id'.
+
+        Args:
+            doc_id: String with the ID of the document.
+
+        Returns:
+            String with the abstract of the document.
+        """
+        doc_info = self.corpus_index[doc_id]
+        abstract = doc_info['abstract']
+        return abstract
+
+    def doc_body_text(self, doc_id: str):
+        """
+        Get the body text of the document 'doc_id'. Return an empty string ('')
+        if the document has only title & abstract.
+
+        Args:
+            doc_id: String with the ID of the document.
+
+        Returns:
+            String with the text in the body of the document.
+        """
+        # Get path to the file with the body text.
+        doc_info = self.corpus_index[doc_id]
+        body_text_path = doc_info['body_text_path']
+        # If empty the document has not body text.
+        if not body_text_path:
+            return ''
+
+        # Get the content in the body of the document.
+        with open(body_text_path, 'r') as f:
+            body_text = f.read()
+        return body_text
+
+    def doc_specter_embed(self, doc_id: str):
         """
         Get the Specter Embedding of the Document.
 
@@ -173,6 +207,33 @@ class CorporaManager:
         Unload from memory the embeddings Dictionary. Frees up space.
         """
         self.doc_embeds = None
+
+    def doc_content(self, doc_id: str, full_content=False):
+        """
+        Get the content of the document. Title & Abstract by default, all the
+        available content of the document if 'full_content' is True.
+
+        Args:
+            doc_id: String with the ID of the document.
+            full_content: Bool indicating if we also need to include the body
+                text in the content of the document.
+
+        Returns:
+            String with the content of the document.
+        """
+        # Get Document Dictionary.
+        doc_info = self.corpus_index[doc_id]
+        # Get Content.
+        doc_title = doc_info['title']
+        doc_abstract = doc_info['abstract']
+        doc_content = doc_title + '\n' + doc_abstract
+        if full_content and doc_info['body_text_path']:
+            body_text_path = doc_info['body_text_path']
+            with open(body_text_path, 'r') as f:
+                body_text = f.read()
+            doc_content += '\n' + body_text
+        # The Content of the Document.
+        return doc_content
 
     def save_corpus_data(self, folder_path: str, corpus: PapersCord19,
                          show_progress=False):
