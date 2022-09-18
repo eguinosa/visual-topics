@@ -1,10 +1,13 @@
+# CORD-19 dataset.
+cord19_datasets/
 # Data Folders.
 corpora_data/
-cord19_datasets/
-doc_models/
-fasttext_models/
 project_data/
 temp_data/
+# Models Folders.
+doc_models/
+fasttext_models/
+spacy_models/
 
 # Virtual Environment.
 venv-visual-topics/
