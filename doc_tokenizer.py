@@ -9,6 +9,7 @@ from spacy.util import compile_infix_regex
 from spacy.tokens.token import Token
 from spacy.lang.char_classes import ALPHA, ALPHA_LOWER, ALPHA_UPPER
 from spacy.lang.char_classes import CONCAT_QUOTES, LIST_ELLIPSES, LIST_ICONS
+from english_words import english_words_lower_alpha_set as english_lower_set
 
 # Testing Imports.
 from pprint import pprint
@@ -109,7 +110,7 @@ class DocTokenizer:
         doc_tokens = self.nlp(doc)
         # Create vocabulary.
         doc_vocab = [
-            token_word(token) for token in doc_tokens if vocab_acceptable(token)
+            self.token_word(token) for token in doc_tokens if vocab_acceptable(token)
         ]
         # The words in the vocabulary of the document.
         return doc_vocab
@@ -133,7 +134,7 @@ class DocTokenizer:
         # Use nlp.pipe to tokenize the documents.
         for doc_tokens in self.nlp.pipe(docs):
             doc_vocab = [
-                token_word(token) for token in doc_tokens
+                self.token_word(token) for token in doc_tokens
                 if vocab_acceptable(token)
             ]
             # Add the vocabulary of the document to the list.
@@ -142,34 +143,36 @@ class DocTokenizer:
         # The Vocabularies of the documents.
         return docs_vocab_list
 
+    def token_word(self, token: Token):
+        """
+        Given 'token' get the string representation most useful for the purpose of
+        the tokenization, usually the word's lemma.
 
-def token_word(token: Token):
-    """
-    Given 'token' get the string representation most useful for the purpose of
-    the tokenization, usually the word's lemma.
+        Args:
+            token: Token from where we are going to get the word representation.
+        Returns:
+            String with the corresponding text representation of the 'token'.
+        """
+        # Check if the word is Covid-19 or Covid-19 related.
+        if token.lower_ == 'covid19' or token.lower_ == 'covid-19':
+            final_word = 'covid-19'
+        elif 'covid19' in token.lower_ and 'covid19' != token.lower_:
+            final_word = 'covid-19-related'
+        elif 'covid-19' in token.lower_ and 'covid-19' != token.lower_:
+            final_word = 'covid-19-related'
+        # Check if we have a word in CAPITAL letters that isn't a common english word.
+        elif token.lemma_.isupper() and not common_word(token):
+            # We have an Acronym.
+            final_word = token.text
+        else:
+            # Reprocess the token if it's lemma is capital Letters.
+            if token.lemma_.isupper():
+                token = self.nlp(token.lower_)[0]
+            # Get the Lemma of the word.
+            final_word = token.lemma_.lower().strip()
 
-    Args:
-        token: Token from where we are going to get the word representation.
-    Returns:
-        String with the corresponding text representation of the 'token'.
-    """
-    # Check if the word is Covid-19 or Covid-19 related.
-    if token.lower_ == 'covid19':
-        final_word = 'covid-19'
-    elif 'covid19' in token.lower_ and 'covid19' != token.lower_:
-        final_word = 'covid-19-related'
-    elif 'covid-19' in token.lower_ and 'covid-19' != token.lower_:
-        final_word = 'covid-19-related'
-    # Check if we have a word in CAPITAL letters.
-    elif token.is_upper:
-        # We have an Acronym.
-        final_word = token.text
-    else:
-        # Get the Lemma of the word.
-        final_word = token.lemma_.lower().strip()
-
-    # The appropriate representation for the word.
-    return final_word
+        # The appropriate representation for the word.
+        return final_word
 
 
 def vocab_acceptable(token: Token):
@@ -211,6 +214,26 @@ def vocab_acceptable(token: Token):
     return False
 
 
+def common_word(token: Token):
+    """
+    Method intended for tokens in Capital Letters to see if they are actually a
+    common word and not an Acronym, situation very common in the CORD-19 corpus.
+    """
+    # # Check we are dealing with a token in Capital Letters.
+    # if not token.is_upper:
+    #     raise Exception("This method is only for tokens in Capital Letters.")
+
+    # Creating a base list of versions of the token word.
+    word_versions = [token.lower_]
+    # Get the singular version if it ends with an 's':
+    if token.lower_[-1] == 's':
+        word_versions.append(token.lower_[:-1])
+
+    # Check if any of the versions is a common word.
+    is_common = any(version in english_lower_set for version in word_versions)
+    return is_common
+
+
 if __name__ == '__main__':
     # Record Program Runtime.
     stopwatch = TimeKeeper()
@@ -219,50 +242,51 @@ if __name__ == '__main__':
 
     # Create Tokenizer.
     print("\nCreating Tokenizer...")
-    the_tokenizer = DocTokenizer(hyphens=True)
+    my_tokenizer = DocTokenizer(hyphens=True)
     print("Done.")
     print(f"[{stopwatch.formatted_runtime()}]")
 
     # # Test Tokenizing a Document.
-    # the_doc = (
-    #   'fun'
+    # my_doc = (
+    #     'METHODS that are fun. RESULTS that are funny. See were all the RESULTS '
+    #     'go because I want other METHODS.'
     # )
     # print("\nCurrent Document:")
-    # pprint(the_doc, width=70)
-    # the_vocab = the_tokenizer.vocab_tokenizer(the_doc)
+    # pprint(my_doc, width=70)
+    # my_vocab = my_tokenizer.vocab_tokenizer(my_doc)
     # print("\nDocument Tokens:")
-    # pprint(the_vocab, width=70, compact=True)
+    # pprint(my_vocab, width=70, compact=True)
 
     # Create a Random sample of Documents.
-    the_num_docs = 10
-    print(f"\nCreating a sample of {the_num_docs} documents...")
-    the_sample = SampleManager(sample_size=the_num_docs, show_progress=True)
+    my_num_docs = 10
+    print(f"\nCreating a sample of {my_num_docs} documents...")
+    my_sample = SampleManager(sample_size=my_num_docs, show_progress=True)
     print("Done.")
     print(f"[{stopwatch.formatted_runtime()}]")
 
     # Take document to tokenize.
-    for the_doc in the_sample.corpus_title_abstracts():
+    for my_doc in my_sample.corpus_title_abstracts():
         print("\nCurrent Document:")
-        pprint(the_doc, width=70)
+        pprint(my_doc, width=70)
 
         # Ask to tokenize the document.
-        the_input = input(
+        my_input = input(
             "\nWould you like to tokenize this document?\n(q/quit to exit, n/next to skip): "
         )
-        the_input = the_input.lower().strip()
-        if the_input in {'q', 'quit', 'exit'}:
+        my_input = my_input.lower().strip()
+        if my_input in {'q', 'quit', 'exit'}:
             break
-        if the_input in {'n', 'next'}:
+        if my_input in {'n', 'next'}:
             continue
 
         # Tokenize and Display the Doc's tokens.
-        the_vocab = the_tokenizer.vocab_tokenizer(the_doc)
+        my_vocab = my_tokenizer.vocab_tokenizer(my_doc)
         print("\nDocument Tokens:")
-        pprint(the_vocab, width=70, compact=True)
+        pprint(my_vocab, width=70, compact=True)
 
         # Ask to continue.
-        the_input = input("\nContinue? (q/quit to exit) ")
-        if the_input in {'q', 'quit', 'exit'}:
+        my_input = input("\nContinue? (q/quit to exit) ")
+        if my_input in {'q', 'quit', 'exit'}:
             break
 
     print("\nDone.")
