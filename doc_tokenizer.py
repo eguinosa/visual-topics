@@ -11,6 +11,8 @@ from spacy.lang.char_classes import ALPHA, ALPHA_LOWER, ALPHA_UPPER
 from spacy.lang.char_classes import CONCAT_QUOTES, LIST_ELLIPSES, LIST_ICONS
 
 # Testing Imports.
+from pprint import pprint
+from sample_manager import SampleManager
 from time_keeper import TimeKeeper
 
 
@@ -91,49 +93,49 @@ class DocTokenizer:
     def vocab_tokenizer(self, doc: str):
         """
         Tokenize a document creating a set with the lemmas of the words in the
-        documents. This would be the vocabulary of the document.
+        documents. This will be the vocabulary tokens of the document.
 
         Args:
             doc: String with the document from which we are going to create the
                 vocabulary.
         Returns:
-            Set(str) containing the words in the vocabulary of the document.
+            List[str] containing the vocabulary tokens of the document.
         """
         # Check in case the document is empty.
         if not doc:
-            return set()
+            return []
 
         # Tokenize the document.
         doc_tokens = self.nlp(doc)
         # Create vocabulary.
-        doc_vocab = {
+        doc_vocab = [
             token_word(token) for token in doc_tokens if vocab_acceptable(token)
-        }
+        ]
         # The words in the vocabulary of the document.
         return doc_vocab
 
     def docs_vocab_tokenizer(self, docs: iter):
         """
         Tokenize an iterable of documents creating the vocabulary for each of
-        the documents and returning them as a List[set], with each set()
-        containing the vocabulary of each document.
+        the documents and returning them as a List of List[str], with each list
+        containing the vocabulary tokens of each document.
 
         We use nlp.pipe(texts) to speed up the process of tokenization.
 
         Args:
             docs: Iterable with the documents we have to tokenize.
         Returns:
-            List[set] with the vocabulary of the documents.
+            List of List[str] with the vocabulary tokens of the documents.
         """
         # Create the default list of sets.
         docs_vocab_list = []
 
         # Use nlp.pipe to tokenize the documents.
         for doc_tokens in self.nlp.pipe(docs):
-            doc_vocab = {
+            doc_vocab = [
                 token_word(token) for token in doc_tokens
                 if vocab_acceptable(token)
-            }
+            ]
             # Add the vocabulary of the document to the list.
             docs_vocab_list.append(doc_vocab)
 
@@ -151,21 +153,28 @@ def token_word(token: Token):
     Returns:
         String with the corresponding text representation of the 'token'.
     """
-    # Get the Lemma of the word.
-    final_word = token.lemma_.lower().strip()
     # Check if the word is Covid-19 or Covid-19 related.
-    if final_word == 'covid19':
+    if token.lower_ == 'covid19':
         final_word = 'covid-19'
-    elif 'covid19' in final_word and 'covid19' != final_word:
+    elif 'covid19' in token.lower_ and 'covid19' != token.lower_:
         final_word = 'covid-19-related'
-    elif 'covid-19' in final_word and 'covid-19' != final_word:
+    elif 'covid-19' in token.lower_ and 'covid-19' != token.lower_:
         final_word = 'covid-19-related'
+    # Check if we have a word in CAPITAL letters.
+    elif token.is_upper:
+        # We have an Acronym.
+        final_word = token.text
+    else:
+        # Get the Lemma of the word.
+        final_word = token.lemma_.lower().strip()
+
+    # The appropriate representation for the word.
     return final_word
 
 
 def vocab_acceptable(token: Token):
     """
-    Check if a given token is a word, has 2 or more character, or is
+    Check if a given token is a word, has 3 or more character, or is
     alphanumeric starting with a character.
 
     Args:
@@ -175,9 +184,8 @@ def vocab_acceptable(token: Token):
         Bool indicating if the Token can be part of the document's vocabulary or
             not.
     """
-    token_text = token.lower_
     # No - if token length is too short or too long.
-    if len(token_text) < 2 or len(token_text) > 15:
+    if len(token.text) < 3 or len(token.text) > 25:
         return False
     # No - if the token represents a number.
     if token.like_num:
@@ -185,14 +193,18 @@ def vocab_acceptable(token: Token):
     # No - if the token is a Stop-word.
     if token.is_stop:
         return False
+    # No - if the word doesn't have any vowels and is not an Acronym.
+    vowels = {'a', 'e', 'i', 'o', 'u'}
+    if not token.is_upper and not any(char in vowels for char in token.lower_):
+        return False
     # Ok - if the word is all alphabetic.
     if token.is_alpha:
         return True
     # Ok - if token has covid-19 in it.
-    if 'covid19' in token_text or 'covid-19' in token_text:
+    if 'covid19' in token.lower_ or 'covid-19' in token.lower_:
         return True
     # Ok - if it has hyphens (-) and only alphabetic words.
-    hyphenated_words = token_text.split('-')
+    hyphenated_words = token.lower_.split('-')
     if all(map(lambda x: x.isalpha() or x in {'covid', '19', 'covid19'}, hyphenated_words)):
         return True
     # No by default - if none of the above cases apply.
@@ -204,6 +216,54 @@ if __name__ == '__main__':
     stopwatch = TimeKeeper()
     # Terminal Arguments.
     args = sys.argv
+
+    # Create Tokenizer.
+    print("\nCreating Tokenizer...")
+    the_tokenizer = DocTokenizer(hyphens=True)
+    print("Done.")
+    print(f"[{stopwatch.formatted_runtime()}]")
+
+    # # Test Tokenizing a Document.
+    # the_doc = (
+    #   'fun'
+    # )
+    # print("\nCurrent Document:")
+    # pprint(the_doc, width=70)
+    # the_vocab = the_tokenizer.vocab_tokenizer(the_doc)
+    # print("\nDocument Tokens:")
+    # pprint(the_vocab, width=70, compact=True)
+
+    # Create a Random sample of Documents.
+    the_num_docs = 10
+    print(f"\nCreating a sample of {the_num_docs} documents...")
+    the_sample = SampleManager(sample_size=the_num_docs, show_progress=True)
+    print("Done.")
+    print(f"[{stopwatch.formatted_runtime()}]")
+
+    # Take document to tokenize.
+    for the_doc in the_sample.corpus_title_abstracts():
+        print("\nCurrent Document:")
+        pprint(the_doc, width=70)
+
+        # Ask to tokenize the document.
+        the_input = input(
+            "\nWould you like to tokenize this document?\n(q/quit to exit, n/next to skip): "
+        )
+        the_input = the_input.lower().strip()
+        if the_input in {'q', 'quit', 'exit'}:
+            break
+        if the_input in {'n', 'next'}:
+            continue
+
+        # Tokenize and Display the Doc's tokens.
+        the_vocab = the_tokenizer.vocab_tokenizer(the_doc)
+        print("\nDocument Tokens:")
+        pprint(the_vocab, width=70, compact=True)
+
+        # Ask to continue.
+        the_input = input("\nContinue? (q/quit to exit) ")
+        if the_input in {'q', 'quit', 'exit'}:
+            break
 
     print("\nDone.")
     print(f"[{stopwatch.formatted_runtime()}]\n")
