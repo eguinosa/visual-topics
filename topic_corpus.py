@@ -51,3 +51,24 @@ class TopicCorpus(ABC):
         Get the specter embedding of the document 'doc_id'.
         """
         pass
+
+    def doc_title_abstract(self, doc_id: str):
+        """
+        Get the title and abstract of the document with the given 'doc_id'.
+
+        Args:
+            doc_id: String with the identifier of the document.
+        Returns:
+            String with the title and abstract of the document.
+        """
+        title_abstract = self.doc_title(doc_id) + '\n\n' + self.doc_abstract(doc_id)
+        return title_abstract
+
+    def corpus_title_abstracts(self):
+        """
+        Get all the title and abstract of the documents in the corpus.
+
+        Returns: Iterator[Strings] with the title and abstract of the documents.
+        """
+        for doc_id in self.doc_ids:
+            yield self.doc_title_abstract(doc_id)
