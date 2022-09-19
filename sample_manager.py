@@ -9,7 +9,7 @@ from os.path import isdir, isfile, join
 
 from topic_corpus import TopicCorpus
 from corpora_manager import CorporaManager
-from extra_funcs import big_number
+from extra_funcs import big_number, progress_msg
 
 # Testing Imports.
 from time_keeper import TimeKeeper
@@ -27,7 +27,7 @@ class SampleManager(TopicCorpus):
     sample_info_suffix = '_sample_info.json'
 
     def __init__(self, corpus: TopicCorpus = None, sample_size=-1,
-                 _load_sample=False, _sample_id=''):
+                 _load_sample=False, _sample_id='', show_progress=False):
         """
         Create a Random Sample of Documents from the provided 'corpus' or the
         default corpus in Corpora Manager. If '_load_sample' is True, then load
@@ -40,8 +40,12 @@ class SampleManager(TopicCorpus):
             _load_sample: Bool indicating if we are going to load an already
                 saved random sample of document.
             _sample_id: String with the ID of the sample we are going to load.
+            show_progress: Bool representing whether we show the progress of
+                the function or not.
         """
         if _load_sample:
+            if show_progress:
+                progress_msg(f"Loading Saved Sample <{_sample_id}>...")
             # Check the Data folders.
             if not isdir(self.data_folder):
                 raise FileNotFoundError(
@@ -73,12 +77,13 @@ class SampleManager(TopicCorpus):
                 sample_info = json.load(f)
             # Load Sample Main Corpus.
             corpus_id = sample_info['corpus_id']
-            corpus = CorporaManager(corpus_id=corpus_id)
+            corpus = CorporaManager(corpus_id=corpus_id, show_progress=show_progress)
         else:
+            if show_progress:
+                progress_msg("Creating a new Sample of documents...")
             # Load the default corpus in CorporaManager() if none was provided.
             if not corpus:
-                corpus = CorporaManager()
-
+                corpus = CorporaManager(show_progress=show_progress)
             # Get the IDs of the new Sample.
             corpus_ids = corpus.doc_ids
             if sample_size < 0 or len(corpus) <= sample_size:
@@ -89,6 +94,9 @@ class SampleManager(TopicCorpus):
         # Save Sample IDs and Corpus Reference.
         self.main_corpus = corpus
         self.sample_doc_ids = sample_doc_ids
+        if show_progress:
+            docs_number = big_number(len(sample_doc_ids))
+            progress_msg(f"Sample with {docs_number} documents ready.")
 
     def __len__(self):
         """
