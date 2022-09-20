@@ -100,7 +100,7 @@ class SBertModel:
         """
         # Check if a model name was provided.
         if not model_name:
-            model_name = 'paraphrase-MiniLM-L3-v2'
+            model_name = 'all-MiniLM-L6-v2'
         # Check the model we are using is supported by the class.
         if model_name not in self.models_dict:
             raise NameError("SBertModel() does not support the requested model.")
