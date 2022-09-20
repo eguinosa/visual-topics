@@ -1,7 +1,6 @@
 # Gelin Eguinosa Rosique
 # 2022
 
-import sys
 import spacy
 from os import mkdir
 from os.path import isdir, join
@@ -13,6 +12,7 @@ from spacy.lang.char_classes import CONCAT_QUOTES, LIST_ELLIPSES, LIST_ICONS
 from custom_sets import wrong_acronyms
 
 # Testing Imports.
+import sys
 from pprint import pprint
 from sample_manager import SampleManager
 from time_keeper import TimeKeeper
@@ -28,7 +28,7 @@ class DocTokenizer:
     # Supported Spacy Models.
     models_allowed = {'en_core_web_sm'}
 
-    def __init__(self, spacy_model='', hyphens=False):
+    def __init__(self, spacy_model='', hyphens=True):
         """
         Load the spacy model used for the tokenization of the documents in the
         corpus, if no 'spacy_model' is provided, loads the 'default_model'.
