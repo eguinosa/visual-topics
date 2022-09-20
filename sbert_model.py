@@ -10,7 +10,7 @@ from extra_funcs import progress_msg, big_number
 from time_keeper import TimeKeeper
 
 # Test Imports
-from util_funcs import cos_sim
+from util_funcs import cos_sim, closest_vector
 
 
 class SBertModel:
@@ -134,7 +134,7 @@ class SBertModel:
         self.model = model
         self.model_name = model_name
 
-    def text_vector(self, text: str):
+    def text_embed(self, text: str):
         """
         Transform a text (word, sentence or paragraph) into its vector
         representation.
@@ -147,7 +147,7 @@ class SBertModel:
         embed = self.model.encode(text)
         return embed
 
-    def text_list_vectors(self, text_list: list):
+    def text_list_embeds(self, text_list: list):
         """
         Get the vector representation of a list of texts.
 
@@ -199,24 +199,45 @@ if __name__ == '__main__':
     #     word_input = word_input.strip().lower()
     #     if word_input in {'', 'q', 'quit'}:
     #         break
-    #     word_embed = my_model.text_vector(word_input)
+    #     word_embed = my_model.text_embed(word_input)
     #     print(f"\nThe embedding of <{word_input}>:")
     #     print(word_embed)
     #     print(f"Type: {type(word_embed)}")
 
-    # Check Similarities between words.
-    print("\nTesting word similarities (To close use [q/quit]):")
-    quit_words = {'q', 'quit'}
+    # # Check Similarities between words.
+    # print("\nTesting word similarities (To close use [q/quit]):")
+    # while True:
+    #     word1 = input("\nType the first word: ")
+    #     if word1 in {'', 'q', 'quit'}:
+    #         break
+    #     word2 = input("Type the second word: ")
+    #     if word2 in {'', 'q', 'quit'}:
+    #         break
+    #     sim_words = cos_sim(my_model.text_embed(word1), my_model.text_embed(word2))
+    #     print("\nWords similarity:")
+    #     print(sim_words)
+
+    # Find most similar word.
+    print("\nGiven a word, and a list of words, select the word most similar.")
+    print("(To close use [q/quit])")
     while True:
-        word1 = input("\nType the first word: ")
-        if word1 in quit_words:
+        my_word = input("\nType the search word: ")
+        if my_word in {'', 'q', 'quit'}:
             break
-        word2 = input("Type the second word: ")
-        if word2 in quit_words:
+        my_list = input("Type the list of words to search on. (Use commas to "
+                        "separate the words)\n -> ")
+        if my_list in {'', 'q', 'quit'}:
             break
-        sim_words = cos_sim(my_model.text_vector(word1), my_model.text_vector(word2))
-        print("\nWords similarity:")
-        print(sim_words)
+        my_word_list = [a_word.strip() for a_word in my_list.split(',')]
+        my_word_embed = my_model.text_embed(my_word)
+        my_embeds_list = my_model.text_list_embeds(my_word_list)
+        my_embeds_dict = dict(zip(my_word_list, my_embeds_list))
+        # Get the closest word.
+        my_closest_word, my_sim = closest_vector(my_word_embed, my_embeds_dict)
+        # Report Word and Similarity.
+        print(f"The closest word to <{my_word}>:")
+        print(f" Word -> {my_closest_word}")
+        print(f" Sim  -> {my_sim}")
 
     print("\nDone.")
     print(f"[{stopwatch.formatted_runtime()}]\n")
