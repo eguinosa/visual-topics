@@ -80,7 +80,7 @@ class DocTokenizer:
                             al=ALPHA_LOWER, au=ALPHA_UPPER, q=CONCAT_QUOTES
                         ),
                         r"(?<=[{a}]),(?=[{a}])".format(a=ALPHA),
-                        # Commented out regex that splits on hyphens between letters:
+                        # # Commented out regex that splits on hyphens between letters:
                         # r"(?<=[{a}])(?:{h})(?=[{a}])".format(a=ALPHA, h=HYPHENS),
                         r"(?<=[{a}0-9])[:<>=/](?=[{a}])".format(a=ALPHA),
                     ]
@@ -166,6 +166,17 @@ def token_word(token: Token):
     elif token.is_upper:
         # If it's an incorrect Acronym, get it correct version, same text otherwise.
         final_word = wrong_acronyms.get(token.text, token.text)
+    # Check if we have a word with significant amount of capital letters.
+    elif more_capital(token.text):
+        # A plural acronym (Ex: RNCs)
+        if token.text[-1] == 's' and token.text[-2].isupper():
+            final_word = token.text[:-1]
+        else:
+            # Normal acronym.
+            final_word = token.text
+    # Check if hyphenated and one section is an acronym.
+    elif '-' in token.text and any(more_capital(segment) for segment in token.text.split('-')):
+        final_word = token.text
     else:
         # Get the Lemma of the word.
         final_word = token.lemma_.lower().strip()
@@ -189,6 +200,12 @@ def vocab_acceptable(token: Token):
     # No - if token length is too short or too long.
     if len(token.text) < 3 or len(token.text) > 25:
         return False
+    # No - if the word starts or ends with a hyphen.
+    if token.text[0] == '-' or token.text[-1] == '-':
+        return False
+    # No - if it has characters outside of letters, numbers, and hyphens (-).
+    if not all(x.isalpha() or x.isnumeric() or x == '-' for x in token.text):
+        return False
     # No - if the token represents a number.
     if token.like_num:
         return False
@@ -197,7 +214,7 @@ def vocab_acceptable(token: Token):
         return False
     # No - if the word doesn't have any vowels and is not an Acronym.
     vowels = {'a', 'e', 'i', 'o', 'u'}
-    if not token.is_upper and not any(char in vowels for char in token.lower_):
+    if not more_capital(token.text) and not any(char in vowels for char in token.lower_):
         return False
     # Ok - if the word is all alphabetic.
     if token.is_alpha:
@@ -205,12 +222,70 @@ def vocab_acceptable(token: Token):
     # Ok - if token has covid-19 in it.
     if 'covid19' in token.lower_ or 'covid-19' in token.lower_:
         return True
-    # Ok - if it has hyphens (-) and only alphabetic words.
-    hyphenated_words = token.lower_.split('-')
-    if all(map(lambda x: x.isalpha() or x in {'covid', '19', 'covid19'}, hyphenated_words)):
+    # Ok - True cases when a hyphen (-) is present.
+    if '-' in token.text:
+        # Ok - if it has hyphens (-) and only alphabetic words.
+        word_segments = token.lower_.split('-')
+        if all(segment.isalpha() for segment in word_segments):
+            return True
+        # Ok - if it's hyphenated and has more letters than numbers.
+        if more_letters(token):
+            return True
+    # Ok - if it's an acronym with more letters than numbers.
+    if more_capital(token.text) and more_letters(token):
         return True
-    # No by default - if none of the above cases apply.
     return False
+
+
+def more_letters(token: Token):
+    """
+    Determine if a token has more letters in its text than numbers.
+
+    Args:
+        token: Token to analyze.
+    Returns:
+        Bool indicating whether the token has more letter than numbers.
+    """
+    # Count the letters and numbers.
+    token_chars = token.lower_
+    letters = 0
+    numbers = 0
+    for char in token_chars:
+        if char.isalpha():
+            letters += 1
+        elif char.isnumeric():
+            numbers += 1
+
+    # Check the count of numbers and letters.
+    result = letters > numbers
+    return result
+
+
+def more_capital(token_text: str):
+    """
+    Determine if a token has more capital letters in its text than lower-case
+    letters.
+
+    Args:
+        token_text: String with the text of the Token to analyze.
+    Returns:
+        Bool indicating whether the token has more capital letters than
+            lower-case.
+    """
+    # Count the letters cases.
+    token_chars = token_text
+    lower_case = 0
+    upper_case = 0
+    for char in token_chars:
+        if char.isalpha():
+            if char.isupper():
+                upper_case += 1
+            else:
+                lower_case += 1
+
+    # Check if we have more capital letters.
+    result = upper_case > lower_case
+    return result
 
 
 if __name__ == '__main__':
@@ -225,18 +300,18 @@ if __name__ == '__main__':
     print("Done.")
     print(f"[{stopwatch.formatted_runtime()}]")
 
-    # # Test Tokenizing a Document.
-    # my_doc = (
-    #     'Comparison'
-    # )
-    # print("\nCurrent Document:")
-    # pprint(my_doc, width=70)
-    # my_vocab = my_tokenizer.vocab_tokenizer(my_doc)
-    # print("\nDocument Tokens:")
-    # pprint(my_vocab, width=70, compact=True)
+    # Test Tokenizing a Document.
+    my_doc = (
+        'Covid-19 is something SARS-CoV-2 for the COVID-19 '
+    )
+    print("\nCurrent Document:")
+    pprint(my_doc, width=70)
+    my_vocab = my_tokenizer.vocab_tokenizer(my_doc)
+    print("\nDocument Tokens:")
+    pprint(my_vocab, width=70, compact=True)
 
     # Create a Random sample of Documents.
-    my_num_docs = 10
+    my_num_docs = 20  # 10
     print(f"\nCreating a sample of {my_num_docs} documents...")
     my_sample = SampleManager(sample_size=my_num_docs, show_progress=True)
     print("Done.")
