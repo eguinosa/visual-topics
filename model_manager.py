@@ -45,7 +45,7 @@ class ModelManager:
             model_name: String with the ModelManager ID indicating which model
                 we are loading.
             show_progress: Bool representing whether we show the progress of
-                the function or not.
+                the method or not.
         """
         # Check we have a model name.
         if not model_name:
@@ -63,8 +63,9 @@ class ModelManager:
 
         # Save Model & Info.
         self.model = model
+        self.model_name = model_name
         self.model_type = model_info['type']
-        self.model_name = model_info['name']
+        self.model_full_name = model_info['name']
 
     def word_embed(self, word: str):
         """
@@ -116,6 +117,23 @@ class ModelManager:
 
         # The vector representation of the document.
         return embed
+
+    def doc_list_embeds(self, docs_list: list):
+        """
+        Get the vector representation of the documents in 'docs_list'.
+
+        Args:
+            'docs_list': List[str] with the texts of the documents.
+        Returns:
+            List[Numpy.ndarray] with the vectors of the documents.
+        """
+        if self.model_type == 'sbert':
+            embeds_list = self.model.text_list_embeds(docs_list)
+        else:
+            raise Exception(f"Document Models <{self.model_type}> not implemented yet.")
+
+        # List of embeddings.
+        return embeds_list
 
 
 if __name__ == '__main__':
