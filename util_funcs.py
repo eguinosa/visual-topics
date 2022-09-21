@@ -3,6 +3,13 @@
 
 import numpy as np
 from numpy.linalg import norm
+from bisect import bisect
+
+# Test imports.
+import sys
+import random
+from pprint import pprint
+from time_keeper import TimeKeeper
 
 
 def cos_sim(a: np.ndarray, b: np.ndarray):
@@ -56,3 +63,73 @@ def closest_vector(embedding, vectors_dict: dict):
 
     # The closest vector ID with its similarity to the 'embedding'.
     return closest_vector_id, max_similarity
+
+
+def top_n(id_values: list, n=50, top_max=True, show_progress=False):
+    """
+    Given a list of tuples (IDs, Values) find the top 'n' tuples in the list
+    using their values.
+
+    Args:
+        id_values: List[Tuple(IDs, Values)] with the IDs and Values we want to
+            use to get the top 'n' values.
+        n: Int with the amount of Top IDs we are going to return.
+        top_max: Bool indicating the Maximum value is the Top value when 'True',
+            and the Minimum value is the Top value when 'False'.
+        show_progress: Bool representing whether we show the progress of
+            the method or not.
+    Returns:
+        List[Tuple(IDs, Values)] with the top 'n' tuples in the list.
+    """
+    # Top Values list.
+    top_ids_values = []
+    sort_values = []
+
+    # Iterate though the elements of the dictionary to get the top n.
+    count = 0
+    total = len(id_values)
+    for item_id, value in id_values:
+        # Check if we want the top maximum values, if that's the case multiply
+        # by -1 so the max values are now the minimum values.
+        if top_max:
+            sort_value = -1 * value
+        else:
+            sort_value = value
+        # Fill the list with values first.
+        if len(top_ids_values) < n:
+            index = bisect(sort_values, sort_value)
+            top_ids_values.insert(index, (item_id, value))
+            sort_values.insert(index, sort_value)
+        # If the list is full, check if check is this value is better.
+        elif len(top_ids_values) >= n and sort_value < sort_values[-1]:
+            # Delete last element of the lists.
+            del top_ids_values[-1]
+            del sort_values[-1]
+            # Add the current value to the sorted lists.
+            index = bisect(sort_values, sort_value)
+            top_ids_values.insert(index, (item_id, value))
+            sort_values.insert(index, sort_value)
+
+    # The Top tuples of (IDs, Values).
+    return top_ids_values
+
+
+if __name__ == '__main__':
+    # Record Program Runtime.
+    stopwatch = TimeKeeper()
+    # Terminal Arguments.
+    args = sys.argv
+
+    # Create a list of tuples to get the Top N elements.
+    my_origin = random.sample(range(12, 100), 20)
+    my_tuples = [(n, n) for n in my_origin]
+    print("\nElements to Sort:")
+    pprint(my_tuples)
+
+    my_top_num = 10
+    print(f"\nTop {my_top_num} elements:")
+    my_tops = top_n(my_tuples, n=my_top_num, top_max=True)
+    pprint(my_tops)
+
+    print("\nDone.")
+    print(f"[{stopwatch.formatted_runtime()}]\n")
