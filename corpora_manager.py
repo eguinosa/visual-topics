@@ -107,6 +107,16 @@ class CorporaManager(TopicCorpus):
         result = len(self.corpus_doc_ids)
         return result
 
+    def corpus_identifier(self):
+        """
+        Get the ID of the Loaded corpus. It can be used by other classes to
+        reload the corpus and its documents, without having to save any other
+        information.
+
+        Returns: String with the ID of the current corpus.
+        """
+        return self.corpus_id
+
     @property
     def doc_ids(self):
         """
