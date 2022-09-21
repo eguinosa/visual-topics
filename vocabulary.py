@@ -7,13 +7,14 @@ from os import mkdir
 from os.path import isdir, isfile, join
 from shutil import rmtree
 
-from corpora_manager import CorporaManager
+from topic_corpus import TopicCorpus
 from model_manager import ModelManager
 from doc_tokenizer import DocTokenizer
 from extra_funcs import progress_bar, progress_msg, big_number
 
 # Testing Imports.
 import sys
+from sample_manager import SampleManager
 from time_keeper import TimeKeeper
 
 
@@ -32,7 +33,7 @@ class Vocabulary:
     vocab_index_file = 'vocabulary_index.json'
     word_embeds_file = 'word2embed.json'
 
-    def __init__(self, corpus: CorporaManager = None, model: ModelManager = None,
+    def __init__(self, corpus: TopicCorpus = None, model: ModelManager = None,
                  _load_vocab=False, _vocab_dir_path='', show_progress=False):
         """
         Analyze the given corpus to extract the words in the vocabulary of the
@@ -40,7 +41,7 @@ class Vocabulary:
         document and the entire corpus.
 
         Args:
-            corpus: CorporaManager instance representing the corpus used to
+            corpus: TopicCorpus instance representing the corpus used to
                 create the Topic Model to which this vocabulary will belong.
             model: ModelManager instance used to create the embeddings of the
                 words in the vocabulary.
@@ -112,6 +113,8 @@ class Vocabulary:
             # Create tokenizer to  process the content of the documents.
             tokenizer = DocTokenizer()
             # Extract the title & abstract of the papers and tokenize them.
+            if show_progress:
+                progress_msg("Processing the Documents in the corpus...")
             for doc_id in corpus.doc_ids:
                 doc_content = corpus.doc_title_abstract(doc_id)
                 doc_tokens = tokenizer.vocab_tokenizer(doc_content)
@@ -154,9 +157,9 @@ class Vocabulary:
 
         # Vocabulary Statistics.
         if show_progress:
-            progress_msg(f"  -> {big_number(self.corpus_docs)} documents analyzed.")
-            progress_msg(f"  -> {big_number(self.corpus_length)} words processed.")
-            progress_msg(f"  -> {big_number(self.corpus_words)} unique terms found.")
+            progress_msg(f"  -> {big_number(len(self.corpus_docs))} documents analyzed.")
+            progress_msg(f"  -> {big_number(self.corpus_length)} word tokens processed.")
+            progress_msg(f"  -> {big_number(len(self.corpus_words))} unique terms found.")
 
     @property
     def corpus_words(self):
@@ -273,3 +276,25 @@ if __name__ == '__main__':
     stopwatch = TimeKeeper()
     # Terminal Arguments.
     args = sys.argv
+
+    # Create corpus.
+    my_docs_num = 50
+    print(f"\nCreating Corpus Sample of {big_number(my_docs_num)} documents...")
+    my_sample = SampleManager(sample_size=my_docs_num, show_progress=True)
+    print("Done.")
+    print(f"[{stopwatch.formatted_runtime()}]")
+
+    # Creating Text Model.
+    print("\nCreating Text Model for the vocabulary embeddings...")
+    my_model = ModelManager(show_progress=True)
+    print("Done.")
+    print(f"[{stopwatch.formatted_runtime()}]")
+
+    # Create Vocabulary.
+    print("\nCreating Vocabulary using the created corpus and model...")
+    my_vocab = Vocabulary(corpus=my_sample, model=my_model, show_progress=True)
+    print("Done.")
+    print(f"[{stopwatch.formatted_runtime()}]")
+
+    print("\nDone.")
+    print(f"[{stopwatch.formatted_runtime()}]\n")
