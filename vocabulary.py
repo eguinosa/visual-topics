@@ -2,7 +2,6 @@
 # 2022
 
 import json
-import numpy as np
 from os import mkdir
 from os.path import isdir, isfile, join
 from shutil import rmtree
@@ -10,6 +9,7 @@ from shutil import rmtree
 from topic_corpus import TopicCorpus
 from model_manager import ModelManager
 from doc_tokenizer import DocTokenizer
+from util_funcs import dict_list2ndarray, dict_ndarray2list
 from extra_funcs import progress_bar, progress_msg, big_number
 
 # Testing Imports.
@@ -83,16 +83,9 @@ class Vocabulary:
             with open(word_embeds_path, 'r') as f:
                 word_embeds_index = json.load(f)
             if show_progress:
-                progress_msg("Transforming embeddings back to Numpy.ndarray...")
+                progress_msg("Transforming Word's Embeddings back to Numpy.ndarray...")
             # Transform embeddings back to Numpy.ndarray.
-            count = 0
-            total = len(corpus_freqs)
-            word_embeds = {}
-            for word, embed in word_embeds_index:
-                word_embeds[word] = np.array(embed)
-                if show_progress:
-                    count += 1
-                    progress_bar(count, total)
+            word_embeds = dict_list2ndarray(word_embeds_index, show_progress=show_progress)
             # Done loading Vocabulary.
             if show_progress:
                 progress_msg("Vocabulary Loaded.")
@@ -225,26 +218,15 @@ class Vocabulary:
             json.dump(vocab_index, f)
 
         # Transform word embeddings from Numpy.nd to List.
-        count = 0
-        total = len(self.word_embeds)
-        word_embeds_index = {}
         if show_progress:
-            progress_msg("Transforming embeddings from Numpy.nd to List[float]...")
-        for word, embed, in self.word_embeds.items():
-            word_embeds_index[word] = embed.tolist()
-            if show_progress:
-                count += 1
-                progress_bar(count, total)
+            progress_msg("Transforming Vocabulary Word's Embeddings to List[float]...")
+        word_embeds_index = dict_ndarray2list(self.word_embeds, show_progress=show_progress)
         # Save Embeddings.
         if show_progress:
             progress_msg("Saving Vocabulary Embedding's file...")
         word_embeds_path = join(vocab_folder_path, self.word_embeds_file)
         with open(word_embeds_path, 'w') as f:
             json.dump(word_embeds_index, f)
-
-        # Saving Done.
-        if show_progress:
-            progress_msg("Vocabulary Saved.")
 
     @classmethod
     def load(cls, topic_dir_path: str, show_progress=False):
@@ -314,6 +296,8 @@ if __name__ == '__main__':
     my_big_docs = top_n(my_vocab.docs_lengths.items(), n=my_top_num)
     for a_doc_id, a_size in my_big_docs:
         print(f"  Doc <{a_doc_id}>: {a_size} tokens")
+
+    # Test Saving & Loading the Vocabulary.
 
     print("\nDone.")
     print(f"[{stopwatch.formatted_runtime()}]\n")
