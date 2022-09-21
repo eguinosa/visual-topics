@@ -15,6 +15,15 @@ class TopicCorpus(ABC):
         """
         return len(self.doc_ids)
 
+    @abstractmethod
+    def corpus_identifier(self):
+        """
+        Get the ID of the Loaded corpus. It can be used by other classes to
+        reload the corpus and its documents, without having to save any other
+        information.
+        """
+        pass
+
     @property
     @abstractmethod
     def doc_ids(self):
