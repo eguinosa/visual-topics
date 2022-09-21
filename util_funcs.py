@@ -5,6 +5,8 @@ import numpy as np
 from numpy.linalg import norm
 from bisect import bisect
 
+from extra_funcs import progress_bar
+
 # Test imports.
 import sys
 import random
@@ -65,7 +67,7 @@ def closest_vector(embedding, vectors_dict: dict):
     return closest_vector_id, max_similarity
 
 
-def top_n(id_values: list, n=50, top_max=True, show_progress=False):
+def top_n(id_values: iter, n=50, top_max=True, show_progress=False):
     """
     Given a list of tuples (IDs, Values) find the top 'n' tuples in the list
     using their values.
@@ -109,6 +111,10 @@ def top_n(id_values: list, n=50, top_max=True, show_progress=False):
             index = bisect(sort_values, sort_value)
             top_ids_values.insert(index, (item_id, value))
             sort_values.insert(index, sort_value)
+        # Progress of the search.
+        if show_progress:
+            count += 1
+            progress_bar(count, total)
 
     # The Top tuples of (IDs, Values).
     return top_ids_values
