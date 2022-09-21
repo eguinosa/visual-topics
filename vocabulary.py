@@ -15,6 +15,7 @@ from extra_funcs import progress_bar, progress_msg, big_number
 # Testing Imports.
 import sys
 from sample_manager import SampleManager
+from util_funcs import top_n
 from time_keeper import TimeKeeper
 
 
@@ -295,6 +296,24 @@ if __name__ == '__main__':
     my_vocab = Vocabulary(corpus=my_sample, model=my_model, show_progress=True)
     print("Done.")
     print(f"[{stopwatch.formatted_runtime()}]")
+
+    # Get the Most Frequent Words in the Corpus.
+    my_top_num = 10
+    print(f"\nFinding the Top {my_top_num} most frequent words in the corpus:")
+    my_top_words = top_n(my_vocab.corpus_freqs.items(), n=my_top_num)
+    print("Done.")
+    print(f"[{stopwatch.formatted_runtime()}]")
+
+    print(f"\nTop {my_top_num} Most Frequent Words:")
+    for a_word, a_count in my_top_words:
+        print(f"  {a_word} -> {a_count}")
+
+    # Get the Biggest Documents in the Corpus.
+    my_top_num = 10
+    print(f"\nThe Top Biggest {my_top_num} documents")
+    my_big_docs = top_n(my_vocab.docs_lengths.items(), n=my_top_num)
+    for a_doc_id, a_size in my_big_docs:
+        print(f"  Doc <{a_doc_id}>: {a_size} tokens")
 
     print("\nDone.")
     print(f"[{stopwatch.formatted_runtime()}]\n")
