@@ -15,6 +15,7 @@ class ModelManager:
     """
     # Default Model.
     default_model = 'sbert_fast'
+
     # Supported Models.
     models_dict = {
         'sbert_best': {
