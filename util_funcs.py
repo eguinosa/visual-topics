@@ -14,6 +14,62 @@ from pprint import pprint
 from time_keeper import TimeKeeper
 
 
+def dict_ndarray2list(embeds_dict: dict, show_progress=False):
+    """
+    Transform the values of the dictionary 'embeds_dict' from Numpy.ndarray to
+    list.
+
+    Args:
+        embeds_dict: Dictionary(ID -> List[Numpy.ndarray]) with the embeddings
+            we want to transform to list.
+        show_progress: Bool representing whether we show the progress of
+            the method or not.
+    Returns:
+        Dictionary(ID -> List[Float]) with the embeddings of the dictionary
+            with type list instead of Numpy.ndarray.
+    """
+    # Progress Variables.
+    count = 0
+    total = len(embeds_dict)
+    # Default Dict.
+    new_embeds_dict = {}
+    for item_id, embed in embeds_dict:
+        new_embeds_dict[item_id] = embed.tolist()
+        if show_progress:
+            count += 1
+            progress_bar(count, total)
+    # The Transformed Dictionary.
+    return new_embeds_dict
+
+
+def dict_list2ndarray(embeds_dict: dict, show_progress=False):
+    """
+    Transform the values of the dictionary 'embeds_dict' from List to
+    Numpy.ndarray.
+
+    Args:
+        embeds_dict: Dictionary(ID -> List[Float]) with the embeddings we want
+            to transform to Numpy.ndarray.
+        show_progress: Bool representing whether we show the progress of
+            the method or not.
+    Returns:
+        Dictionary(ID -> List[Numpy.ndarray]) with the embeddings of the
+            dictionary with type Numpy.ndarray instead of List.
+    """
+    # Progress Variables.
+    count = 0
+    total = len(embeds_dict)
+    # Default Dict.
+    new_embeds_dict = {}
+    for item_id, embed in embeds_dict:
+        new_embeds_dict[item_id] = np.array(embed)
+        if show_progress:
+            count += 1
+            progress_bar(count, total)
+    # Transformed Dictionary.
+    return new_embeds_dict
+
+
 def cos_sim(a: np.ndarray, b: np.ndarray):
     """
     Calculate the cosine similarity between the vectors 'a' and 'b'.
