@@ -2,12 +2,13 @@
 # 2022
 
 import json
-from os import mkdir
+from os import mkdir, listdir
 from shutil import rmtree
 from os.path import isdir, isfile, join
 
 from base_topics import (
-    create_docs_embeds, find_topics, find_child_embeddings, best_midway_sizes
+    BaseTopics, create_docs_embeds, find_topics, find_child_embeddings,
+    best_midway_sizes
 )
 from topic_corpus import TopicCorpus
 from corpora_manager import CorporaManager
@@ -16,8 +17,14 @@ from vocabulary import Vocabulary
 from util_funcs import dict_list2ndarray, dict_ndarray2list
 from extra_funcs import progress_msg, big_number
 
+# Testing Imports.
+import sys
+from pprint import pprint
+from sample_manager import SampleManager
+from time_keeper import TimeKeeper
 
-class MonoTopics:
+
+class MonoTopics(BaseTopics):
     """
     Class to find the topics inside a corpus using the same Text Model for the
     representation of the documents, the topics, and the words in the vocabulary.
@@ -55,6 +62,9 @@ class MonoTopics:
             show_progress: Bool representing whether we show the progress of
                 the method or not.
         """
+        # Initialize Parent Class.
+        super().__init__()
+
         # -- Load Saved Topic Model --
         if _used_saved:
             # Check the Class Data Folder.
@@ -77,6 +87,7 @@ class MonoTopics:
             corpus_id = topic_model_index['corpus_id']
             text_model_name = topic_model_index['text_model_name']
             topic_docs = topic_model_index['topic_docs']
+            topic_words = topic_model_index['topic_words']
 
             # Load Topic Embeddings.
             if show_progress:
@@ -108,6 +119,18 @@ class MonoTopics:
             if show_progress:
                 progress_msg("Loading Topic Model's Vocabulary...")
             corpus_vocab = Vocabulary.load(model_folder_path, show_progress=show_progress)
+
+            # Save Class Attributes.
+            self.corpus_id = corpus_id
+            self.text_model_name = text_model_name
+            self.topic_size = topic_size
+            self.topic_embeds = topic_embeds
+            self.doc_embeds = doc_embeds
+            self.corpus_vocab = corpus_vocab
+            self.topic_docs = topic_docs
+            # Save Topic Words.
+            self.topic_words = topic_words
+
         # -- Create New Topic Model --
         else:
             # Check if a corpus was provided.
@@ -132,7 +155,7 @@ class MonoTopics:
             if show_progress:
                 progress_msg("Finding the Topics...")
             topic_embeds = find_topics(
-                doc_embeds_list=doc_embeds.values(), show_progress=show_progress
+                doc_embeds_list=list(doc_embeds.values()), show_progress=show_progress
             )
             # Report the number of topics found.
             topic_size = len(topic_embeds)
@@ -151,21 +174,71 @@ class MonoTopics:
                 progress_msg("Creating Corpus Vocabulary...")
             corpus_vocab = Vocabulary(corpus, model, show_progress=show_progress)
 
-        # Save Corpus and Model Info.
-        self.corpus_id = corpus_id
-        self.text_model_name = text_model_name
-        # Save Corpus Documents and Vocabulary.
-        self.doc_embeds = doc_embeds
-        self.corpus_vocab = corpus_vocab
-        # Save Topic Model's Attributes.
-        self.topic_size = topic_size
-        self.topic_embeds = topic_embeds
-        self.topic_docs = topic_docs
+            # Save Class Attributes.
+            self.corpus_id = corpus_id
+            self.text_model_name = text_model_name
+            self.topic_size = topic_size
+            self.topic_embeds = topic_embeds
+            self.doc_embeds = doc_embeds
+            self.corpus_vocab = corpus_vocab
+            self.topic_docs = topic_docs
+            # Create Topic Words.
+            topic_words = self.create_topic_words(show_progress=show_progress)
+            self.topic_words = topic_words
+
         # Create Reduced Topic Model's Attributes with default values.
         self.reduced_topic = False  # Bool indicating if we have reduced topics.
         self.new_topic_size = 0
         self.new_topic_embeds = None
         self.new_topic_docs = None
+
+    @property
+    def base_topic_embeds_docs(self):
+        """
+        Dictionary with the vector representation of the topics in the same
+        vector space as the documents in the corpus.
+        """
+        return self.topic_embeds
+
+    @property
+    def base_topic_embeds_words(self):
+        """
+        Dictionary with the vector representation of the topics in the same
+        vector space as the words in the vocabulary of the corpus. Used to
+        search the words that best represent the topic.
+        """
+        return self.topic_embeds
+
+    @property
+    def base_topic_docs(self):
+        """
+        Dictionary with a list of the IDs of the documents belonging to each
+        topic.
+        """
+        return self.topic_docs
+
+    @property
+    def base_topic_words(self):
+        """
+        Dictionary with the Topic IDs as keys and the list of words that best
+        describe the topics as values.
+        """
+        return self.topic_words
+
+    @property
+    def base_doc_embeds(self):
+        """
+        Dictionary with the embeddings of the documents in the corpus.
+        """
+        return self.doc_embeds
+
+    @property
+    def base_corpus_vocab(self):
+        """
+        Vocabulary() class containing the words and all the data related with
+        the corpus used to create the Topic Model.
+        """
+        return self.corpus_vocab
 
     def save(self, model_id='', show_progress=False):
         """
@@ -200,7 +273,7 @@ class MonoTopics:
         basic_index = {
             'topic_size': self.topic_size,
             'corpus_size': len(self.doc_embeds),
-            'text_model_type': self.text_model_name,
+            'text_model_name': self.text_model_name,
             'has_reduced_topics': self.reduced_topics_saved(model_id),
         }
         # Create Path & Save.
@@ -215,7 +288,8 @@ class MonoTopics:
             'topic_size': self.topic_size,
             'corpus_id': self.corpus_id,
             'text_model_name': self.text_model_name,
-            'topic_docs': self.topic_docs
+            'topic_docs': self.topic_docs,
+            'topic_words': self.topic_words,
         }
         # Create Index path and Save.
         model_index_path = join(model_folder_path, self.model_index_file)
@@ -298,6 +372,107 @@ class MonoTopics:
 
         # All The Files were created correctly.
         return True
+
+    @classmethod
+    def load(cls, model_id: str, show_progress=False):
+        """
+        Load a saved Topic Model.
+
+        Args:
+            model_id: String with the ID of the Topic Model we have to load.
+            show_progress: Bool representing whether we show the progress of
+                the method or not.
+        Returns:
+            TopicModel saved with the given 'model_id'.
+        """
+        loaded_instance = cls(
+            _used_saved=True, _model_id=model_id, show_progress=show_progress
+        )
+        return loaded_instance
+
+    @classmethod
+    def basic_info(cls, model_id: str):
+        """
+        Load the Basic Info of the Topic Model 'model_id'. Basic Information
+        attributes:
+
+        -  topic_size: Int
+        -  corpus_size: Int
+        -  text_model_name: String
+        -  has_reduced_topics: Bool
+
+        Args:
+            model_id: String with the ID of a saved Topic Model.
+        Returns:
+            Dictionary with the Basic Info of the Topic Model.
+        """
+        # Check the Data Folders.
+        if not isdir(cls.class_folder):
+            raise NotADirectoryError("The Topic Model data folder does not exist.")
+        model_folder_name = cls.model_folder_prefix + model_id
+        model_folder_path = join(cls.class_folder, model_folder_name)
+        if not isdir(model_folder_path):
+            raise NotADirectoryError(f"There is not Topic Model saved with the id <{model_id}>.")
+
+        # Load Basic Index.
+        basic_index_path = join(model_folder_path, cls.basic_index_file)
+        if not isfile(basic_index_path):
+            raise FileNotFoundError(f"The Topic Model <{model_id}> has not Basic Index File.")
+        with open(basic_index_path, 'r') as f:
+            basic_index = json.load(f)
+        # Basic Index of the Topic Model.
+        return basic_index
+
+    @classmethod
+    def saved_models(cls):
+        """
+        Create a list the IDs of the saved Topic Models.
+
+        Returns: List[str] with the IDs.
+        """
+        # Check the Data Folders.
+        if not isdir(cls.class_folder):
+            return []
+
+        # Check all the available IDs inside class folder.
+        topic_ids = []
+        for entry_name in listdir(cls.class_folder):
+            # Check we have a valid Model Folder Name.
+            entry_path = join(cls.class_folder, entry_name)
+            if not isdir(entry_path):
+                continue
+            if not entry_name.startswith(cls.model_folder_prefix):
+                continue
+
+            # Check for the Index Files.
+            basic_index_path = join(entry_path, cls.basic_index_file)
+            if not isfile(basic_index_path):
+                continue
+            model_index_path = join(entry_path, cls.model_index_file)
+            if not isfile(model_index_path):
+                continue
+            # Check Embeddings Files.
+            topic_embeds_path = join(entry_path, cls.topic_embeds_file)
+            if not isfile(topic_embeds_path):
+                continue
+            doc_embeds_path = join(entry_path, cls.doc_embeds_file)
+            if not isfile(doc_embeds_path):
+                continue
+            # Check Vocabulary Files.
+            if not Vocabulary.vocab_saved(topic_dir_path=entry_path):
+                continue
+
+            # Save Model ID, the folder contains all the main indexes.
+            prefix_len = len(cls.model_folder_prefix)
+            model_id = entry_name[prefix_len:]
+            topic_ids.append(model_id)
+
+        # List with the IDs of all the valid Topic Models.
+        return topic_ids
+
+#   ----------------------------------------------------------------------------
+#   ----------------------------------------------------------------------------
+#   ----------------------------------------------------------------------------
 
 #     def generate_new_topics(self, number_topics: int, parallelism=False, show_progress=False):
 #         """
@@ -456,31 +631,6 @@ class MonoTopics:
 #                                                      show_progress=show_progress)
 #         # New Dictionaries with embeds and sizes.
 #         return ref_topic_embeds, new_topic_sizes
-
-#     def top_topics(self, show_originals=False):
-#         """
-#         Make a sorted list with the topics organized by the amount of documents
-#         they represent.
-
-#         Args:
-#             show_originals: Bool to indicate if we need to use the original
-#                 topics even if we already have found New Topics.
-
-#         Returns:
-#             A list of tuples with the topics' ID and their document count.
-#         """
-#         # Choose between the original topics or the hierarchical reduced.
-#         if show_originals or not self.new_topics:
-#             topic_docs_source = self.topic_docs
-#         else:
-#             topic_docs_source = self.new_topic_docs
-
-#         # Form list of topics with their size.
-#         topic_docs = [(topic_id, len(docs_list))
-#                       for topic_id, docs_list in topic_docs_source.items()]
-#         # Sort by size.
-#         topic_docs.sort(key=lambda count: count[1], reverse=True)
-#         return topic_docs
 
 #     def _topic_document_count(self, topic_embeds_dict: dict, parallelism=False,
 #                               show_progress=False):
@@ -683,189 +833,71 @@ class MonoTopics:
 #         # Update the Basic Info of the Model (It has now a Hierarchy).
 #         self.save_basic_info()
 
-#     @classmethod
-#     def load(cls, model_id: str = None, show_progress=False):
-#         """
-#         Load a previously saved Topic Model.
-
-#         Args:
-#             model_id: String with the ID we are using to identify the topic
-#                 model.
-#             show_progress: A Bool representing whether we show the progress of
-#                 the function or not.
-#         Returns:
-#             An instance of the TopicModel class.
-#         """
-#         return cls(model_id=model_id, used_saved=True, show_progress=show_progress)
-
-#     @classmethod
-#     def basic_info(cls, model_id: str = None):
-#         """
-#         Load the Basic Model Info of the Topic Model 'model_id'.
-
-#         Args:
-#             model_id: String with the ID of the Topic Model.
-
-#         Returns:
-#             Dictionary with the 'model_type', 'num_topics', 'corpus_size' and
-#                 the 'topics_hierarchy' bool of the Topic Model.
-#         """
-#         # If no 'model_id' is provided load the Default Model.
-#         if not model_id:
-#             model_id = cls.default_model_id
-
-#         # Check the existence of the data folders.
-#         if not isdir(cls.data_folder):
-#             raise FileNotFoundError("There is no Data Folder available.")
-#         class_folder_path = join(cls.data_folder, cls.class_data_folder)
-#         if not isdir(class_folder_path):
-#             raise FileNotFoundError("There is no Class Data Folder available.")
-#         model_folder_name = cls.model_folder_prefix + model_id
-#         model_folder_path = join(class_folder_path, model_folder_name)
-#         if not isdir(model_folder_path):
-#             raise FileNotFoundError(f"The Topic Model <{model_id}> has no Data Folder.")
-
-#         # Load the Basic Index.
-#         basic_index_path = join(model_folder_path, cls.basic_index_file)
-#         if not isfile(basic_index_path):
-#             raise FileNotFoundError(f"The Topic Model <{model_id}> has not Basic Index File.")
-#         with open(basic_index_path, 'r') as f:
-#             basic_index = json.load(f)
-
-#         # The Basic Index of the Topic Model.
-#         return basic_index
-
-#     @classmethod
-#     def saved_topic_models(cls):
-#         """
-#         Create a list with the IDs of the saved Topic Models.
-
-#         Returns: List[String] with the IDs of the saved Topic Models.
-#         """
-#         # Check the Data Folders.
-#         if not isdir(cls.data_folder):
-#             return []
-#         class_folder_path = join(cls.data_folder, cls.class_data_folder)
-#         if not isdir(class_folder_path):
-#             return []
-
-#         # Check all the available IDs inside class folder.
-#         topic_ids = []
-#         for entry_name in listdir(class_folder_path):
-#             entry_path = join(class_folder_path, entry_name)
-#             # Check we have a valid Model Folder Name.
-#             if not isdir(entry_path):
-#                 continue
-#             if not entry_name.startswith(cls.model_folder_prefix):
-#                 continue
-
-#             # Check for the Index Files.
-#             basic_index_path = join(entry_path, cls.basic_index_file)
-#             if not isfile(basic_index_path):
-#                 continue
-#             model_index_path = join(entry_path, cls.model_index_file)
-#             if not isfile(model_index_path):
-#                 continue
-#             word_embeds_path = join(entry_path, cls.word_embeds_file)
-#             if not isfile(word_embeds_path):
-#                 continue
-#             doc_embeds_path = join(entry_path, cls.doc_embeds_file)
-#             if not isfile(doc_embeds_path):
-#                 continue
-#             topic_embeds_path = join(entry_path, cls.topic_embeds_file)
-#             if not isfile(topic_embeds_path):
-#                 continue
-
-#             # Save Model ID, the folder contains all the main indexes.
-#             model_id = entry_name.replace(cls.model_folder_prefix, '', 1)
-#             topic_ids.append(model_id)
-
-#         # List with the IDs of all the valid Topic Models.
-#         return topic_ids
+#   ----------------------------------------------------------------------------
+#   ----------------------------------------------------------------------------
+#   ----------------------------------------------------------------------------
 
 
-# if __name__ == '__main__':
-#     # Record the Runtime of the Program
-#     stopwatch = TimeKeeper()
+if __name__ == '__main__':
+    # Record the Runtime of the Program.
+    _stopwatch = TimeKeeper()
+    # Terminal Parameters.
+    _args = sys.argv
 
-#     # -- Load Corpus --
-#     # # Load Random Sample to use a limited amount of papers from CORD-19.
-#     # test_size = 500
-#     # print(f"\nLoading Random Sample of {big_number(test_size)} documents...")
-#     # sample = RandomSample(paper_type='medium', sample_size=test_size, show_progress=True)
-#     # sample = RandomSample.load(show_progress=True)
+    # Print the Available Samples.
+    print("\nAvailable Samples:")
+    _saved_samples = SampleManager.available_samples()
+    for _name in _saved_samples:
+        print(f"  -> {_name}")
 
-#     # Load RandomSample() saved with an id.
-#     sample_id = '5000_docs'
-#     print(f"\nLoading Saved Random Sample <{sample_id}>...")
-#     sample = RandomSample.load(sample_id=sample_id, show_progress=True)
-#     # ---------------------------------------------
-#     # # Use CORD-19 Dataset
-#     # print("\nLoading the CORD-19 Dataset...")
-#     # sample = PapersCord19(show_progress=True)
-#     print("Done.")
-#     print(f"[{stopwatch.formatted_runtime()}]")
+    # Create corpus.
+    # ---------------------------------------------
+    _docs_num = 5000
+    print(f"\nCreating Corpus Sample of {big_number(_docs_num)} documents...")
+    _corpus = SampleManager(sample_size=_docs_num, show_progress=True)
+    print(f"Saving Sample for future use...")
+    _corpus.save()
+    # ---------------------------------------------
+    # _sample_id = '1_000_docs'
+    # print(f"\nLoading the Corpus Sample <{_sample_id}>...")
+    # _corpus = SampleManager.load(sample_id=_sample_id, show_progress=True)
+    # ---------------------------------------------
+    print("Done.")
+    print(f"[{_stopwatch.formatted_runtime()}]")
 
-#     # -- Report amount of papers in the loaded Corpus --
-#     papers_count = len(sample.papers_cord_uids())
-#     print(f"\n{big_number(papers_count)} papers loaded.")
+    # Report amount of papers in the loaded Corpus
+    _paper_count = len(_corpus)
+    print(f"\n{big_number(_paper_count)} documents loaded.")
 
-#     # -- Load Document Model --
-#     # Use BERT Document Model.
-#     print("\nLoading Bert Model...")
-#     # bert_name = 'all-MiniLM-L12-v2'
-#     bert_name = 'paraphrase-MiniLM-L3-v2'  # Fastest model.
-#     my_model = BertCord19(model_name=bert_name, show_progress=True)
-#     # ---------------------------------------------
-#     # # Use Specter Document Model.
-#     # print("\nLoading Specter model...")
-#     # my_model = SpecterManager(show_progress=True)
-#     # ---------------------------------------------
-#     # Use Doc2Vec Model trained with Cord-19 papers.
-#     # print("\nLoading Doc2Vec model of the Cord-19 Dataset...")
-#     # my_model = Doc2VecCord19.load('cord19_dataset', show_progress=True)
-#     print("Done.")
-#     print(f"[{stopwatch.formatted_runtime()}]")
+    # Load Text Model.
+    _model_id = 'sbert_fast'
+    print(f"\nLoading the model in ModelManager <{_model_id}>...")
+    _text_model = ModelManager(model_name=_model_id, show_progress=True)
+    print("Done.")
+    print(f"[{_stopwatch.formatted_runtime()}]")
 
-#     # -- Load Topic Model --
-#     # the_model_id = 'testing_' + my_model.model_type()
-#     the_model_id = f'test_{my_model.model_type()}_{sample_id}'
-#     # ---------------------------------------------
-#     # Creating Topic Model.
-#     print(f"\nCreating Topic Model with ID <{the_model_id}>...")
-#     the_topic_model = TopicModel(corpus=sample, doc_model=my_model, only_title_abstract=True,
-#                                  model_id=the_model_id, show_progress=True)
-#     # ---------------------------------------------
-#     # print(f"Saving Topic Model with ID <{the_topic_model.model_id}>...")
-#     # # new_model_id = the_model_id
-#     # new_model_id = the_model_id + f"_{the_topic_model.num_topics}topics"
-#     # the_topic_model.save(model_id=new_model_id, show_progress=True)
-#     # ---------------------------------------------
-#     # # Loading Saved Topic Model.
-#     # the_model_id = 'test_bert_25000_docs_196topics_parallel'
-#     # print(f"\nLoading Topic Model <{the_model_id}>...")
-#     # the_topic_model = TopicModel.load(model_id=the_model_id, show_progress=True)
-#     # ---------------------------------------------
-#     progress_msg("Done.")
-#     print(f"[{stopwatch.formatted_runtime()}]")
+    # Create Topic Model.
+    print(f"\nCreating Topic Model...")
+    _topic_model = MonoTopics(corpus=_corpus, model=_text_model, show_progress=True)
+    print("Done.")
+    print(f"[{_stopwatch.formatted_runtime()}]")
 
-#     # -- Show the Topics Created --
-#     total_topics = the_topic_model.num_topics
-#     print(f"\n{total_topics} topics found.")
-#     # ---------------------------------------------
-#     print("\nTopics and Document count:")
-#     all_topics = the_topic_model.top_topics()
-#     for topic_and_size in all_topics:
-#         print(topic_and_size)
-#     # ---------------------------------------------
-#     # # Topics' Vocabulary
-#     # # top_n = 15
-#     # # print(f"\nTop {top_n} words per topic:")
-#     # # words_per_topic = the_topic_model.all_topics_top_words(top_n)
-#     # # for i, word_list in words_per_topic:
-#     # #     print(f"\n----> Topic <{i}>:")
-#     # #     for word_sim in word_list:
-#     # #         print(word_sim)
+    # Report Number of Topics found.
+    print(f"\n{_topic_model.topic_size} topics found.")
+    # ---------------------------------------------
+    # Show Topic by size.
+    print("\nTopics by number of documents:")
+    _topics_sizes = _topic_model.topic_by_size()
+    for _topic_size in _topics_sizes:
+        print(_topic_size)
+    # ---------------------------------------------
+    # Topics' Vocabulary
+    top_n = 15
+    print(f"\nTop {top_n} words per topic:")
+    _topics_words = _topic_model.topics_top_words(n=top_n)
+    for _topic_id, _topic_words in _topics_words.items():
+        print(f"\n-----> {_topic_id}:")
+        pprint(_topic_words)
 
 #     # # --Test Creating Hierarchically Reduced Topics--
 #     # # Save the Hierarchically Reduced Topic Models.
@@ -892,24 +924,5 @@ class MonoTopics:
 #     #     for word_sim in word_list:
 #     #         print(word_sim)
 
-#     # # --**-- Create Hierarchy for CORD-19 Topic Models --**--
-#     # the_model_id = 'cord19_dataset_bert_fast'
-#     # print(f"\nLoading Topic Model with ID <{the_model_id}>...")
-#     # the_topic_model = TopicModel.load(model_id=the_model_id, show_progress=True)
-#     # print("Done.")
-#     # print(f"[{stopwatch.formatted_runtime()}]")
-#     #
-#     # total_topics = the_topic_model.num_topics
-#     # print(f"\n{total_topics} topics found.")
-#     #
-#     # print("\nTopics and Document count:")
-#     # all_topics = the_topic_model.top_topics()
-#     # for tuple_topic_size in all_topics:
-#     #     print(tuple_topic_size)
-#     #
-#     # # Save the Hierarchically Reduced Topic Models.
-#     # print("\nSaving Topic Model's Topic Hierarchy...")
-#     # the_topic_model.save_reduced_topics(show_progress=True)
-
-#     print("\nDone.")
-#     print(f"[{stopwatch.formatted_runtime()}]\n")
+    print("\nDone.")
+    print(f"[{_stopwatch.formatted_runtime()}]\n")
