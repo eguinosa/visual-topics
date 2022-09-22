@@ -70,7 +70,7 @@ def dict_list2ndarray(embeds_dict: dict, show_progress=False):
     return new_embeds_dict
 
 
-def cos_sim(a: np.ndarray, b: np.ndarray):
+def cosine_sim(a: np.ndarray, b: np.ndarray):
     """
     Calculate the cosine similarity between the vectors 'a' and 'b'.
 
@@ -109,11 +109,11 @@ def closest_vector(embedding, vectors_dict: dict):
 
     # Get cosine similarity to the first vector.
     closest_vector_id, vector_embed = next(vector_iter)
-    max_similarity = cos_sim(embedding, vector_embed)
+    max_similarity = cosine_sim(embedding, vector_embed)
 
     # Iterate through the rest of the vectors.
     for vector_id, vector_embed in vector_iter:
-        new_similarity = cos_sim(embedding, vector_embed)
+        new_similarity = cosine_sim(embedding, vector_embed)
         if new_similarity > max_similarity:
             # New Closer Vector
             closest_vector_id = vector_id
@@ -123,7 +123,7 @@ def closest_vector(embedding, vectors_dict: dict):
     return closest_vector_id, max_similarity
 
 
-def top_n(id_values: iter, n=50, top_max=True, show_progress=False):
+def find_top_n(id_values: iter, n=50, top_max=True, show_progress=False):
     """
     Given a list of tuples (IDs, Values) find the top 'n' tuples in the list
     using their values.
@@ -190,7 +190,7 @@ if __name__ == '__main__':
 
     my_top_num = 10
     print(f"\nTop {my_top_num} elements:")
-    my_tops = top_n(my_tuples, n=my_top_num, top_max=True)
+    my_tops = find_top_n(my_tuples, n=my_top_num, top_max=True)
     pprint(my_tops)
 
     print("\nDone.")
