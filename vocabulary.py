@@ -5,11 +5,12 @@ import json
 from os import mkdir
 from os.path import isdir, isfile, join
 from shutil import rmtree
+from collections import defaultdict
 
 from topic_corpus import TopicCorpus
 from model_manager import ModelManager
 from doc_tokenizer import DocTokenizer
-from util_funcs import dict_list2ndarray, dict_ndarray2list
+from util_funcs import dict_list2ndarray, dict_ndarray2list, max_from_dict
 from extra_funcs import progress_bar, progress_msg, big_number
 
 # Testing Imports.
@@ -100,53 +101,127 @@ class Vocabulary:
             docs_lengths = {}
             docs_freqs = {}
             word_embeds = {}
+            # To Save the Different Casing Variations of the Token in the texts.
+            token_variations = {}
 
             # Progress Bar Variables.
             count = 0
-            total = len(corpus)
+            total = len(corpus) + 3  # Common Token (1), Update Dict Keys (2,3)
             # Create tokenizer to  process the content of the documents.
             tokenizer = DocTokenizer()
             # Extract the title & abstract of the papers and tokenize them.
             if show_progress:
                 progress_msg("Processing the Documents in the corpus...")
             for doc_id in corpus.doc_ids:
+                # Get the tokens of the document.
                 doc_content = corpus.doc_title_abstract(doc_id)
                 doc_tokens = tokenizer.vocab_tokenizer(doc_content)
+                # Analyze the Tokens to save new words and token's variations.
+                new_words = []
+                doc_tokens_lower = []
+                for token in doc_tokens:
+                    token_lower = token.lower()
+                    # Save tokens in lower form.
+                    doc_tokens_lower.append(token_lower)
+                    # Save new Words.
+                    if token_lower not in word_embeds:
+                        new_words.append(token_lower)
+                    # Update the Variations of the Token. (Upper, Lower, or mixed).
+                    if token_lower in token_variations:
+                        token_reps = token_variations[token_lower]
+                        token_reps[token] += 1
+                    else:
+                        token_reps = defaultdict(int)
+                        token_reps[token] += 1
+                        token_variations[token_lower] = token_reps
                 # Create embeddings for the new words.
-                new_words = [token for token in doc_tokens if token not in word_embeds]
                 new_embeds = model.word_list_embeds(new_words)
                 for new_word, new_embed in zip(new_words, new_embeds):
                     word_embeds[new_word] = new_embed
                 # Update corpus data and create frequencies for the document.
                 doc_word_count = {}
-                for token in doc_tokens:
+                for token_lower in doc_tokens_lower:
                     # Update corpus data.
                     corpus_length += 1
-                    if token in corpus_freqs:
-                        corpus_freqs[token] += 1
+                    if token_lower in corpus_freqs:
+                        corpus_freqs[token_lower] += 1
                     else:
-                        corpus_freqs[token] = 1
-                    # Document frequencies.
-                    if token in doc_word_count:
-                        doc_word_count[token] += 1
+                        corpus_freqs[token_lower] = 1
+                    # Update Document Frequencies.
+                    if token_lower in doc_word_count:
+                        doc_word_count[token_lower] += 1
                     else:
-                        doc_word_count[token] = 1
+                        doc_word_count[token_lower] = 1
                 # Save the Document's length and frequencies.
-                docs_lengths[doc_id] = len(doc_tokens)
+                docs_lengths[doc_id] = len(doc_tokens_lower)
                 docs_freqs[doc_id] = doc_word_count
                 # Progress.
                 if show_progress:
                     count += 1
                     progress_bar(count, total)
+
+            # ----------------------------------------------
+            # ----------------------------------------------
+            # Get all the tokens found in lower case.
+            corpus_tokens_lower = list(token_variations.keys())
+            # Get the most common representation of the tokens in the corpus.
+            for token_lower in corpus_tokens_lower:
+                # Token's Variations in the corpus.
+                token_reps = token_variations[token_lower]
+                # Token with only one representation in the corpus.
+                if len(token_reps) == 1:
+                    common_rep = list(token_reps)[0]
+                # Token with multiple representations.
+                else:
+                    # Use the most common representation.
+                    common_rep = max_from_dict(token_reps)
+                token_variations[token_lower] = common_rep
+            if show_progress:
+                count += 1
+                progress_bar(count, total)
+            # Use Most Common Representation in Embeddings and Corpus Frequencies.
+            for token_lower in corpus_tokens_lower:
+                # Check if the token has the same most common representation.
+                if token_lower == token_variations[token_lower]:
+                    continue
+                # Get new Representation.
+                new_token_rep = token_variations[token_lower]
+                # Update Keys of Corpus Frequencies.
+                freq_value = corpus_freqs[token_lower]
+                del corpus_freqs[token_lower]
+                corpus_freqs[new_token_rep] = freq_value
+                # Update Keys of Word Embeddings.
+                embed_value = word_embeds[token_lower]
+                del word_embeds[token_lower]
+                word_embeds[new_token_rep] = embed_value
+            if show_progress:
+                count += 1
+                progress_bar(count, total)
+            # Update to Most Common Representation in Document Frequencies.
+            for doc_word_count in docs_freqs.values():
+                # Iterate through the words in the document's frequencies.
+                doc_count_keys = list(doc_word_count.keys())
+                for token_lower in doc_count_keys:
+                    # Skip if the common representation is token_lower.
+                    if token_lower == token_variations[token_lower]:
+                        continue
+                    # Update Key of the Document's frequencies.
+                    new_token_rep = token_variations[token_lower]
+                    word_count = doc_word_count[token_lower]
+                    del doc_word_count[token_lower]
+                    doc_word_count[new_token_rep] = word_count
+            if show_progress:
+                count += 1
+                progress_bar(count, total)
             # Done creating Vocabulary.
             if show_progress:
                 progress_msg("Vocabulary Created.")
 
         # Save the Vocabulary Info.
         self.corpus_length = corpus_length
-        self.corpus_freqs = corpus_freqs
         self.docs_lengths = docs_lengths
         self.docs_freqs = docs_freqs
+        self.corpus_freqs = corpus_freqs
         self.word_embeds = word_embeds
 
         # Vocabulary Statistics.
