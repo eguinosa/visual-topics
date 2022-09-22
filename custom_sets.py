@@ -29,6 +29,7 @@ wrong_acronyms = {
     'REGISTRATIONS': 'registration',
     'REVIEW': 'review',
     'REVIEWS': 'review',
+    'RESPIRATORY': 'respiratory',
     'RESULT': 'result',
     'RESULTS': 'result',
     'SUMMARY': 'summary',
