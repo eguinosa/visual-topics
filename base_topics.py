@@ -5,10 +5,12 @@ import multiprocessing
 import numpy as np
 import umap
 import hdbscan
+from abc import ABC, abstractmethod
 
 from topic_corpus import TopicCorpus
 from model_manager import ModelManager
-from util_funcs import closest_vector
+from vocabulary import Vocabulary
+from util_funcs import closest_vector, cosine_sim, find_top_n
 from extra_funcs import progress_bar, progress_msg
 
 
@@ -16,6 +18,186 @@ from extra_funcs import progress_bar, progress_msg
 PARALLEL_MULT = 2
 MAX_CORES = 8
 PEAK_SIZE = 150
+
+
+class BaseTopic(ABC):
+    """
+    Base Abstract Class for the Topic Models.
+    """
+
+    @property
+    @abstractmethod
+    def base_topic_embeds_docs(self):
+        """
+        Dictionary with the vector representation of the topics in the same
+        vector space as the documents in the corpus.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def base_topic_embeds_words(self):
+        """
+        Dictionary with the vector representation of the topics in the same
+        vector space as the words in the vocabulary of the corpus. Used to
+        search the words that best represent the topic.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def base_topic_docs(self):
+        """
+        Dictionary with a list of the IDs of the documents belonging to each
+        topic.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def base_topic_words(self):
+        """
+        Dictionary with the Topic IDs as keys and the list of words that best
+        describe the topics as values.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def base_doc_embeds(self):
+        """
+        Dictionary with the embeddings of the documents in the corpus.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def base_corpus_vocab(self) -> Vocabulary:
+        """
+        Vocabulary() class containing the words and all the data related with
+        the corpus used to create the Topic Model.
+        """
+        pass
+
+    @property
+    def topic_ids(self):
+        """
+        List[str] with the IDs of the topics found by the Topic Model.
+        """
+        result = list(self.base_topic_embeds_docs)
+        return result
+
+    def topic_by_size(self):
+        """
+        Create a List of Tuples(Topic ID, Size) sorted by the amount of documents
+        that each topic has.
+
+        Returns: List[Tuples(str, int)] with the topics and their sizes.
+        """
+        # Get the topics and sizes.
+        topic_docs = [
+            (topic_id, len(doc_list))
+            for topic_id, doc_list in self.base_topic_docs.items()
+        ]
+        # Sort the Topics by size.
+        topic_docs.sort(key=lambda id_size: id_size[1], reverse=True)
+        return topic_docs
+
+    def top_words(self, topic_id: str, n=10):
+        """
+        Get the 'n' words that best describe the 'topic_id'.
+        """
+        words = self.base_topic_words[topic_id]
+        if n >= len(words):
+            return words
+        else:
+            result = words[:n]
+            return result
+
+    def topics_top_words(self, n=10):
+        """
+        Get the 'n' top words that best describe each of the topics in the
+        model.
+        """
+        result_dict = {}
+        for topic_id, top_words in self.base_topic_words.items():
+            if n >= len(top_words):
+                result_dict[topic_id] = top_words
+            else:
+                new_list = top_words[:n]
+                result_dict[topic_id] = new_list
+        # Dictionary with Top N words per topic.
+        return result_dict
+
+    def create_topic_words(self, top_n=50, min_sim=0.0, show_progress=False):
+        """
+        Find the 'top_n' words that best describe each topic using the words from
+        the documents of the topic.
+
+        Args:
+            top_n: Int with the amount of words we want to describe the topic.
+            min_sim: The minimum value of cosine similarity accepted for a word
+                to describe a Topic.
+            show_progress: Bool representing whether we show the progress of
+                the method or not.
+        Returns:
+            Dictionary(Topic ID -> List[str]) with the Topic IDs as keys and
+                the list of words that best describe the topic as values.
+        """
+        # Progress Variables.
+        count = 0
+        total = len(self.topic_ids)
+        # Create Set of Words per each Topic.
+        topic_top_words = {}
+        for topic_id in self.topic_ids:
+            # Create list of words with a similarity higher than 'min_sim'.
+            topic_words_sim = [
+                (word, similarity)
+                for word, similarity in self.topic_docs_words(topic_id)
+                if similarity > min_sim
+            ]
+            # Get the closest 'top_n' words to the topic. (Result is Sorted).
+            top_words = find_top_n(id_values=topic_words_sim, n=top_n, top_max=True)
+            # Save the closest words.
+            topic_top_words[topic_id] = top_words
+            # Progress.
+            if show_progress:
+                count += 1
+                progress_bar(count, total)
+
+        # Dictionary with the Topics and their Top Words.
+        return topic_top_words
+
+    def topic_docs_words(self, topic_id: str):
+        """
+        Get all the words in the vocabulary of the documents belonging to the
+        given 'topic_id'.
+
+        Args:
+            topic_id: String with the ID of the topic.
+        Returns:
+            List[Tuple(str, sim)] with the list of all the words in the
+                documents and their similarity to the topic.
+        """
+        # Get Properties to use in the method.
+        topic_docs = self.base_topic_docs
+        corpus_vocab = self.base_corpus_vocab
+        topic_embed = self.base_topic_embeds_words[topic_id]
+        word_embeds = corpus_vocab.word_embeds
+
+        # Create Set of Words in the Documents.
+        doc_ids_sim = topic_docs[topic_id]
+        topic_vocab = {
+            word for doc_id, sim in doc_ids_sim
+            for word in corpus_vocab.doc_words(doc_id)
+        }
+        # Create Tuples with the words and their similarity to the topic.
+        words_sim = [
+            (word, cosine_sim(topic_embed, word_embeds[word]))
+            for word in topic_vocab
+        ]
+        # The List of Tuples of the Topic's words and their similarity.
+        return words_sim
 
 
 def create_docs_embeds(corpus: TopicCorpus, model: ModelManager, show_progress=False):
@@ -70,8 +252,8 @@ def create_docs_embeds(corpus: TopicCorpus, model: ModelManager, show_progress=F
                 doc_embeds[new_id] = new_embed
                 # Reset batch list and counter.
                 batch_count = 0
-                batch_ids.clear()
-                batch_doc_contents.clear()
+                batch_ids = []
+                batch_doc_contents = []
 
         # Update processed documents.
         if show_progress:
@@ -108,7 +290,7 @@ def find_topics(doc_embeds_list: list, show_progress=False):
         min_cluster_size=15, metric='euclidean', cluster_selection_method='eom'
     )
     clusters_found = hdbscan_model.fit(umap_embeds)
-    cluster_labels = clusters_found.label_
+    cluster_labels = clusters_found.labels_
 
     # Assign each cluster found to a new prominent topic.
     if show_progress:
