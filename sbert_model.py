@@ -10,7 +10,7 @@ from extra_funcs import progress_msg, big_number
 from time_keeper import TimeKeeper
 
 # Test Imports
-from util_funcs import cos_sim, closest_vector
+from util_funcs import closest_vector  # , cosine_sim
 
 
 class SBertModel:
