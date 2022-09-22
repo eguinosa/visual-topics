@@ -237,7 +237,7 @@ class SampleManager(TopicCorpus):
         return sample
 
     @classmethod
-    def available_samples(cls):
+    def saved_samples(cls):
         """
         Create a list with the IDs of the available samples.
 
@@ -283,16 +283,16 @@ if __name__ == '__main__':
     # Get the Console arguments.
     _args = sys.argv
 
-    # Create a Sample.
-    _size = 10
-    print(f"\nCreating a Sample of {_size} documents...")
-    _sample = SampleManager(sample_size=_size)
-    print("Done.")
-    print(f"[{_stopwatch.formatted_runtime()}]")
-
-    # Show Doc IDs.
-    print("\nSample IDs:")
-    print(_sample.doc_ids)
+    # # Create a Sample.
+    # _size = 10
+    # print(f"\nCreating a Sample of {_size} documents...")
+    # _sample = SampleManager(sample_size=_size)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+    #
+    # # Show Doc IDs.
+    # print("\nSample IDs:")
+    # print(_sample.doc_ids)
 
     # # Save Sample.
     # _old_id = 'old_sample'
@@ -333,8 +333,8 @@ if __name__ == '__main__':
     # print(_old_sample.doc_ids)
 
     # Print the Available Samples.
-    print("\nAvailable Samples:")
-    _saved_samples = SampleManager.available_samples()
+    print("\nSaved Samples:")
+    _saved_samples = SampleManager.saved_samples()
     for an_id in _saved_samples:
         print(f"  -> {an_id}")
 
