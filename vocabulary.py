@@ -15,7 +15,7 @@ from extra_funcs import progress_bar, progress_msg, big_number
 # Testing Imports.
 import sys
 from sample_manager import SampleManager
-from util_funcs import top_n
+from util_funcs import find_top_n
 from time_keeper import TimeKeeper
 
 
@@ -253,6 +253,35 @@ class Vocabulary:
         )
         return vocab
 
+    @classmethod
+    def vocab_saved(cls, topic_dir_path: str):
+        """
+        Check if a Vocabulary is saved in the given directory.
+
+        Args:
+            topic_dir_path: String with the path to the directory where the
+                Vocabulary is supposed to be saved.
+        Returns:
+            Bool indicating if a Vocabulary was saved in this folder or not.
+        """
+        # Check we have a valid topic path.
+        if not isdir(topic_dir_path):
+            return False
+        # Check Vocabulary Path Folder.
+        vocab_folder_path = join(topic_dir_path, cls.vocab_folder_name)
+        if not isdir(vocab_folder_path):
+            return False
+        # Check Vocabulary Index.
+        vocab_index_path = join(vocab_folder_path, cls.vocab_index_file)
+        if not isfile(vocab_index_path):
+            return False
+        # Check Vocabulary Word Embeddings.
+        word_embeds_path = join(vocab_folder_path, cls.word_embeds_file)
+        if not isfile(word_embeds_path):
+            return False
+        # All Good: Folder and files present.
+        return True
+
 
 if __name__ == '__main__':
     # Record Program Runtime.
@@ -261,43 +290,60 @@ if __name__ == '__main__':
     args = sys.argv
 
     # Create corpus.
-    my_docs_num = 50
-    print(f"\nCreating Corpus Sample of {big_number(my_docs_num)} documents...")
-    my_sample = SampleManager(sample_size=my_docs_num, show_progress=True)
+    _docs_num = 50
+    print(f"\nCreating Corpus Sample of {big_number(_docs_num)} documents...")
+    _sample = SampleManager(sample_size=_docs_num, show_progress=True)
     print("Done.")
     print(f"[{stopwatch.formatted_runtime()}]")
 
     # Creating Text Model.
     print("\nCreating Text Model for the vocabulary embeddings...")
-    my_model = ModelManager(show_progress=True)
+    _model = ModelManager(show_progress=True)
     print("Done.")
     print(f"[{stopwatch.formatted_runtime()}]")
 
     # Create Vocabulary.
     print("\nCreating Vocabulary using the created corpus and model...")
-    my_vocab = Vocabulary(corpus=my_sample, model=my_model, show_progress=True)
+    _vocab = Vocabulary(corpus=_sample, model=_model, show_progress=True)
+    print("Done.")
+    print(f"[{stopwatch.formatted_runtime()}]")
+
+    # --- Test Saving Vocabulary ---
+    print("\nSaving Vocabulary...")
+    _vocab.save(topic_dir_path='temp_data', show_progress=True)
     print("Done.")
     print(f"[{stopwatch.formatted_runtime()}]")
 
     # Get the Most Frequent Words in the Corpus.
-    my_top_num = 10
-    print(f"\nFinding the Top {my_top_num} most frequent words in the corpus:")
-    my_top_words = top_n(my_vocab.corpus_freqs.items(), n=my_top_num)
+    _top_num = 10
+    print(f"\nFinding the Top {_top_num} most frequent words in the corpus:")
+    _top_words = find_top_n(_vocab.corpus_freqs.items(), n=_top_num)
     print("Done.")
     print(f"[{stopwatch.formatted_runtime()}]")
 
-    print(f"\nTop {my_top_num} Most Frequent Words:")
-    for a_word, a_count in my_top_words:
+    print(f"\nTop {_top_num} Most Frequent Words:")
+    for a_word, a_count in _top_words:
         print(f"  {a_word} -> {a_count}")
 
     # Get the Biggest Documents in the Corpus.
-    my_top_num = 10
-    print(f"\nThe Top Biggest {my_top_num} documents")
-    my_big_docs = top_n(my_vocab.docs_lengths.items(), n=my_top_num)
-    for a_doc_id, a_size in my_big_docs:
-        print(f"  Doc <{a_doc_id}>: {a_size} tokens")
+    _top_num = 10
+    print(f"\nThe Top Biggest {_top_num} documents")
+    _big_docs = find_top_n(_vocab.docs_lengths.items(), n=_top_num)
+    for _doc_id, _size in _big_docs:
+        print(f"  Doc <{_doc_id}>: {_size} tokens")
 
-    # Test Saving & Loading the Vocabulary.
+    # --- Test Loading the Vocabulary ---
+    print("\nLoading Saved Vocabulary...")
+    _saved_vocab = Vocabulary.load(topic_dir_path='temp_data', show_progress=True)
+    print("Done.")
+    print(f"[{stopwatch.formatted_runtime()}]")
+    # ----------------------------------
+    # Show the Biggest Documents in the Saved Vocabulary.
+    _top_num = 10
+    print(f"\nThe {_top_num} Biggest Documents from the Saved Vocabulary:")
+    _big_docs = find_top_n(_saved_vocab.docs_lengths.items(), n=_top_num)
+    for _doc_id, _size in _big_docs:
+        print(f"  Doc <{_doc_id}>: {_size} tokens")
 
     print("\nDone.")
     print(f"[{stopwatch.formatted_runtime()}]\n")
