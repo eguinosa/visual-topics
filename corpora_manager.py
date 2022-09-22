@@ -12,6 +12,7 @@ from lang_detect import LangDetect
 from extra_funcs import progress_bar, progress_msg, big_number
 
 # Testing Imports.
+import sys
 # from pprint import pprint
 from time_keeper import TimeKeeper
 
@@ -509,13 +510,15 @@ class CorporaManager(TopicCorpus):
 
 if __name__ == '__main__':
     # Record Runtime of the Program.
-    stopwatch = TimeKeeper()
+    _stopwatch = TimeKeeper()
+    # Terminal Arguments.
+    _args = sys.argv
 
     # Create or Load the default corpus in the Corpora Manager.
     print(f"\nLoading Default Corpus in the Corpora Manager documents...")
     the_manager = CorporaManager(show_progress=True)
     print("Done.")
-    print(f"[{stopwatch.formatted_runtime()}]")
+    print(f"[{_stopwatch.formatted_runtime()}]")
 
     # # Print Info of the First Document.
     # the_doc_id = the_manager.doc_ids[0]
@@ -535,4 +538,4 @@ if __name__ == '__main__':
         print(f"  -> {the_corpus_id} ({the_corpus_size} docs)")
 
     print("\nDone.")
-    print(f"[{stopwatch.formatted_runtime()}]\n")
+    print(f"[{_stopwatch.formatted_runtime()}]\n")
