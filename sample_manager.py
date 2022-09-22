@@ -43,6 +43,10 @@ class SampleManager(TopicCorpus):
             show_progress: Bool representing whether we show the progress of
                 the function or not.
         """
+        # Initialize Parent Class.
+        super().__init__()
+
+        # Check if we have to load or create the sample.
         if _load_sample:
             if show_progress:
                 progress_msg(f"Loading Saved Sample <{_sample_id}>...")
@@ -274,17 +278,17 @@ if __name__ == '__main__':
     # Get the Console arguments.
     args = sys.argv
 
-    # # Create a Sample.
-    # the_size = 10
-    # print(f"\nCreating a Sample of {the_size} documents...")
-    # the_sample = SampleManager(sample_size=the_size)
-    # print("Done.")
-    # print(f"[{stopwatch.formatted_runtime()}]")
-    #
-    # # Show Doc IDs.
-    # print("\nSample IDs:")
-    # print(the_sample.doc_ids)
-    #
+    # Create a Sample.
+    the_size = 10
+    print(f"\nCreating a Sample of {the_size} documents...")
+    the_sample = SampleManager(sample_size=the_size)
+    print("Done.")
+    print(f"[{stopwatch.formatted_runtime()}]")
+
+    # Show Doc IDs.
+    print("\nSample IDs:")
+    print(the_sample.doc_ids)
+
     # # Save Sample.
     # the_old_id = 'old_sample'
     # print(f"\nSaving Sample with ID <{the_old_id}>...")
