@@ -176,6 +176,30 @@ def find_top_n(id_values: iter, n=50, top_max=True, show_progress=False):
     return top_ids_values
 
 
+def max_from_dict(key_values: dict):
+    """
+    Find the key maximum value in the dictionary 'key_values'.
+
+    Args:
+        key_values: Dictionary with comparable values.
+    Returns:
+        Key with the max value.
+    """
+    if not key_values:
+        raise ValueError("The dictionary has no values.")
+
+    # Get the default max key and value.
+    dict_list = list(key_values.items())
+    max_key, max_value = dict_list[0]
+    other_key_values = dict_list[1:]
+    for key, value in other_key_values:
+        if value > max_value:
+            max_key = key
+            max_value = value
+    # Key with the biggest value.
+    return max_key
+
+
 if __name__ == '__main__':
     # Record Program Runtime.
     _stopwatch = TimeKeeper()
