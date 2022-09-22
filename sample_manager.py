@@ -220,15 +220,20 @@ class SampleManager(TopicCorpus):
             json.dump(sample_info, f)
 
     @classmethod
-    def load(cls, sample_id: str):
+    def load(cls, sample_id: str, show_progress=False):
         """
         Load a previously saved sample using its ID 'sample_id'.
 
-        Returns: SampleManager corresponding to the given 'sample_id'.
+        Args:
+            sample_id: String with the ID of the sample we want to load.
+            show_progress: Bool representing whether we show the progress of
+                the method or not.
+        Returns:
+            SampleManager corresponding to the given 'sample_id'.
         """
         if not sample_id:
             raise FileNotFoundError("We need an ID to load a Sample.")
-        sample = cls(_load_sample=True,  _sample_id=sample_id)
+        sample = cls(_load_sample=True,  _sample_id=sample_id, show_progress=show_progress)
         return sample
 
     @classmethod
