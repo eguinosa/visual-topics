@@ -20,7 +20,7 @@ MAX_CORES = 8
 PEAK_SIZE = 150
 
 
-class BaseTopic(ABC):
+class BaseTopics(ABC):
     """
     Base Abstract Class for the Topic Models.
     """
