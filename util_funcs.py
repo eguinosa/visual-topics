@@ -33,7 +33,7 @@ def dict_ndarray2list(embeds_dict: dict, show_progress=False):
     total = len(embeds_dict)
     # Default Dict.
     new_embeds_dict = {}
-    for item_id, embed in embeds_dict:
+    for item_id, embed in embeds_dict.items():
         new_embeds_dict[item_id] = embed.tolist()
         if show_progress:
             count += 1
@@ -61,7 +61,7 @@ def dict_list2ndarray(embeds_dict: dict, show_progress=False):
     total = len(embeds_dict)
     # Default Dict.
     new_embeds_dict = {}
-    for item_id, embed in embeds_dict:
+    for item_id, embed in embeds_dict.items():
         new_embeds_dict[item_id] = np.array(embed)
         if show_progress:
             count += 1
