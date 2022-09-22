@@ -9,6 +9,7 @@ from corpus_cord19 import CorpusCord19
 from extra_funcs import progress_bar
 
 # Test Imports.
+import sys
 from pprint import pprint
 from papers_cord19 import PapersCord19
 from extra_funcs import big_number
@@ -208,18 +209,20 @@ class LangDetect:
 
 if __name__ == '__main__':
     # Keep track of runtime.
-    stopwatch = TimeKeeper()
+    _stopwatch = TimeKeeper()
+    # Terminal Arguments.
+    _args = sys.argv
 
     # Create instance of class.
-    the_detector = LangDetect()
+    _detector = LangDetect()
 
-    # Predict the Language of Texts.
+    # # Predict the Language of Texts.
     # while True:
-    #     the_input = input("\nType a text to predict Language (q/quit to exit).\n-> ")
-    #     if the_input.lower().strip() in {'', 'q', 'quit', 'exit'}:
+    #     _input = input("\nType a text to predict Language (q/quit to exit).\n-> ")
+    #     if _input.lower().strip() in {'', 'q', 'quit', 'exit'}:
     #         break
     #     # the_prediction = the_detector.detect_languages(the_input, k=1)
-    #     the_prediction = the_detector.text_language(the_input)
+    #     the_prediction = _detector.text_language(_input)
     #     print("\nThe language of the text is:")
     #     print(the_prediction)
 
@@ -227,40 +230,40 @@ if __name__ == '__main__':
     # ---------------------------------------------------------
     # Use CORD-19 Dataset
     print("\nLoading the CORD-19 Dataset...")
-    the_papers = PapersCord19(show_progress=True)
+    _papers = PapersCord19(show_progress=True)
     # ---------------------------------------------------------
     print("\nDetecting the Languages of the Papers...")
-    the_count = the_detector.language_count(the_papers, show_progress=True)
+    _count = _detector.language_count(_papers, show_progress=True)
     print("\nThe Languages of the Corpus:")
-    pprint(the_count)
+    pprint(_count)
     # ---------------------------------------------------------
     # Show how many papers are in english.
-    the_total = sum(the_count.values())
-    the_english_count = the_count[('english', 'english')] + the_count[('english', 'english', 'english')]
-    the_percent = the_english_count * 100 / the_total
-    the_percent = round(the_percent, 2)
-    print(f"\nPapers in English: {big_number(the_english_count)}")
-    print(f"Papers in other Languages: {big_number(the_total - the_english_count)}")
-    print(f"Percentage of Paper in english: {the_percent}")
+    _total = sum(_count.values())
+    _english_count = _count[('english', 'english')] + _count[('english', 'english', 'english')]
+    _percent = _english_count * 100 / _total
+    _percent = round(_percent, 2)
+    print(f"\nPapers in English: {big_number(_english_count)}")
+    print(f"Papers in other Languages: {big_number(_total - _english_count)}")
+    print(f"Percentage of Paper in english: {_percent}")
 
     # # ---- Test Method to see if a Paper is in English ----
     # # Create lists for the paper's ID depending on their languages.
-    # the_english_docs = []
-    # the_other_docs = []
-    # for the_doc_id in the_papers.papers_cord_uids():
+    # _english_docs = []
+    # _other_docs = []
+    # for _doc_id in _papers.papers_cord_uids():
     #     # Check if the paper is in English.
-    #     the_title = the_papers.paper_title(the_doc_id)
-    #     the_abstract = the_papers.paper_abstract(the_doc_id)
-    #     the_body = the_papers.paper_body_text(the_doc_id)
-    #     the_check = the_detector.doc_in_english(the_title, the_abstract, the_body)
+    #     _title = _papers.paper_title(_doc_id)
+    #     _abstract = _papers.paper_abstract(_doc_id)
+    #     _body = _papers.paper_body_text(_doc_id)
+    #     _check = _detector.doc_in_english(_title, _abstract, _body)
     #     # Save Paper's ID on a list depending on its language.
-    #     if the_check:
-    #         the_english_docs.append(the_doc_id)
+    #     if _check:
+    #         _english_docs.append(_doc_id)
     #     else:
-    #         the_other_docs.append(the_doc_id)
+    #         _other_docs.append(_doc_id)
     # # Report the amount of documents in English.
-    # print(f"\n{big_number(len(the_english_docs))} documents in English.")
-    # print(f"{big_number(len(the_other_docs))} documents in other Languages.")
+    # print(f"\n{big_number(len(_english_docs))} documents in English.")
+    # print(f"{big_number(len(_other_docs))} documents in other Languages.")
 
     print("\nDone.")
-    print(f"[{stopwatch.formatted_runtime()}]\n")
+    print(f"[{_stopwatch.formatted_runtime()}]\n")
