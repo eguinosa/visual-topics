@@ -285,28 +285,28 @@ class Vocabulary:
 
 if __name__ == '__main__':
     # Record Program Runtime.
-    stopwatch = TimeKeeper()
+    _stopwatch = TimeKeeper()
     # Terminal Arguments.
-    args = sys.argv
+    _args = sys.argv
 
     # Create corpus.
     _docs_num = 50
     print(f"\nCreating Corpus Sample of {big_number(_docs_num)} documents...")
     _sample = SampleManager(sample_size=_docs_num, show_progress=True)
     print("Done.")
-    print(f"[{stopwatch.formatted_runtime()}]")
+    print(f"[{_stopwatch.formatted_runtime()}]")
 
     # Creating Text Model.
     print("\nCreating Text Model for the vocabulary embeddings...")
     _model = ModelManager(show_progress=True)
     print("Done.")
-    print(f"[{stopwatch.formatted_runtime()}]")
+    print(f"[{_stopwatch.formatted_runtime()}]")
 
     # Create Vocabulary.
     print("\nCreating Vocabulary using the created corpus and model...")
     _vocab = Vocabulary(corpus=_sample, model=_model, show_progress=True)
     print("Done.")
-    print(f"[{stopwatch.formatted_runtime()}]")
+    print(f"[{_stopwatch.formatted_runtime()}]")
 
     # # --- Test Saving Vocabulary ---
     # print("\nSaving Vocabulary...")
@@ -319,11 +319,11 @@ if __name__ == '__main__':
     print(f"\nFinding the Top {_top_num} most frequent words in the corpus:")
     _top_words = find_top_n(_vocab.corpus_freqs.items(), n=_top_num)
     print("Done.")
-    print(f"[{stopwatch.formatted_runtime()}]")
+    print(f"[{_stopwatch.formatted_runtime()}]")
 
     print(f"\nTop {_top_num} Most Frequent Words:")
-    for a_word, a_count in _top_words:
-        print(f"  {a_word} -> {a_count}")
+    for _word, _count in _top_words:
+        print(f"  {_word} -> {_count}")
 
     # Get the Biggest Documents in the Corpus.
     _top_num = 10
@@ -354,4 +354,4 @@ if __name__ == '__main__':
     #     print(f"  Doc <{_doc_id}>: {_size} tokens")
 
     print("\nDone.")
-    print(f"[{stopwatch.formatted_runtime()}]\n")
+    print(f"[{_stopwatch.formatted_runtime()}]\n")
