@@ -49,6 +49,9 @@ class PapersCord19(CorpusCord19):
             show_progress: Bool representing whether we show the progress of
                 the function or not.
         """
+        # Initialize Parent Class.
+        super().__init__()
+
         # Check if a Dataset ID was provided.
         if dataset_id:
             self.current_dataset = dataset_id
