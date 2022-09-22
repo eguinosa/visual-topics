@@ -290,57 +290,57 @@ def more_capital(token_text: str):
 
 if __name__ == '__main__':
     # Record Program Runtime.
-    stopwatch = TimeKeeper()
+    _stopwatch = TimeKeeper()
     # Terminal Arguments.
-    args = sys.argv
+    _args = sys.argv
 
     # Create Tokenizer.
     print("\nCreating Tokenizer...")
-    my_tokenizer = DocTokenizer(hyphens=True)
+    _tokenizer = DocTokenizer(hyphens=True)
     print("Done.")
-    print(f"[{stopwatch.formatted_runtime()}]")
+    print(f"[{_stopwatch.formatted_runtime()}]")
 
     # Test Tokenizing a Document.
-    my_doc = (
+    _doc_ex = (
         'Covid-19 is something SARS-CoV-2 for the COVID-19 '
     )
     print("\nCurrent Document:")
-    pprint(my_doc, width=70)
-    my_vocab = my_tokenizer.vocab_tokenizer(my_doc)
+    pprint(_doc_ex, width=70)
+    _vocab = _tokenizer.vocab_tokenizer(_doc_ex)
     print("\nDocument Tokens:")
-    pprint(my_vocab, width=70, compact=True)
+    pprint(_vocab, width=70, compact=True)
 
     # Create a Random sample of Documents.
-    my_num_docs = 20  # 10
-    print(f"\nCreating a sample of {my_num_docs} documents...")
-    my_sample = SampleManager(sample_size=my_num_docs, show_progress=True)
+    _num_docs = 20  # 10
+    print(f"\nCreating a sample of {_num_docs} documents...")
+    _sample = SampleManager(sample_size=_num_docs, show_progress=True)
     print("Done.")
-    print(f"[{stopwatch.formatted_runtime()}]")
+    print(f"[{_stopwatch.formatted_runtime()}]")
 
     # Take document to tokenize.
-    for my_doc in my_sample.corpus_title_abstracts():
+    for _doc in _sample.corpus_title_abstracts():
         print("\nCurrent Document:")
-        pprint(my_doc, width=70)
+        pprint(_doc, width=70)
 
         # Ask to tokenize the document.
-        my_input = input(
+        _input = input(
             "\nWould you like to tokenize this document?\n(q/quit to exit, n/next to skip): "
         )
-        my_input = my_input.lower().strip()
-        if my_input in {'q', 'quit', 'exit'}:
+        _input = _input.lower().strip()
+        if _input in {'q', 'quit', 'exit'}:
             break
-        if my_input in {'n', 'next'}:
+        if _input in {'n', 'next'}:
             continue
 
         # Tokenize and Display the Doc's tokens.
-        my_vocab = my_tokenizer.vocab_tokenizer(my_doc)
+        _vocab = _tokenizer.vocab_tokenizer(_doc)
         print("\nDocument Tokens:")
-        pprint(my_vocab, width=70, compact=True)
+        pprint(_vocab, width=70, compact=True)
 
         # Ask to continue.
-        my_input = input("\nContinue? (q/quit to exit) ")
-        if my_input in {'q', 'quit', 'exit'}:
+        _input = input("\nContinue? (q/quit to exit) ")
+        if _input in {'q', 'quit', 'exit'}:
             break
 
     print("\nDone.")
-    print(f"[{stopwatch.formatted_runtime()}]\n")
+    print(f"[{_stopwatch.formatted_runtime()}]\n")
