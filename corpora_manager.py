@@ -51,6 +51,9 @@ class CorporaManager(TopicCorpus):
             show_progress: Bool representing whether we show the progress of
                 the function or not.
         """
+        # Initialize Parent Class.
+        super().__init__()
+
         # Check if we have corpus ID.
         if not corpus_id:
             corpus_id = self.default_corpus_id
