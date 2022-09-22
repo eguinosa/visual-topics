@@ -138,38 +138,38 @@ class ModelManager:
 
 if __name__ == '__main__':
     # Record the Runtime of the Program
-    stopwatch = TimeKeeper()
+    _stopwatch = TimeKeeper()
     # Terminal Arguments.
-    args = sys.argv
+    _args = sys.argv
 
     # Loading Model Manager.
-    my_model_id = 'multilingual_fast'
-    print(f"\nLoading the model in ModelManager <{my_model_id}>...")
-    my_model = ModelManager(model_name=my_model_id, show_progress=True)
+    _model_id = 'multilingual_fast'
+    print(f"\nLoading the model in ModelManager <{_model_id}>...")
+    _model = ModelManager(model_name=_model_id, show_progress=True)
     print("Done.")
-    print(f"[{stopwatch.formatted_runtime()}]")
+    print(f"[{_stopwatch.formatted_runtime()}]")
 
     # Find most similar word.
     print("\nGiven a word, and a list of words, select the word most similar.")
     print("(To close use [q/quit])")
     while True:
-        my_word = input("\nType the search word: ")
-        if my_word in {'', 'q', 'quit'}:
+        _word = input("\nType the search word: ")
+        if _word in {'', 'q', 'quit'}:
             break
-        my_list = input("Type the list of words to search on. (Use commas to "
-                        "separate the words)\n -> ")
-        if my_list in {'', 'q', 'quit'}:
+        _list = input("Type the list of words to search on. (Use commas to "
+                      "separate the words)\n -> ")
+        if _list in {'', 'q', 'quit'}:
             break
-        my_word_list = [a_word.strip() for a_word in my_list.split(',')]
-        my_word_embed = my_model.word_embed(my_word)
-        my_embeds_list = my_model.word_list_embeds(my_word_list)
-        my_embeds_dict = dict(zip(my_word_list, my_embeds_list))
+        _word_list = [a_word.strip() for a_word in _list.split(',')]
+        _word_embed = _model.word_embed(_word)
+        _embeds_list = _model.word_list_embeds(_word_list)
+        _embeds_dict = dict(zip(_word_list, _embeds_list))
         # Get the closest word.
-        my_closest_word, my_sim = closest_vector(my_word_embed, my_embeds_dict)
+        _closest_word, _sim = closest_vector(_word_embed, _embeds_dict)
         # Report Word and Similarity.
-        print(f"The closest word to <{my_word}>:")
-        print(f" Word -> {my_closest_word}")
-        print(f" Sim  -> {my_sim}")
+        print(f"The closest word to <{_word}>:")
+        print(f" Word -> {_closest_word}")
+        print(f" Sim  -> {_sim}")
 
     print("\nDone.")
-    print(f"[{stopwatch.formatted_runtime()}]\n")
+    print(f"[{_stopwatch.formatted_runtime()}]\n")
