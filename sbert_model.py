@@ -10,7 +10,7 @@ from extra_funcs import progress_msg, big_number
 from time_keeper import TimeKeeper
 
 # Test Imports
-from util_funcs import closest_vector  # , cosine_sim
+from util_funcs import closest_vector, cosine_sim
 
 
 class SBertModel:
@@ -183,61 +183,61 @@ def load_all_models():
 
 if __name__ == '__main__':
     # Record the Runtime of the Program
-    stopwatch = TimeKeeper()
+    _stopwatch = TimeKeeper()
     # Terminal Arguments.
-    args = sys.argv
+    _args = sys.argv
 
     # Creating Model.
     print("\nCreating Sentence-Bert Model...")
-    my_model = SBertModel(show_progress=True)
+    _model = SBertModel(show_progress=True)
     print("Done.")
-    print(f"[{stopwatch.formatted_runtime()}]")
+    print(f"[{_stopwatch.formatted_runtime()}]")
 
-    # # Test Word Embeddings:
-    # while True:
-    #     word_input = input("\nType a word (q/quit to close): ")
-    #     word_input = word_input.strip().lower()
-    #     if word_input in {'', 'q', 'quit'}:
-    #         break
-    #     word_embed = my_model.text_embed(word_input)
-    #     print(f"\nThe embedding of <{word_input}>:")
-    #     print(word_embed)
-    #     print(f"Type: {type(word_embed)}")
+    # Test Word Embeddings:
+    while True:
+        _input = input("\nType a word (q/quit to close): ")
+        _input = _input.strip().lower()
+        if _input in {'', 'q', 'quit'}:
+            break
+        _embed = _model.text_embed(_input)
+        print(f"\nThe embedding of <{_input}>:")
+        print(_embed)
+        print(f"Type: {type(_embed)}")
 
-    # # Check Similarities between words.
-    # print("\nTesting word similarities (To close use [q/quit]):")
-    # while True:
-    #     word1 = input("\nType the first word: ")
-    #     if word1 in {'', 'q', 'quit'}:
-    #         break
-    #     word2 = input("Type the second word: ")
-    #     if word2 in {'', 'q', 'quit'}:
-    #         break
-    #     sim_words = cos_sim(my_model.text_embed(word1), my_model.text_embed(word2))
-    #     print("\nWords similarity:")
-    #     print(sim_words)
+    # Check Similarities between words.
+    print("\nTesting word similarities (To close use [q/quit]):")
+    while True:
+        _word1 = input("\nType the first word: ")
+        if _word1 in {'', 'q', 'quit'}:
+            break
+        _word2 = input("Type the second word: ")
+        if _word2 in {'', 'q', 'quit'}:
+            break
+        _sim_words = cosine_sim(_model.text_embed(_word1), _model.text_embed(_word2))
+        print("\nWords similarity:")
+        print(_sim_words)
 
     # Find most similar word.
     print("\nGiven a word, and a list of words, select the word most similar.")
     print("(To close use [q/quit])")
     while True:
-        my_word = input("\nType the search word: ")
-        if my_word in {'', 'q', 'quit'}:
+        _word = input("\nType the search word: ")
+        if _word in {'', 'q', 'quit'}:
             break
-        my_list = input("Type the list of words to search on. (Use commas to "
-                        "separate the words)\n -> ")
-        if my_list in {'', 'q', 'quit'}:
+        _list = input("Type the list of words to search on. (Use commas to "
+                      "separate the words)\n -> ")
+        if _list in {'', 'q', 'quit'}:
             break
-        my_word_list = [a_word.strip() for a_word in my_list.split(',')]
-        my_word_embed = my_model.text_embed(my_word)
-        my_embeds_list = my_model.text_list_embeds(my_word_list)
-        my_embeds_dict = dict(zip(my_word_list, my_embeds_list))
+        _word_list = [a_word.strip() for a_word in _list.split(',')]
+        _word_embed = _model.text_embed(_word)
+        _embeds_list = _model.text_list_embeds(_word_list)
+        _embeds_dict = dict(zip(_word_list, _embeds_list))
         # Get the closest word.
-        my_closest_word, my_sim = closest_vector(my_word_embed, my_embeds_dict)
+        _closest_word, _sim = closest_vector(_word_embed, _embeds_dict)
         # Report Word and Similarity.
-        print(f"The closest word to <{my_word}>:")
-        print(f" Word -> {my_closest_word}")
-        print(f" Sim  -> {my_sim}")
+        print(f"The closest word to <{_word}>:")
+        print(f" Word -> {_closest_word}")
+        print(f" Sim  -> {_sim}")
 
     print("\nDone.")
-    print(f"[{stopwatch.formatted_runtime()}]\n")
+    print(f"[{_stopwatch.formatted_runtime()}]\n")
