@@ -155,13 +155,22 @@ def token_word(token: Token):
     Returns:
         String with the corresponding text representation of the 'token'.
     """
-    # Check if the word is Covid-19 or Covid-19 related.
-    if token.lower_ == 'covid19' or token.lower_ == 'covid-19':
-        final_word = 'covid-19'
-    elif 'covid19' in token.lower_ and 'covid19' != token.lower_:
-        final_word = 'covid-19-related'
-    elif 'covid-19' in token.lower_ and 'covid-19' != token.lower_:
-        final_word = 'covid-19-related'
+    # Token cases for Covid-19 and Covid-19 related.
+    if token.lower_ in {'covid19', 'covid-19', 'covid-2019'}:
+        final_word = 'COVID-19'
+    elif 'covid19' in token.lower_ or 'covid-19' in token.lower_:
+        final_word = 'COVID-19-related'
+    # SARS-CoV-2 cases.
+    elif token.lower_ in {'sars-cov-2', 'sars-cov2', 'sars-coronavirus-2'}:
+        final_word = 'SARS-CoV-2'
+    elif token.lower_ in {'sars-cov'}:
+        final_word = 'SARS-CoV'
+    elif 'sars-cov-2' in token.lower_ or 'sars-cov' in token.lower_:
+        final_word = 'SARS-CoV-2-related'
+    elif 'sars-cov' in token.lower_:
+        final_word = 'SARS-CoV-related'
+    elif 'sars' in token.lower_ and 'coronavirus' in token.lower_:
+        final_word = 'SARS-CoV-related'
     # Check if we have a word in CAPITAL letters.
     elif token.is_upper:
         # If it's an incorrect Acronym, get it correct version, same text otherwise.
@@ -177,6 +186,9 @@ def token_word(token: Token):
     # Check if hyphenated and one section is an acronym.
     elif '-' in token.text and any(more_capital(segment) for segment in token.text.split('-')):
         final_word = token.text
+    # Variations of Coronavirus.
+    elif 'coronavirus' in token.lower_ and token.lower_ != 'coronavirus':
+        final_word = 'coronavirus-associated'
     else:
         # Get the Lemma of the word.
         final_word = token.lemma_.lower().strip()
