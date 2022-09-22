@@ -274,64 +274,64 @@ class SampleManager(TopicCorpus):
 
 if __name__ == '__main__':
     # Record the runtime of the Program.
-    stopwatch = TimeKeeper()
+    _stopwatch = TimeKeeper()
     # Get the Console arguments.
-    args = sys.argv
+    _args = sys.argv
 
     # Create a Sample.
-    the_size = 10
-    print(f"\nCreating a Sample of {the_size} documents...")
-    the_sample = SampleManager(sample_size=the_size)
+    _size = 10
+    print(f"\nCreating a Sample of {_size} documents...")
+    _sample = SampleManager(sample_size=_size)
     print("Done.")
-    print(f"[{stopwatch.formatted_runtime()}]")
+    print(f"[{_stopwatch.formatted_runtime()}]")
 
     # Show Doc IDs.
     print("\nSample IDs:")
-    print(the_sample.doc_ids)
+    print(_sample.doc_ids)
 
     # # Save Sample.
-    # the_old_id = 'old_sample'
-    # print(f"\nSaving Sample with ID <{the_old_id}>...")
-    # the_sample.save(sample_id=the_old_id)
+    # _old_id = 'old_sample'
+    # print(f"\nSaving Sample with ID <{_old_id}>...")
+    # _sample.save(sample_id=_old_id)
     # print("Sample Saved.")
     # print("Done.")
-    # print(f"[{stopwatch.formatted_runtime()}]")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
     #
     # # Create another Sample.
-    # the_new_size = 10
-    # print(f"\nCreating a new Sample of {the_new_size} documents...")
-    # the_sample = SampleManager(sample_size=the_new_size)
+    # _new_size = 10
+    # print(f"\nCreating a new Sample of {_new_size} documents...")
+    # _sample = SampleManager(sample_size=_new_size)
     # print("Done.")
-    # print(f"[{stopwatch.formatted_runtime()}]")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
     #
     # # Show New Doc Ids.
     # print("\nNew Sample IDs:")
-    # print(the_sample.doc_ids)
+    # print(_sample.doc_ids)
     #
     # # Save the New Sample.
     # # the_new_id = 'new_sample'
     # # print(f"\nSaving New Sample with ID <{the_new_id}>...")
     # print("\nSaving New Sample with no ID...")
-    # the_sample.save()
+    # _sample.save()
     # print("Sample Saved.")
     # print("Done.")
-    # print(f"[{stopwatch.formatted_runtime()}]")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
     #
     # # Load Old sample.
-    # print(f"\nLoading old Sample <{the_old_id}>...")
-    # the_old_sample = SampleManager.load(sample_id=the_old_id)
+    # print(f"\nLoading old Sample <{_old_id}>...")
+    # _old_sample = SampleManager.load(sample_id=_old_id)
     # print("Done.")
-    # print(f"[{stopwatch.formatted_runtime()}]")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
     #
     # # Show Sample IDs.
     # print("\nOld Sample IDs:")
-    # print(the_old_sample.doc_ids)
+    # print(_old_sample.doc_ids)
 
     # Print the Available Samples.
     print("\nAvailable Samples:")
-    the_saved_samples = SampleManager.available_samples()
-    for an_id in the_saved_samples:
+    _saved_samples = SampleManager.available_samples()
+    for an_id in _saved_samples:
         print(f"  -> {an_id}")
 
     print("\nDone.")
-    print(f"[{stopwatch.formatted_runtime()}]\n")
+    print(f"[{_stopwatch.formatted_runtime()}]\n")
