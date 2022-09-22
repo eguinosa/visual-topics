@@ -178,20 +178,20 @@ def find_top_n(id_values: iter, n=50, top_max=True, show_progress=False):
 
 if __name__ == '__main__':
     # Record Program Runtime.
-    stopwatch = TimeKeeper()
+    _stopwatch = TimeKeeper()
     # Terminal Arguments.
-    args = sys.argv
+    _args = sys.argv
 
     # Create a list of tuples to get the Top N elements.
-    my_origin = random.sample(range(12, 100), 20)
-    my_tuples = [(n, n) for n in my_origin]
+    _origin = random.sample(range(12, 100), 20)
+    _tuples = [(n, n) for n in _origin]
     print("\nElements to Sort:")
-    pprint(my_tuples)
+    pprint(_tuples)
 
-    my_top_num = 10
-    print(f"\nTop {my_top_num} elements:")
-    my_tops = find_top_n(my_tuples, n=my_top_num, top_max=True)
-    pprint(my_tops)
+    _top_num = 10
+    print(f"\nTop {_top_num} elements:")
+    _tops = find_top_n(_tuples, n=_top_num, top_max=True)
+    pprint(_tops)
 
     print("\nDone.")
-    print(f"[{stopwatch.formatted_runtime()}]\n")
+    print(f"[{_stopwatch.formatted_runtime()}]\n")
