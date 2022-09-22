@@ -8,6 +8,7 @@ from spacy.util import compile_infix_regex
 from spacy.tokens.token import Token
 from spacy.lang.char_classes import ALPHA, ALPHA_LOWER, ALPHA_UPPER
 from spacy.lang.char_classes import CONCAT_QUOTES, LIST_ELLIPSES, LIST_ICONS
+from unidecode import unidecode
 
 from custom_sets import wrong_acronyms
 
@@ -193,6 +194,9 @@ def token_word(token: Token):
         # Get the Lemma of the word.
         final_word = token.lemma_.lower().strip()
 
+    # Check the word is in ASCII representation.
+    if not final_word.isascii():
+        final_word = unidecode(final_word)
     # The appropriate representation for the word.
     return final_word
 
