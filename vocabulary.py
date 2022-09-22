@@ -308,11 +308,11 @@ if __name__ == '__main__':
     print("Done.")
     print(f"[{stopwatch.formatted_runtime()}]")
 
-    # --- Test Saving Vocabulary ---
-    print("\nSaving Vocabulary...")
-    _vocab.save(topic_dir_path='temp_data', show_progress=True)
-    print("Done.")
-    print(f"[{stopwatch.formatted_runtime()}]")
+    # # --- Test Saving Vocabulary ---
+    # print("\nSaving Vocabulary...")
+    # _vocab.save(topic_dir_path='temp_data', show_progress=True)
+    # print("Done.")
+    # print(f"[{stopwatch.formatted_runtime()}]")
 
     # Get the Most Frequent Words in the Corpus.
     _top_num = 10
@@ -332,18 +332,26 @@ if __name__ == '__main__':
     for _doc_id, _size in _big_docs:
         print(f"  Doc <{_doc_id}>: {_size} tokens")
 
-    # --- Test Loading the Vocabulary ---
-    print("\nLoading Saved Vocabulary...")
-    _saved_vocab = Vocabulary.load(topic_dir_path='temp_data', show_progress=True)
-    print("Done.")
-    print(f"[{stopwatch.formatted_runtime()}]")
-    # ----------------------------------
-    # Show the Biggest Documents in the Saved Vocabulary.
-    _top_num = 10
-    print(f"\nThe {_top_num} Biggest Documents from the Saved Vocabulary:")
-    _big_docs = find_top_n(_saved_vocab.docs_lengths.items(), n=_top_num)
-    for _doc_id, _size in _big_docs:
-        print(f"  Doc <{_doc_id}>: {_size} tokens")
+    # # --- Test Loading the Vocabulary ---
+    # _location = 'temp_data'
+    # print(f"\nChecking if a Vocabulary is saved in the path: '{_location}'")
+    # _is_saved = Vocabulary.vocab_saved(topic_dir_path=_location)
+    # if _is_saved:
+    #     print("Yes, there is a Vocabulary in the folder.")
+    # else:
+    #     print("No, there is no Vocabulary saved in that folder.")
+    # # ----------------------------------
+    # print("\nLoading Saved Vocabulary...")
+    # _saved_vocab = Vocabulary.load(topic_dir_path='temp_data', show_progress=True)
+    # print("Done.")
+    # print(f"[{stopwatch.formatted_runtime()}]")
+    # # ----------------------------------
+    # # Show the Biggest Documents in the Saved Vocabulary.
+    # _top_num = 10
+    # print(f"\nThe {_top_num} Biggest Documents from the Saved Vocabulary:")
+    # _big_docs = find_top_n(_saved_vocab.docs_lengths.items(), n=_top_num)
+    # for _doc_id, _size in _big_docs:
+    #     print(f"  Doc <{_doc_id}>: {_size} tokens")
 
     print("\nDone.")
     print(f"[{stopwatch.formatted_runtime()}]\n")
