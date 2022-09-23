@@ -10,7 +10,7 @@ from collections import defaultdict
 from topic_corpus import TopicCorpus
 from model_manager import ModelManager
 from doc_tokenizer import DocTokenizer
-from util_funcs import dict_list2ndarray, dict_ndarray2list, max_from_dict
+from util_funcs import dict_list2ndarray, dict_ndarray2list
 from extra_funcs import progress_bar, progress_msg, big_number
 
 # Testing Imports.
@@ -160,8 +160,6 @@ class Vocabulary:
                     count += 1
                     progress_bar(count, total)
 
-            # ----------------------------------------------
-            # ----------------------------------------------
             # Get all the tokens found in lower case.
             corpus_tokens_lower = list(token_variations.keys())
             # Get the most common representation of the tokens in the corpus.
@@ -174,7 +172,9 @@ class Vocabulary:
                 # Token with multiple representations.
                 else:
                     # Use the most common representation.
-                    common_rep = max_from_dict(token_reps)
+                    common_rep = max(
+                        token_reps.keys(), key=lambda d_key: token_reps[d_key]
+                    )
                 token_variations[token_lower] = common_rep
             if show_progress:
                 count += 1
