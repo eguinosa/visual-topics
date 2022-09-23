@@ -182,7 +182,7 @@ class MonoTopics(BaseTopics):
             self.doc_embeds = doc_embeds
             self.corpus_vocab = corpus_vocab
             self.topic_docs = topic_docs
-            # Create Topic Words.
+            # Create Topic Words (Uses the previous attributes).
             topic_words = self.create_topic_words(show_progress=show_progress)
             self.topic_words = topic_words
 
@@ -191,6 +191,7 @@ class MonoTopics(BaseTopics):
         self.new_topic_size = 0
         self.new_topic_embeds = None
         self.new_topic_docs = None
+        self.new_topic_words = None
 
     @property
     def base_topic_embeds_docs(self):
@@ -240,290 +241,22 @@ class MonoTopics(BaseTopics):
         """
         return self.corpus_vocab
 
-    def save(self, model_id='', show_progress=False):
+    def reduce_topics(self, new_size: int, parallelism=False, show_progress=False):
         """
-        Save the Main Topic Model's Attributes, so the model can be loaded later
-        using the given or created 'model_id'. If no 'model_id' is provided
-        a new ID is created using the number of Documents, the Text Model, and
-        the number topics found.
+        Create a new Hierarchical Topic Model with specified number of topics
+        (new_size). The 'new_size' needs to be at least 2, and smaller than the
+        current number of topics in the model.
 
         Args:
-            model_id: String with the ID we want to use to save the Topic Model.
+            new_size: Int with the desired topic count for the Model.
+            parallelism: Bool indicating if we can use multiprocessing or not.
             show_progress: Bool representing whether we show the progress of
                 the method or not.
         """
-        # Check if we have to create a Topic Model.
-        if not model_id:
-            model_id = self.create_model_id()
-
-        # Check the Class Data folder.
-        if not isdir(self.class_folder):
-            mkdir(self.class_folder)
-        # Clean the Topic Model's Folder path.
-        model_folder_name = self.model_folder_prefix + model_id
-        model_folder_path = join(self.class_folder, model_folder_name)
-        if isdir(model_folder_path):
-            # Delete any files in this folder. (Clean everything)
-            rmtree(model_folder_path)
-        mkdir(model_folder_path)
-
-        # Save Topic Model's Basic Info.
-        if show_progress:
-            progress_msg("Saving Topic Model's Basic Info...")
-        basic_index = {
-            'topic_size': self.topic_size,
-            'corpus_size': len(self.doc_embeds),
-            'text_model_name': self.text_model_name,
-            'has_reduced_topics': self.reduced_topics_saved(model_id),
-        }
-        # Create Path & Save.
-        basic_index_path = join(model_folder_path, self.basic_index_file)
-        with open(basic_index_path, 'w') as f:
-            json.dump(basic_index, f)
-
-        # Save Topic Model's Index with the basic Attributes.
-        if show_progress:
-            progress_msg("Saving Topic Model's Index...")
-        topic_model_index = {
-            'topic_size': self.topic_size,
-            'corpus_id': self.corpus_id,
-            'text_model_name': self.text_model_name,
-            'topic_docs': self.topic_docs,
-            'topic_words': self.topic_words,
-        }
-        # Create Index path and Save.
-        model_index_path = join(model_folder_path, self.model_index_file)
-        with open(model_index_path, 'w') as f:
-            json.dump(topic_model_index, f)
-
-        # Transform the Topic Embeddings.
-        if show_progress:
-            progress_msg("Transforming Topic's Embeddings to List[float]...")
-        topic_embeds_index = dict_ndarray2list(self.topic_embeds, show_progress=show_progress)
-        # Save Topics Embeddings.
-        if show_progress:
-            progress_msg("Saving Topic's Embeddings...")
-        topic_embeds_path = join(model_folder_path, self.topic_embeds_file)
-        with open(topic_embeds_path, 'w') as f:
-            json.dump(topic_embeds_index, f)
-
-        # Transform Document's Embeddings.
-        if show_progress:
-            progress_msg("Transforming Document's Embeddings to List[Float]...")
-        doc_embeds_index = dict_ndarray2list(self.doc_embeds, show_progress=show_progress)
-        # Save Document's Embeddings.
-        if show_progress:
-            progress_msg("Saving Document's Embeddings...")
-        doc_embeds_path = join(model_folder_path, self.doc_embeds_file)
-        with open(doc_embeds_path, 'w') as f:
-            json.dump(doc_embeds_index, f)
-
-        # Save Vocabulary.
-        if show_progress:
-            progress_msg("Saving Vocabulary...")
-        self.corpus_vocab.save(topic_dir_path=model_folder_path, show_progress=show_progress)
-
-    def create_model_id(self):
-        """
-        Create a default ID for the current Topic Model using its corpus size,
-        Text Model and the number of topics found.
-
-        Returns: String with the created ID of the topic model.
-        """
-        num_docs = big_number(len(self.doc_embeds)).replace(',', '_')
-        model_name = self.text_model_name
-        topics_size = big_number(self.topic_size).replace(',', '_')
-        new_model_id = model_name + '_' + num_docs + '_docs_' + topics_size + '_topics'
-        # Example: bert_fast_10_000_docs_100_topics
-        return new_model_id
-
-    def reduced_topics_saved(self, model_id: str):
-        """
-        Check if the given Topic Model created and saved the Hierarchically
-        Reduced Topics.
-
-        Args:
-            model_id: ID used to save the Topic Model.
-        Returns:
-            Bool showing if the Reduced Topic Models were saved.
-        """
-        # Check Model ID.
-        if not model_id:
-            return False
-        # Check the Model's Folders.
-        if not isdir(self.class_folder):
-            return False
-        model_folder_name = self.model_folder_prefix + model_id
-        model_folder_path = join(self.class_folder, model_folder_name)
-        if not isdir(model_folder_path):
-            return False
-        reduced_folder_path = join(model_folder_path, self.reduced_topics_folder)
-        if not isdir(reduced_folder_path):
-            return False
-
-        # Check that all the Main Reduced Topic Models were saved.
-        main_sizes = best_midway_sizes(self.topic_size)
-        for topic_size in main_sizes:
-            # Check the file for the Reduced Model with the current size.
-            reduced_topic_file = self.reduced_topic_prefix + str(topic_size) + '.json'
-            reduced_topic_path = join(reduced_folder_path, reduced_topic_file)
-            if not isfile(reduced_topic_path):
-                return False
-
-        # All The Files were created correctly.
-        return True
-
-    @classmethod
-    def load(cls, model_id: str, show_progress=False):
-        """
-        Load a saved Topic Model.
-
-        Args:
-            model_id: String with the ID of the Topic Model we have to load.
-            show_progress: Bool representing whether we show the progress of
-                the method or not.
-        Returns:
-            TopicModel saved with the given 'model_id'.
-        """
-        loaded_instance = cls(
-            _used_saved=True, _model_id=model_id, show_progress=show_progress
-        )
-        return loaded_instance
-
-    @classmethod
-    def basic_info(cls, model_id: str):
-        """
-        Load the Basic Info of the Topic Model 'model_id'. Basic Information
-        attributes:
-
-        -  topic_size: Int
-        -  corpus_size: Int
-        -  text_model_name: String
-        -  has_reduced_topics: Bool
-
-        Args:
-            model_id: String with the ID of a saved Topic Model.
-        Returns:
-            Dictionary with the Basic Info of the Topic Model.
-        """
-        # Check the Data Folders.
-        if not isdir(cls.class_folder):
-            raise NotADirectoryError("The Topic Model data folder does not exist.")
-        model_folder_name = cls.model_folder_prefix + model_id
-        model_folder_path = join(cls.class_folder, model_folder_name)
-        if not isdir(model_folder_path):
-            raise NotADirectoryError(f"There is not Topic Model saved with the id <{model_id}>.")
-
-        # Load Basic Index.
-        basic_index_path = join(model_folder_path, cls.basic_index_file)
-        if not isfile(basic_index_path):
-            raise FileNotFoundError(f"The Topic Model <{model_id}> has not Basic Index File.")
-        with open(basic_index_path, 'r') as f:
-            basic_index = json.load(f)
-        # Basic Index of the Topic Model.
-        return basic_index
-
-    @classmethod
-    def saved_models(cls):
-        """
-        Create a list the IDs of the saved Topic Models.
-
-        Returns: List[str] with the IDs.
-        """
-        # Check the Data Folders.
-        if not isdir(cls.class_folder):
-            return []
-
-        # Check all the available IDs inside class folder.
-        topic_ids = []
-        for entry_name in listdir(cls.class_folder):
-            # Check we have a valid Model Folder Name.
-            entry_path = join(cls.class_folder, entry_name)
-            if not isdir(entry_path):
-                continue
-            if not entry_name.startswith(cls.model_folder_prefix):
-                continue
-
-            # Check for the Index Files.
-            basic_index_path = join(entry_path, cls.basic_index_file)
-            if not isfile(basic_index_path):
-                continue
-            model_index_path = join(entry_path, cls.model_index_file)
-            if not isfile(model_index_path):
-                continue
-            # Check Embeddings Files.
-            topic_embeds_path = join(entry_path, cls.topic_embeds_file)
-            if not isfile(topic_embeds_path):
-                continue
-            doc_embeds_path = join(entry_path, cls.doc_embeds_file)
-            if not isfile(doc_embeds_path):
-                continue
-            # Check Vocabulary Files.
-            if not Vocabulary.vocab_saved(topic_dir_path=entry_path):
-                continue
-
-            # Save Model ID, the folder contains all the main indexes.
-            prefix_len = len(cls.model_folder_prefix)
-            model_id = entry_name[prefix_len:]
-            topic_ids.append(model_id)
-
-        # Sort the Model IDs.
-        created_ids = []
-        provided_ids = []
-        for topic_id in topic_ids:
-            if cls.is_created_id(topic_id):
-                created_ids.append(topic_id)
-            else:
-                provided_ids.append(topic_id)
-        created_ids.sort(key=lambda x: int(x.split('_docs_')[1][:-7]), reverse=True)
-        provided_ids.sort()
-        # List with the IDs of all the valid Topic Models.
-        topic_ids = created_ids + provided_ids
-        return topic_ids
-
-    @classmethod
-    def is_created_id(cls, model_id: str):
-        """
-        Check if the string 'model_id' was created using the method
-        'create_model_id()'.
-
-        Returns: (Bool, docs,  indicating if the 'model_id' was created by the class.
-        """
-        # Check has the topics and docs.
-        if not model_id.endswith('_topics'):
-            return False
-        if '_docs_' not in model_id:
-            return False
-        # Check it has the text model name.
-        for model_name in ModelManager.models_dict.keys():
-            if model_name in model_id:
-                stripped_id = model_id.replace('_topics', '')
-                stripped_id = stripped_id.replace('_docs_', '')
-                stripped_id = stripped_id.replace(model_name, '')
-                stripped_id = stripped_id.replace('_', '')
-                # Check it only has numbers after eliminating Topics, Docs and model.
-                result = stripped_id.isnumeric()
-                return result
-        # It doesn't have any Text Model Name.
-        return False
-
-#   ----------------------------------------------------------------------------
-#   ----------------------------------------------------------------------------
-#   ----------------------------------------------------------------------------
-
-#     def generate_new_topics(self, number_topics: int, parallelism=False, show_progress=False):
-#         """
-#         Create a new Hierarchical Topic Model with specified number of topics
-#         (num_topics). The 'num_topics' need to be at least 2 topics, and be
-#         smaller than the original number of topics found.
-
-#         Args:
-#             number_topics: The desired topic count for the new Topic Model.
-#             parallelism: Bool indicating if we have to use multiprocessing or not.
-#             show_progress: Bool representing whether we show the progress of
-#                 the function or not.
-#         """
-#         # Check the number of topics requested is valid.
+        # Check the topic size requested is valid.
+        if not 1 < new_size < self.topic_size:
+            # Invalid topic size requested. Reset reduced topics variables.
+            pass
 #         if not 1 < number_topics < self.num_topics:
 #             # Invalid topic size requested. Reset reduced topics variables.
 #             self.new_topics = False
@@ -619,260 +352,432 @@ class MonoTopics(BaseTopics):
 #                                                       parallelism=parallelism,
 #                                                       show_progress=show_progress)
 
-#     def _reduce_topic_size(self, ref_topic_embeds: dict, topic_sizes: dict,
-#                            parallelism=False, show_progress=False):
-#         """
-#         Reduce the provided Topics in 'ref_topic_embeds' by 1, mixing the
-#         smallest topic with its closest neighbor.
+    def save(self, model_id='', show_progress=False):
+        """
+        Save the Main Topic Model's Attributes, so the model can be loaded later
+        using the given or created 'model_id'. If no 'model_id' is provided
+        a new ID is created using the number of Documents, the Text Model, and
+        the number topics found.
 
-#         Args:
-#             ref_topic_embeds: Dictionary containing the embeddings of the topics
-#                 we are going to reduce. This dictionary is treated as a
-#                 reference and will be modified to store the new reduced topics.
-#             topic_sizes: Dictionary containing the current size of the topics we
-#                 are reducing.
-#             parallelism: Bool to indicate if we have to use the multiprocessing
-#                 version of this function.
-#             show_progress: A Bool representing whether we show the progress of
-#                 the function or not.
+        Args:
+            model_id: String with the ID we want to use to save the Topic Model.
+            show_progress: Bool representing whether we show the progress of
+                the method or not.
+        """
+        # Check if we have to create a Topic Model.
+        if not model_id:
+            model_id = self.create_model_id()
 
-#         Returns:
-#             Tuple with 'ref_topic_embeds' dictionary  and a new 'topic_sizes'
-#                 dictionary containing the updated embeddings and sizes
-#                 respectively for the new Topics.
-#         """
-#         # Get the smallest topic and its info.
-#         new_topics_list = list(ref_topic_embeds.keys())
-#         min_topic_id = min(new_topics_list, key=lambda x: len(self.topic_docs[x]))
-#         min_embed = ref_topic_embeds[min_topic_id]
+        # Check the Class Data folder.
+        if not isdir(self.class_folder):
+            mkdir(self.class_folder)
+        # Clean the Topic Model's Folder path.
+        model_folder_name = self.model_folder_prefix + model_id
+        model_folder_path = join(self.class_folder, model_folder_name)
+        if isdir(model_folder_path):
+            # Delete any files in this folder. (Clean everything)
+            rmtree(model_folder_path)
+        mkdir(model_folder_path)
 
-#         # Delete Smallest Topic.
-#         del ref_topic_embeds[min_topic_id]
-#         # Get the closest topic to the small topic.
-#         close_topic_id, _ = closest_vector(min_embed, ref_topic_embeds)
-#         close_embed = ref_topic_embeds[close_topic_id]
+        # Save Topic Model's Basic Info.
+        if show_progress:
+            progress_msg("Saving Topic Model's Basic Info...")
+        basic_index = {
+            'topic_size': self.topic_size,
+            'corpus_size': len(self.doc_embeds),
+            'corpus_id': self.corpus_id,
+            'text_model_name': self.text_model_name,
+            'has_reduced_topics': self.reduced_topics_saved(model_id),
+        }
+        # Create Path & Save.
+        basic_index_path = join(model_folder_path, self.basic_index_file)
+        with open(basic_index_path, 'w') as f:
+            json.dump(basic_index, f)
 
-#         # Merge the embedding of the topics.
-#         min_size = topic_sizes[min_topic_id]
-#         close_size = topic_sizes[close_topic_id]
-#         total_size = min_size + close_size
-#         merged_topic_embed = (min_size * min_embed + close_size * close_embed) / total_size
+        # Save Topic Model's Index with the basic Attributes.
+        if show_progress:
+            progress_msg("Saving Topic Model's Index...")
+        topic_model_index = {
+            'topic_size': self.topic_size,
+            'corpus_id': self.corpus_id,
+            'text_model_name': self.text_model_name,
+            'topic_docs': self.topic_docs,
+            'topic_words': self.topic_words,
+        }
+        # Create Index path and Save.
+        model_index_path = join(model_folder_path, self.model_index_file)
+        with open(model_index_path, 'w') as f:
+            json.dump(topic_model_index, f)
 
-#         # Update embedding of the closest topic.
-#         ref_topic_embeds[close_topic_id] = merged_topic_embed
-#         # Get the new topic sizes.
-#         if show_progress:
-#             progress_msg(f"Creating sizes for the new {len(ref_topic_embeds)} topics...")
-#         new_topic_sizes = self._topic_document_count(ref_topic_embeds,
-#                                                      parallelism=parallelism,
-#                                                      show_progress=show_progress)
-#         # New Dictionaries with embeds and sizes.
-#         return ref_topic_embeds, new_topic_sizes
+        # Transform the Topic Embeddings.
+        if show_progress:
+            progress_msg("Transforming Topic's Embeddings to List[float]...")
+        topic_embeds_index = dict_ndarray2list(self.topic_embeds, show_progress=show_progress)
+        # Save Topics Embeddings.
+        if show_progress:
+            progress_msg("Saving Topic's Embeddings...")
+        topic_embeds_path = join(model_folder_path, self.topic_embeds_file)
+        with open(topic_embeds_path, 'w') as f:
+            json.dump(topic_embeds_index, f)
 
-#     def _topic_document_count(self, topic_embeds_dict: dict, parallelism=False,
-#                               show_progress=False):
-#         """
-#         Given a dictionary with the embeddings of a group of topics, count the
-#         number of documents assign to each of the topics in the given dictionary.
+        # Transform Document's Embeddings.
+        if show_progress:
+            progress_msg("Transforming Document's Embeddings to List[Float]...")
+        doc_embeds_index = dict_ndarray2list(self.doc_embeds, show_progress=show_progress)
+        # Save Document's Embeddings.
+        if show_progress:
+            progress_msg("Saving Document's Embeddings...")
+        doc_embeds_path = join(model_folder_path, self.doc_embeds_file)
+        with open(doc_embeds_path, 'w') as f:
+            json.dump(doc_embeds_index, f)
 
-#         Args:
-#             topic_embeds_dict: Dictionary with the topic IDs as keys and the
-#                 embeddings of the topics as values.
-#             parallelism: Bool to indicate if we have to use the multiprocessing
-#                 version of this function.
-#             show_progress: A Bool representing whether we show the progress of
-#                 the function or not.
+        # Save Vocabulary.
+        if show_progress:
+            progress_msg("Saving Vocabulary...")
+        self.corpus_vocab.save(topic_dir_path=model_folder_path, show_progress=show_progress)
 
-#         Returns:
-#             Dictionary containing the topic IDs as keys and the number of
-#                 documents belonging to each one in the current corpus.
-#         """
-#         # Check if multiprocessing was requested, and we have enough topics.
-#         # parallel_min = int(2 * PEAK_SIZE / MAX_CORES)  # I made a formula that game me this number (?)
-#         parallel_min = 37  # This is the number when more cores are faster.
-#         if parallelism and len(topic_embeds_dict) > parallel_min:
-#             return self._document_count_parallel(topic_embeds_dict, show_progress)
+    def create_model_id(self):
+        """
+        Create a default ID for the current Topic Model using its corpus size,
+        Text Model and the number of topics found.
 
-#         # Check we have at least a topic.
-#         if len(topic_embeds_dict) == 0:
-#             return {}
+        Returns: String with the created ID of the topic model.
+        """
+        num_docs = big_number(len(self.doc_embeds)).replace(',', '_')
+        model_name = self.text_model_name
+        topics_size = big_number(self.topic_size).replace(',', '_')
+        new_model_id = model_name + '_' + num_docs + '_docs_' + topics_size + '_topics'
+        # Example: bert_fast_10_000_docs_100_topics
+        return new_model_id
 
-#         # Progress Variables.
-#         count = 0
-#         total = len(self.doc_embeds)
-#         # Iterate through the documents and their embeddings.
-#         topic_docs_count = {}
-#         for doc_id, doc_embed in self.doc_embeds.items():
-#             # Find the closest topic to the current document.
-#             topic_id, _ = closest_vector(doc_embed, topic_embeds_dict)
-#             # Check if we have found this topic before.
-#             if topic_id in topic_docs_count:
-#                 topic_docs_count[topic_id] += 1
-#             else:
-#                 topic_docs_count[topic_id] = 1
-#             # Show Progress:
-#             if show_progress:
-#                 count += 1
-#                 progress_bar(count, total)
+    def save_reduced_topics(self, model_id: str, parallelism=False, override=False,
+                            show_progress=False):
+        """
+        Create a list of basic topic sizes between 2 and the size of the current
+        Topic Model, to create and save the Hierarchical Topic Models of this
+        Model with these sizes, so when we create a new Hierarchical Topic Model
+        we can do it faster, only having to start reducing the Topic sizes from
+        the closest basic topic size.
 
-#         # The document count per each topic.
-#         return topic_docs_count
+        The saved topic sizes will be in the range of 2-1000, with different
+        steps depending on the Topic Size range.
+          - Step of  5 between  2 and 30.
+          - Step of 10 between 30 and 100.
+          - Step of 25 between 100 and 300.
+          - Step of 50 between 300 and 1000.
 
-#     def _document_count_parallel(self, topic_embeds_dict: dict, show_progress=False):
-#         """
-#         Version of _topic_document_count() using MultiProcessing.
+        Args:
+            model_id: ID of the topic model for which we want to save their
+                hierarchically reduced topics.
+            parallelism: Bool to indicate if we can use multiprocessing to speed
+                up the runtime of the method.
+            override: Bool indicating if we can delete a previously saved
+                Reduced Topics.
+            show_progress: Bool representing whether we show the progress of
+                the method or not.
+        """
+        # Check the Model is Saved.
+        if show_progress:
+            progress_msg("Checking the given ID corresponds to the current Topic Model...")
+        if not self.model_saved(model_id=model_id):
+            raise Exception(
+                "The Model needs to be saved before saving its Reduced Topics."
+            )
+        # Load the Basic Index, to check if the current topic model corresponds
+        # to the given 'model_id'.
+        basic_index = self.basic_info(model_id=model_id)
+        if (basic_index['topic_size'] != self.topic_size or
+                basic_index['corpus_size'] != len(self.doc_embeds) or
+                basic_index['corpus_id'] != self.corpus_id or
+                basic_index['text_model_name'] != self.text_model_name):
+            raise NameError(
+                f"The Data saved about the given Model ID <{model_id}> and the "
+                f"current Topic Model don't match."
+            )
+        # Check we can create a Reduced Topic Model.
+        if self.topic_size <= 2:
+            return
+        # Check if the Model has Reduced Topics Saved.
+        if self.reduced_topics_saved(model_id) and not override:
+            raise FileExistsError(
+                "This Topic Model already has its Reduced Topics saved. Set "
+                "the 'override' parameter to 'True' to replace them with new "
+                "Reduced Topics. "
+            )
 
-#         Given a dictionary with the embeddings of a group of topics, count the
-#         number of documents assign to each of the topics in the given dictionary.
+        # Create Reduced Topics Folder.
+        model_folder_name = self.model_folder_prefix + model_id
+        model_folder_path = join(self.class_folder, model_folder_name)
+        reduced_folder_path = join(model_folder_path, self.reduced_topics_folder)
+        if isdir(reduced_folder_path):
+            # Remove the previously saved Hierarchy.
+            rmtree(reduced_folder_path)
+        mkdir(reduced_folder_path)
 
-#         Args:
-#             topic_embeds_dict: Dictionary with the topic IDs as keys and the
-#                 embeddings of the topics as values.
-#             show_progress: A Bool representing whether we show the progress of
-#                 the function or not.
+        # Get the Set of Reduced Topic Sizes we have to save.
+        main_sizes = best_midway_sizes(self.topic_size)
+        # Initialize Topic Reduction dictionaries.
+        current_size = self.topic_size
+        new_topic_embeds = self.topic_embeds.copy()
+        new_topic_sizes = dict(
+            [(topic_id, len(doc_list))
+             for topic_id, doc_list in self.topic_docs.items()]
+        )
+        # Start Reducing Topics and Saving the Main Topic Sizes.
+        if show_progress:
+            progress_msg("Saving the Hierarchically Reduced Topic Models...")
+        while current_size > 2:
+            # Reduce the Topic Size by 1.
+            if show_progress:
+                progress_msg(
+                    f"Reducing from {current_size} to {current_size - 1} topics..."
+                )
+            new_topic_embeds, new_topic_sizes = self.reduce_topic_size(
+                ref_topic_embeds=new_topic_embeds, topic_sizes=new_topic_sizes,
+                parallelism=parallelism, show_progress=show_progress
+            )
+            # Update the current number of topics.
+            current_size = len(new_topic_embeds)
 
-#         Returns:
-#             Dictionary containing the topic IDs as keys and the number of
-#                 documents belonging to each one in the current corpus.
-#         """
-#         # Check we have at least a topic.
-#         if len(topic_embeds_dict) == 0:
-#             return {}
+            # Check if we have to save the current embeddings and sizes.
+            if current_size in main_sizes:
+                if show_progress:
+                    progress_msg(
+                        "<<Main Topic Found>>\n"
+                        f"Saving Reduced Topic Model with {current_size} topics..."
+                    )
+                # Transform Topic Embeddings to List[float].
+                json_topic_embeds = dict_ndarray2list(new_topic_embeds)
+                # Create Dict with embeddings and sizes.
+                reduced_topics_index = {
+                    'topic_embeds': json_topic_embeds,
+                    'topic_sizes': new_topic_sizes,
+                }
+                # Save Index of the current Reduced Topics.
+                reduced_topics_file = (
+                        self.reduced_topic_prefix + str(current_size) + '.json'
+                )
+                reduced_topics_path = join(reduced_folder_path, reduced_topics_file)
+                with open(reduced_topics_path, 'w') as f:
+                    json.dump(reduced_topics_index, f)
+                if show_progress:
+                    progress_msg("<<Saved>>")
 
-#         # Determine the number of cores.
-#         optimal_cores = min(multiprocessing.cpu_count(), MAX_CORES)
-#         efficiency_mult = min(float(1), len(topic_embeds_dict) / PEAK_SIZE)
-#         core_count = max(2, int(efficiency_mult * optimal_cores))
-#         # Number of instructions processed in one batch.
-#         chunk_size = max(1, len(self.doc_embeds) // 100)
-#         # chunk_size = max(1, len(self.doc_embeds) // (PARALLEL_MULT * core_count))
+        # Update the Basic Info of the Model (It has now a Hierarchy).
+        if not basic_index['has_reduced_topics']:
+            basic_index['has_reduced_topics'] = True
+            basic_index_path = join(model_folder_path, self.basic_index_file)
+            with open(basic_index_path, 'w') as f:
+                json.dump(basic_index, f)
 
-#         # Dictionary for the Topic-Docs count.
-#         topic_docs_count = defaultdict(int)
-#         # Create parameter tuples for _custom_closest_vector().
-#         tuple_params = [(doc_id, doc_embed, topic_embeds_dict)
-#                         for doc_id, doc_embed in self.doc_embeds.items()]
-#         with multiprocessing.Pool(processes=core_count) as pool:
-#             # Pool map() vs imap() depending on if we have to report progress.
-#             if show_progress:
-#                 # Report Parallelization.
-#                 progress_msg(f"Using Parallelization <{core_count} cores>")
-#                 # Progress Variables.
-#                 count = 0
-#                 total = len(self.doc_embeds)
-#                 # Iterate through the results to update the process.
-#                 for doc_id, topic_id, _ in pool.imap(_custom_closest_vector, tuple_params, chunksize=chunk_size):
-#                     topic_docs_count[topic_id] += 1
-#                     # Progress.
-#                     count += 1
-#                     progress_bar(count, total)
-#             else:
-#                 # Process all the parameters at once (faster).
-#                 tuple_results = pool.map(_custom_closest_vector, tuple_params, chunksize=chunk_size)
-#                 for doc_id, topic_id, _ in tuple_results:
-#                     topic_docs_count[topic_id] += 1
+    def reduced_topics_saved(self, model_id: str):
+        """
+        Check if the given Topic Model created and saved the Hierarchically
+        Reduced Topics.
 
-#         # The document count per each topic.
-#         topic_docs_count = dict(topic_docs_count)
-#         return topic_docs_count
+        Args:
+            model_id: ID used to save the Topic Model.
+        Returns:
+            Bool showing if the Reduced Topic Models were saved.
+        """
+        # Check Model ID.
+        if not model_id:
+            return False
+        # Check the Model's Folders.
+        if not isdir(self.class_folder):
+            return False
+        model_folder_name = self.model_folder_prefix + model_id
+        model_folder_path = join(self.class_folder, model_folder_name)
+        if not isdir(model_folder_path):
+            return False
+        reduced_folder_path = join(model_folder_path, self.reduced_topics_folder)
+        if not isdir(reduced_folder_path):
+            return False
 
-#     def save_reduced_topics(self, parallelism=False, show_progress=False):
-#         """
-#         Create a list of basic topic sizes between 2 and the size of the current
-#         Topic Model, to create and save the Hierarchical Topic Models of this
-#         Model with these sizes, so when we create a new Hierarchical Topic Model
-#         we can do it faster, only having to start reducing the Topic sizes from
-#         the closest basic topic size.
+        # Check that all the Main Reduced Topic Models were saved.
+        main_sizes = best_midway_sizes(self.topic_size)
+        for topic_size in main_sizes:
+            # Check the file for the Reduced Model with the current size.
+            reduced_topic_file = self.reduced_topic_prefix + str(topic_size) + '.json'
+            reduced_topic_path = join(reduced_folder_path, reduced_topic_file)
+            if not isfile(reduced_topic_path):
+                return False
 
-#         The saved topic sizes will be in the range of 2-1000, with different
-#         steps depending on the Topic Size range.
-#           - Step of  5 between  2 and 30.
-#           - Step of 10 between 30 and 100.
-#           - Step of 25 between 100 and 300.
-#           - Step of 50 between 300 and 1000.
+        # All The Files were created correctly.
+        return True
 
-#         Args:
-#             parallelism: Bool to indicate if we have to use the multiprocessing
-#                 version of this function.
-#             show_progress:  A Bool representing whether we show the progress of
-#                 the function or not.
-#         """
-#         # Check we can create a Reduced Topic Model.
-#         if self.num_topics <= 2:
-#             return
+    @classmethod
+    def load(cls, model_id: str, show_progress=False):
+        """
+        Load a saved Topic Model.
 
-#         # Check the class' data folders.
-#         if not isdir(self.data_folder):
-#             mkdir(self.data_folder)
-#         class_folder_path = join(self.data_folder, self.class_data_folder)
-#         if not isdir(class_folder_path):
-#             mkdir(class_folder_path)
-#         model_folder_name = self.model_folder_prefix + self.model_id
-#         model_folder_path = join(class_folder_path, model_folder_name)
-#         if not isdir(model_folder_path):
-#             mkdir(model_folder_path)
-#         # Check if there is an already Saved Hierarchy.
-#         reduced_folder_path = join(model_folder_path, self.reduced_topics_folder)
-#         if isdir(reduced_folder_path):
-#             # Remove the previously saved Hierarchy.
-#             rmtree(reduced_folder_path)
-#         # Create Empty Folder to store the hierarchically reduced topics.
-#         mkdir(reduced_folder_path)
+        Args:
+            model_id: String with the ID of the Topic Model we have to load.
+            show_progress: Bool representing whether we show the progress of
+                the method or not.
+        Returns:
+            TopicModel saved with the given 'model_id'.
+        """
+        loaded_instance = cls(
+            _used_saved=True, _model_id=model_id, show_progress=show_progress
+        )
+        return loaded_instance
 
-#         # Get a Set with the Reduced Topic Sizes that we have to save.
-#         main_sizes = best_midway_sizes(self.num_topics)
+    @classmethod
+    def basic_info(cls, model_id: str):
+        """
+        Load the Basic Info of the Topic Model 'model_id'. Basic Information
+        attributes:
 
-#         # Initialize Topic Reduction dictionaries.
-#         current_num_topics = self.num_topics
-#         new_topic_embeds = self.topic_embeds.copy()
-#         new_topic_sizes = dict([(topic_id, len(self.topic_docs[topic_id]))
-#                                 for topic_id in self.topic_docs.keys()])
+        -  topic_size: Int
+        -  corpus_size: Int
+        -  text_model_name: String
+        -  has_reduced_topics: Bool
 
-#         # Start Reducing Topics and Saving the Main Topic Sizes.
-#         if show_progress:
-#             progress_msg("Saving Main Hierarchically Reduced Topic Models...")
-#         while current_num_topics > 2:
-#             # Reduce number of topics by 1.
-#             if show_progress:
-#                 progress_msg(f"Reducing from {current_num_topics} to {current_num_topics - 1} topics...")
-#             result_tuple = self._reduce_topic_size(ref_topic_embeds=new_topic_embeds,
-#                                                    topic_sizes=new_topic_sizes,
-#                                                    parallelism=parallelism,
-#                                                    show_progress=show_progress)
-#             new_topic_embeds, new_topic_sizes = result_tuple
-#             # Update current number of topics.
-#             current_num_topics = len(new_topic_embeds)
+        Args:
+            model_id: String with the ID of a saved Topic Model.
+        Returns:
+            Dictionary with the Basic Info of the Topic Model.
+        """
+        # Check the Data Folders.
+        if not isdir(cls.class_folder):
+            raise NotADirectoryError("The Topic Model data folder does not exist.")
+        model_folder_name = cls.model_folder_prefix + model_id
+        model_folder_path = join(cls.class_folder, model_folder_name)
+        if not isdir(model_folder_path):
+            raise NotADirectoryError(f"There is not Topic Model saved with the id <{model_id}>.")
 
-#             # Check if we need to save the current embeddings and sizes.
-#             if current_num_topics in main_sizes:
-#                 if show_progress:
-#                     progress_msg("<<Main Topic Found>>")
-#                     progress_msg(f"Saving Reduced Topic Model with {current_num_topics} topics...")
-#                 # Transform Embeddings to lists.
-#                 json_topic_embeds = {}
-#                 for topic_id, topic_embed in new_topic_embeds.items():
-#                     json_topic_embeds[topic_id] = topic_embed.tolist()
-#                 # Create Dict with embeddings and sizes.
-#                 reduced_topic_index = {
-#                     'topic_embeds': json_topic_embeds,
-#                     'topic_sizes': new_topic_sizes,
-#                 }
-#                 # Save the index of the reduced topic.
-#                 reduced_topic_file = (self.reduced_topic_prefix
-#                                       + str(current_num_topics) + '.json')
-#                 reduced_topic_path = join(reduced_folder_path, reduced_topic_file)
-#                 with open(reduced_topic_path, 'w') as f:
-#                     json.dump(reduced_topic_index, f)
-#                 # Progress.
-#                 if show_progress:
-#                     progress_msg("<<Saved>>")
+        # Load Basic Index.
+        basic_index_path = join(model_folder_path, cls.basic_index_file)
+        if not isfile(basic_index_path):
+            raise FileNotFoundError(f"The Topic Model <{model_id}> has not Basic Index File.")
+        with open(basic_index_path, 'r') as f:
+            basic_index = json.load(f)
+        # Basic Index of the Topic Model.
+        return basic_index
 
-#         # Update the Basic Info of the Model (It has now a Hierarchy).
-#         self.save_basic_info()
+    @classmethod
+    def model_saved(cls, model_id: str):
+        """
+        Check if the given 'model_id' string corresponds to a saved Topic Model.
 
-#   ----------------------------------------------------------------------------
-#   ----------------------------------------------------------------------------
-#   ----------------------------------------------------------------------------
+        Args:
+            model_id: String with the ID of the Topic Model we want to check.
+        Returns:
+            Bool indicating if the Topic Model is saved or not.
+        """
+        # Check model_id.
+        if not model_id:
+            return False
+        # Check Class and Model Folder.
+        if not isdir(cls.class_folder):
+            return False
+        model_folder_name = cls.model_folder_prefix + model_id
+        model_folder_path = join(cls.class_folder, model_folder_name)
+        if not isdir(model_folder_path):
+            return False
+        # Check Index and Embeddings Files.
+        basic_index_path = join(model_folder_path, cls.basic_index_file)
+        if not isfile(basic_index_path):
+            return False
+        model_index_path = join(model_folder_path, cls.model_index_file)
+        if not isfile(model_index_path):
+            return False
+        topic_embeds_path = join(model_folder_path, cls.topic_embeds_file)
+        if not isfile(topic_embeds_path):
+            return False
+        doc_embeds_path = join(model_folder_path, cls.doc_embeds_file)
+        if not isfile(doc_embeds_path):
+            return False
+        # Check Vocabulary.
+        if not Vocabulary.vocab_saved(topic_dir_path=model_folder_path):
+            return False
+        # All Good.
+        return True
+
+    @classmethod
+    def saved_models(cls):
+        """
+        Create a list the IDs of the saved Topic Models.
+
+        Returns: List[str] with the IDs.
+        """
+        # Check the Data Folders.
+        if not isdir(cls.class_folder):
+            return []
+
+        # Check all the available IDs inside class folder.
+        topic_ids = []
+        for entry_name in listdir(cls.class_folder):
+            # Check we have a valid Model Folder Name.
+            entry_path = join(cls.class_folder, entry_name)
+            if not isdir(entry_path):
+                continue
+            if not entry_name.startswith(cls.model_folder_prefix):
+                continue
+
+            # Check for the Index Files.
+            basic_index_path = join(entry_path, cls.basic_index_file)
+            if not isfile(basic_index_path):
+                continue
+            model_index_path = join(entry_path, cls.model_index_file)
+            if not isfile(model_index_path):
+                continue
+            # Check Embeddings Files.
+            topic_embeds_path = join(entry_path, cls.topic_embeds_file)
+            if not isfile(topic_embeds_path):
+                continue
+            doc_embeds_path = join(entry_path, cls.doc_embeds_file)
+            if not isfile(doc_embeds_path):
+                continue
+            # Check Vocabulary Files.
+            if not Vocabulary.vocab_saved(topic_dir_path=entry_path):
+                continue
+
+            # Save Model ID, the folder contains all the main indexes.
+            prefix_len = len(cls.model_folder_prefix)
+            model_id = entry_name[prefix_len:]
+            topic_ids.append(model_id)
+
+        # Sort the Model IDs.
+        created_ids = []
+        provided_ids = []
+        for topic_id in topic_ids:
+            if cls.is_created_id(topic_id):
+                created_ids.append(topic_id)
+            else:
+                provided_ids.append(topic_id)
+        created_ids.sort(key=lambda x: int(x.split('_docs_')[1][:-7]), reverse=True)
+        provided_ids.sort()
+        # List with the IDs of all the valid Topic Models.
+        topic_ids = created_ids + provided_ids
+        return topic_ids
+
+    @classmethod
+    def is_created_id(cls, model_id: str):
+        """
+        Check if the string 'model_id' was created using the method
+        'create_model_id()'.
+
+        Returns: (Bool, docs,  indicating if the 'model_id' was created by the class.
+        """
+        # Check has the topics and docs.
+        if not model_id.endswith('_topics'):
+            return False
+        if '_docs_' not in model_id:
+            return False
+        # Check it has the text model name.
+        for model_name in ModelManager.models_dict.keys():
+            if model_name in model_id:
+                stripped_id = model_id.replace('_topics', '')
+                stripped_id = stripped_id.replace('_docs_', '')
+                stripped_id = stripped_id.replace(model_name, '')
+                stripped_id = stripped_id.replace('_', '')
+                # Check it only has numbers after eliminating Topics, Docs and model.
+                result = stripped_id.isnumeric()
+                return result
+        # It doesn't have any Text Model Name.
+        return False
 
 
 if __name__ == '__main__':
