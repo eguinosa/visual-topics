@@ -24,7 +24,6 @@ class SampleManager(TopicCorpus):
     data_folder = 'project_data'
     class_folder = 'sample_manager_files'
     sample_index_suffix = '_sample_index.json'
-    sample_info_suffix = '_sample_info.json'
 
     def __init__(self, corpus: TopicCorpus = None, sample_size=-1,
                  _load_sample=False, _sample_id='', show_progress=False):
@@ -60,27 +59,18 @@ class SampleManager(TopicCorpus):
                 raise FileNotFoundError(
                     f"The Class Folder for the Sample <{_sample_id}> does not exist."
                 )
-            # Check the files of the Sample.
+            # Load Index file.
             sample_index_file = _sample_id + self.sample_index_suffix
             sample_index_path = join(class_folder_path, sample_index_file)
             if not isfile(sample_index_path):
                 raise FileNotFoundError(
                     f"The Index for the Sample <{_sample_id}> does not exist."
                 )
-            sample_info_file = _sample_id + self.sample_info_suffix
-            sample_info_path = join(class_folder_path, sample_info_file)
-            if not isfile(sample_info_path):
-                raise FileNotFoundError(
-                    f"The Info file for the Sample <{_sample_id}> does not exist."
-                )
-            # Load Index file.
             with open(sample_index_path, 'r') as f:
-                sample_doc_ids = json.load(f)
-            # Load Info file.
-            with open(sample_info_path, 'r') as f:
-                sample_info = json.load(f)
-            # Load Sample Main Corpus.
-            corpus_id = sample_info['corpus_id']
+                sample_index = json.load(f)
+            # Load Class Attributes.
+            corpus_id = sample_index['corpus_id']
+            sample_doc_ids = sample_index['sample_doc_ids']
             corpus = CorporaManager(corpus_id=corpus_id, show_progress=show_progress)
         else:
             if show_progress:
@@ -198,26 +188,20 @@ class SampleManager(TopicCorpus):
         # Create filenames.
         if sample_id:
             sample_index_file = sample_id + self.sample_index_suffix
-            sample_info_file = sample_id + self.sample_info_suffix
         else:
             # Use the number of documents to create the id of the sample.
             docs_num_str = big_number(len(self.sample_doc_ids)).replace(',', '_')
             custom_id = docs_num_str + '_docs'
             sample_index_file = custom_id + self.sample_index_suffix
-            sample_info_file = custom_id + self.sample_info_suffix
 
-        # Save the Doc's IDs.
+        # Save Sample Index.
+        sample_index = {
+            'corpus_id': self.main_corpus.corpus_id,
+            'sample_doc_ids': self.sample_doc_ids
+        }
         sample_index_path = join(data_folder_path, sample_index_file)
         with open(sample_index_path, 'w') as f:
-            json.dump(self.sample_doc_ids, f)
-        # Save Original Corpus and Size.
-        sample_info = {
-            'corpus_id': self.main_corpus.corpus_id,
-            'sample_size': len(self.sample_doc_ids),
-        }
-        sample_info_path = join(data_folder_path, sample_info_file)
-        with open(sample_info_path, 'w') as f:
-            json.dump(sample_info, f)
+            json.dump(sample_index, f)
 
     @classmethod
     def load(cls, sample_id: str, show_progress=False):
@@ -262,19 +246,36 @@ class SampleManager(TopicCorpus):
             if file_name.endswith(cls.sample_index_suffix):
                 id_len = len(file_name) - len(cls.sample_index_suffix)
                 sample_id = file_name[:id_len]
-                # Check we haven't found this ID before.
-                if sample_id not in sample_ids:
-                    sample_ids.append(sample_id)
-            # See if we have an Info file.
-            elif file_name.endswith(cls.sample_info_suffix):
-                id_len = len(file_name) - len(cls.sample_info_suffix)
-                sample_id = file_name[:id_len]
-                # Check we haven't found this ID before.
-                if sample_id not in sample_ids:
-                    sample_ids.append(sample_id)
+                sample_ids.append(sample_id)
 
-        # List the sample IDs found.
+        # Sort the Sample IDs.
+        custom_ids = []
+        provided_ids = []
+        for sample_id in sample_ids:
+            if cls.is_custom_id(sample_id):
+                custom_ids.append(sample_id)
+            else:
+                provided_ids.append(sample_id)
+        custom_ids.sort(key=lambda x: int(x[:-5]))
+        provided_ids.sort()
+        # List of the Sample IDs found.
+        sample_ids = custom_ids + provided_ids
         return sample_ids
+
+    @classmethod
+    def is_custom_id(cls, sample_id: str):
+        """
+        Determine if the 'sample_id' was created by the class, or it was created
+        by a user.
+        """
+        if not sample_id.endswith('_docs'):
+            return False
+        try:
+            number_id = sample_id[:-5]
+            if int(number_id):
+                return True
+        except ValueError:
+            return False
 
 
 if __name__ == '__main__':
@@ -283,36 +284,41 @@ if __name__ == '__main__':
     # Get the Console arguments.
     _args = sys.argv
 
-    # # Create a Sample.
-    # _size = 10
-    # print(f"\nCreating a Sample of {_size} documents...")
-    # _sample = SampleManager(sample_size=_size)
-    # print("Done.")
-    # print(f"[{_stopwatch.formatted_runtime()}]")
-    #
-    # # Show Doc IDs.
+    # Create a Sample.
+    _size = 20_000
+    print(f"\nCreating a Sample of {_size} documents...")
+    _sample = SampleManager(sample_size=_size)
+    print("Done.")
+    print(f"[{_stopwatch.formatted_runtime()}]")
+
+    # Show Doc IDs.
+    print(f"\nSample size: {big_number(len(_sample.doc_ids))}")
     # print("\nSample IDs:")
     # print(_sample.doc_ids)
 
-    # # Save Sample.
+    # Save Sample.
+    # ------------------------------------------------
     # _old_id = 'old_sample'
     # print(f"\nSaving Sample with ID <{_old_id}>...")
     # _sample.save(sample_id=_old_id)
-    # print("Sample Saved.")
-    # print("Done.")
-    # print(f"[{_stopwatch.formatted_runtime()}]")
-    #
-    # # Create another Sample.
+    # ------------------------------------------------
+    print("\nSaving Sample...")
+    _sample.save()
+    # ------------------------------------------------
+    print("Done.")
+    print(f"[{_stopwatch.formatted_runtime()}]")
+
+    # # -- Create New Sample --
     # _new_size = 10
     # print(f"\nCreating a new Sample of {_new_size} documents...")
     # _sample = SampleManager(sample_size=_new_size)
     # print("Done.")
     # print(f"[{_stopwatch.formatted_runtime()}]")
-    #
+    # ------------------------------------------------
     # # Show New Doc Ids.
     # print("\nNew Sample IDs:")
     # print(_sample.doc_ids)
-    #
+    # ------------------------------------------------
     # # Save the New Sample.
     # # the_new_id = 'new_sample'
     # # print(f"\nSaving New Sample with ID <{the_new_id}>...")
@@ -321,13 +327,13 @@ if __name__ == '__main__':
     # print("Sample Saved.")
     # print("Done.")
     # print(f"[{_stopwatch.formatted_runtime()}]")
-    #
-    # # Load Old sample.
+
+    # # -- Load Old sample --
     # print(f"\nLoading old Sample <{_old_id}>...")
     # _old_sample = SampleManager.load(sample_id=_old_id)
     # print("Done.")
     # print(f"[{_stopwatch.formatted_runtime()}]")
-    #
+    # ------------------------------------------------
     # # Show Sample IDs.
     # print("\nOld Sample IDs:")
     # print(_old_sample.doc_ids)
