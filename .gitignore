@@ -5,6 +5,7 @@ corpora_data/
 project_data/
 temp_data/
 # Models Folders.
+topic_models/
 doc_models/
 fasttext_models/
 spacy_models/
