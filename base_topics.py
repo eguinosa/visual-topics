@@ -199,6 +199,59 @@ class BaseTopics(ABC):
         # The List of Tuples of the Topic's words and their similarity.
         return words_sim
 
+    def reduce_topic_size(self, ref_topic_embeds: dict, topic_sizes: dict,
+                          parallelism=False, show_progress=False):
+        """
+        Reduce by 1 the number of topics inside the dictionary 'ref_topic_embeds',
+        joining the smallest topic with its closest neighbor.
+
+        Args:
+            ref_topic_embeds: Dictionary containing the embeddings of the topics
+                we are going to reduce. This dictionary is treated as a
+                reference and will be modified to store the new reduced topics.
+            topic_sizes: Dictionary containing the current size of the topics we
+                are reducing.
+            parallelism: Bool to indicate if we have to use the multiprocessing
+                version of this function.
+            show_progress: A Bool representing whether we show the progress of
+                the function or not.
+
+        Returns:
+            Tuple with 'ref_topic_embeds' dictionary  and a new 'topic_sizes'
+                dictionary containing the updated embeddings and sizes
+                respectively for the new Topics.
+        """
+        # Get the ID and Embed of the smallest Topic.
+        min_topic_id = min(
+            topic_sizes.keys(), key=lambda topic_id: len(topic_sizes[topic_id])
+        )
+        min_embed = ref_topic_embeds[min_topic_id]
+
+        # Delete Smallest Topic.
+        del ref_topic_embeds[min_topic_id]
+        # Get the closest topic to the Smallest Topic.
+        closest_topic_id, _ = closest_vector(min_embed, ref_topic_embeds)
+        close_embed = ref_topic_embeds[closest_topic_id]
+        # Merge the embeddings of the topics.
+        min_size = topic_sizes[min_topic_id]
+        closest_size = topic_sizes[closest_topic_id]
+        total_size = min_size + closest_size
+        merged_topic_embed = (
+                (min_size * min_embed + closest_size * close_embed) / total_size
+        )
+        # Update embedding of the closest topic.
+        ref_topic_embeds[closest_topic_id] = merged_topic_embed
+
+        # Get new the new Topic Sizes.
+        if show_progress:
+            progress_msg(f"Creating sizes for the new {len(ref_topic_embeds)} topics...")
+        new_topic_sizes = count_child_embeddings(
+            parent_embeds=ref_topic_embeds, child_embeds=self.base_doc_embeds,
+            parallelism=parallelism, show_progress=show_progress
+        )
+        # Dictionaries with the new Topic Sizes and Embeddings.
+        return ref_topic_embeds, new_topic_sizes
+
 
 def create_docs_embeds(corpus: TopicCorpus, model: ModelManager, show_progress=False):
     """
@@ -353,7 +406,9 @@ def find_child_embeddings(parent_embeds: dict, child_embeds: dict,
     parallel_min = 37  # Number when multicore begins to be faster that single-core.
     # parallel_min = int(2 * PEAK_SIZE / MAX_CORES)  # alternative formula (?)
     if parallelism and len(parent_embeds) > parallel_min:
-        return find_children_parallel(parent_embeds, child_embeds, show_progress)
+        return find_children_parallel(
+            parent_embeds, child_embeds, show_progress=show_progress
+        )
 
     # Check we have at least one Parent Dictionary.
     if len(parent_embeds) == 0:
@@ -414,12 +469,12 @@ def find_children_parallel(parent_embeds: dict, child_embeds: dict, show_progres
     # Create chunk size to process the tasks in the cores.
     chunk_size = max(1, len(child_embeds) // 100)
     # chunk_size = max(1, len(child_embeds) // (PARALLEL_MULT * core_count))
+
     # Create tuple parameters.
     tuple_params = [
         (child_id, child_embed, parent_embeds)
         for child_id, child_embed in child_embeds.items()
     ]
-
     # Create Parent-Children dictionary.
     parent_child_dict = {}
     # Create the Process Pool using the best CPU count (formula) for the task.
@@ -484,6 +539,138 @@ def _custom_closest_vector(id_embed_parents: tuple):
     child_id, child_embed, parent_embeds = id_embed_parents
     parent_id, similarity = closest_vector(child_embed, parent_embeds)
     return child_id, parent_id, similarity
+
+
+def count_child_embeddings(parent_embeds: dict, child_embeds: dict,
+                           parallelism=False, show_progress=False):
+    """
+    Given the embedding's dictionaries 'parent_embeds' and 'child_embeds',
+    create a new dictionary counting per each parent the number of child_embeds
+    that are closest to them.
+
+    Args:
+        parent_embeds: Dictionary containing the parent_ids as keys and their
+            embeddings as values.
+        child_embeds: Dictionary containing the child_ids as keys and their
+            embeddings as values.
+        parallelism: Bool indicating if we can use multiprocessing to speed up
+            the execution of the program.
+        show_progress: A Bool representing whether we show the progress of
+            the method or not.
+    Returns:
+        Dictionary (Parent ID -> Int) containing the parent_ids as
+            keys, and the number of child_ids that are closer to the Parent ID
+            than any other parent.
+    """
+    # See if we can use parallelism.
+    parallel_min = 37  # Number when multicore begins to be faster that single-core.
+    # parallel_min = int(2 * PEAK_SIZE / MAX_CORES)  # alternative formula (?)
+    if parallelism and len(parent_embeds) > parallel_min:
+        return count_children_parallel(
+            parent_embeds, child_embeds, show_progress=show_progress
+        )
+    # Check we have at least one parent.
+    if len(parent_embeds) == 0:
+        return {}
+
+    # Progress Variables.
+    count = 0
+    total = len(child_embeds)
+    # Iterate through the children to find their closest parent.
+    parent_child_count = {}
+    for child_id, child_embed in child_embeds.items():
+        # Find the closest parent to the child.
+        parent_id, _ = closest_vector(child_embed, parent_embeds)
+        # Check if we have found this parent before.
+        if parent_id in parent_child_count:
+            parent_child_count[parent_id] += 1
+        else:
+            parent_child_count[parent_id] = 1
+        # Progress:
+        if show_progress:
+            count += 1
+            progress_bar(count, total)
+
+    # Dictionary with Children count per each Parent.
+    return parent_child_count
+
+
+def count_children_parallel(parent_embeds: dict, child_embeds: dict, show_progress=False):
+    """
+    Version of count_child_embeddings() using parallelism.
+
+    Given the embedding's dictionaries 'parent_embeds' and 'child_embeds',
+    create a new dictionary counting per each parent the number of child_embeds
+    that are closest to them.
+
+    Args:
+        parent_embeds: Dictionary containing the parent_ids as keys and their
+            embeddings as values.
+        child_embeds: Dictionary containing the child_ids as keys and their
+            embeddings as values.
+        show_progress: A Bool representing whether we show the progress of
+            the method or not.
+    Returns:
+        Dictionary (Parent ID -> Int) containing the parent_ids as
+            keys, and the number of child_ids that are closer to the Parent ID
+            than any other parent.
+    """
+    # Check we have at least one Parent Dictionary.
+    if len(parent_embeds) == 0:
+        return {}
+
+    # Determine the number of cores to be used. (I made my own formula)
+    optimal_cores = min(multiprocessing.cpu_count(), MAX_CORES)
+    efficiency_mult = min(float(1), len(parent_embeds) / PEAK_SIZE)
+    core_count = max(2, int(efficiency_mult * optimal_cores))
+    # Create chunk size to process the tasks in the cores.
+    chunk_size = max(1, len(child_embeds) // 100)
+    # chunk_size = max(1, len(child_embeds) // (PARALLEL_MULT * core_count))
+
+    # Create tuple parameters.
+    tuple_params = [
+        (child_embed, parent_embeds) for child_embed in child_embeds.values()
+    ]
+    # Create the Parent -> Child Count dictionary.
+    parent_child_count = {}
+    # Create the Process Pool using the best CPU count (formula) for the task.
+    with multiprocessing.Pool(processes=core_count) as pool:
+        # Use Pool.imap() if we have to show the method's progress.
+        if show_progress:
+            # Report Parallelization.
+            progress_msg(f"Using Parallelization <{core_count} cores>")
+            # Progress Variables.
+            count = 0
+            total = len(child_embeds)
+            # Create Lazy iterator of results using Pool.imap().
+            imap_results_iter = pool.imap(
+                closest_vector, tuple_params, chunksize=chunk_size
+            )
+            # Add count to the child_ids' closest parent.
+            for parent_id, _ in imap_results_iter:
+                # Check if we have found this parent before.
+                if parent_id in parent_child_count:
+                    parent_child_count[parent_id] += 1
+                else:
+                    parent_child_count[parent_id] = 1
+                # Report Progress.
+                count += 1
+                progress_bar(count, total)
+        # No need to report progress, use Pool.map()
+        else:
+            # Get the closest parent to each child.
+            map_results = pool.map(
+                closest_vector, tuple_params, chunksize=chunk_size
+            )
+            # Get the Number of Children per each Parent.
+            for parent_id, _ in map_results:
+                if parent_id in parent_child_count:
+                    parent_child_count[parent_id] += 1
+                else:
+                    parent_child_count[parent_id] = 1
+
+    # Dictionary with Children count per each Parent.
+    return parent_child_count
 
 
 def best_midway_sizes(original_size: int):
