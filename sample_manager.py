@@ -270,12 +270,10 @@ class SampleManager(TopicCorpus):
         """
         if not sample_id.endswith('_docs'):
             return False
-        try:
-            number_id = sample_id[:-5]
-            if int(number_id):
-                return True
-        except ValueError:
-            return False
+        number_str = sample_id[:-5].replace('_', '')
+        if number_str.isnumeric():
+            return True
+        return False
 
 
 if __name__ == '__main__':
