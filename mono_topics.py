@@ -106,7 +106,7 @@ class MonoTopics(BaseTopics):
             if show_progress:
                 progress_msg("Loading Document Embeddings...")
             doc_embeds_path = join(model_folder_path, self.doc_embeds_file)
-            if not isdir(doc_embeds_path):
+            if not isfile(doc_embeds_path):
                 raise FileNotFoundError("There is no Document Embeddings file available.")
             with open(doc_embeds_path, 'r') as f:
                 doc_embeds_index = json.load(f)
@@ -333,7 +333,7 @@ class MonoTopics(BaseTopics):
         num_docs = big_number(len(self.doc_embeds)).replace(',', '_')
         model_name = self.text_model_name
         topics_size = big_number(self.topic_size).replace(',', '_')
-        new_model_id = model_name + '_' + num_docs + '_docs_' + topics_size + 'topics'
+        new_model_id = model_name + '_' + num_docs + '_docs_' + topics_size + '_topics'
         # Example: bert_fast_10_000_docs_100_topics
         return new_model_id
 
@@ -467,8 +467,45 @@ class MonoTopics(BaseTopics):
             model_id = entry_name[prefix_len:]
             topic_ids.append(model_id)
 
+        # Sort the Model IDs.
+        created_ids = []
+        provided_ids = []
+        for topic_id in topic_ids:
+            if cls.is_created_id(topic_id):
+                created_ids.append(topic_id)
+            else:
+                provided_ids.append(topic_id)
+        created_ids.sort(key=lambda x: int(x.split('_docs_')[1][:-7]), reverse=True)
+        provided_ids.sort()
         # List with the IDs of all the valid Topic Models.
+        topic_ids = created_ids + provided_ids
         return topic_ids
+
+    @classmethod
+    def is_created_id(cls, model_id: str):
+        """
+        Check if the string 'model_id' was created using the method
+        'create_model_id()'.
+
+        Returns: (Bool, docs,  indicating if the 'model_id' was created by the class.
+        """
+        # Check has the topics and docs.
+        if not model_id.endswith('_topics'):
+            return False
+        if '_docs_' not in model_id:
+            return False
+        # Check it has the text model name.
+        for model_name in ModelManager.models_dict.keys():
+            if model_name in model_id:
+                stripped_id = model_id.replace('_topics', '')
+                stripped_id = stripped_id.replace('_docs_', '')
+                stripped_id = stripped_id.replace(model_name, '')
+                stripped_id = stripped_id.replace('_', '')
+                # Check it only has numbers after eliminating Topics, Docs and model.
+                result = stripped_id.isnumeric()
+                return result
+        # It doesn't have any Text Model Name.
+        return False
 
 #   ----------------------------------------------------------------------------
 #   ----------------------------------------------------------------------------
@@ -844,23 +881,17 @@ if __name__ == '__main__':
     # Terminal Parameters.
     _args = sys.argv
 
-    # Print the Available Samples.
-    print("\nAvailable Samples:")
-    _saved_samples = SampleManager.available_samples()
-    for _name in _saved_samples:
-        print(f"  -> {_name}")
-
     # Create corpus.
     # ---------------------------------------------
-    _docs_num = 5000
-    print(f"\nCreating Corpus Sample of {big_number(_docs_num)} documents...")
-    _corpus = SampleManager(sample_size=_docs_num, show_progress=True)
-    print(f"Saving Sample for future use...")
-    _corpus.save()
+    # _docs_num = 5_000
+    # print(f"\nCreating Corpus Sample of {big_number(_docs_num)} documents...")
+    # _corpus = SampleManager(sample_size=_docs_num, show_progress=True)
+    # print(f"Saving Sample for future use...")
+    # _corpus.save()
     # ---------------------------------------------
-    # _sample_id = '1_000_docs'
-    # print(f"\nLoading the Corpus Sample <{_sample_id}>...")
-    # _corpus = SampleManager.load(sample_id=_sample_id, show_progress=True)
+    _sample_id = '10_000_docs'
+    print(f"\nLoading the Corpus Sample <{_sample_id}>...")
+    _corpus = SampleManager.load(sample_id=_sample_id, show_progress=True)
     # ---------------------------------------------
     print("Done.")
     print(f"[{_stopwatch.formatted_runtime()}]")
@@ -890,14 +921,55 @@ if __name__ == '__main__':
     _topics_sizes = _topic_model.topic_by_size()
     for _topic_size in _topics_sizes:
         print(_topic_size)
-    # ---------------------------------------------
-    # Topics' Vocabulary
-    top_n = 15
-    print(f"\nTop {top_n} words per topic:")
-    _topics_words = _topic_model.topics_top_words(n=top_n)
-    for _topic_id, _topic_words in _topics_words.items():
-        print(f"\n-----> {_topic_id}:")
-        pprint(_topic_words)
+    # # ---------------------------------------------
+    # # Topics' Vocabulary
+    # top_n = 15
+    # print(f"\nTop {top_n} words per topic:")
+    # _topics_words = _topic_model.topics_top_words(n=top_n)
+    # for _topic_id, _topic_words in _topics_words.items():
+    #     print(f"\n-----> {_topic_id}:")
+    #     pprint(_topic_words)
+
+    # -- Test Saving Model --
+    _saving_id = _topic_model.create_model_id()
+    print(f"\nSaving Topic Model with ID <{_saving_id}>...")
+    _topic_model.save(model_id=_saving_id, show_progress=True)
+    print("Done.")
+    print(f"[{_stopwatch.formatted_runtime()}]")
+
+    # # -- Test Loading Topic Model --
+    # _loading_id = 'sbert_fast_500_docs_6topics'
+    # print(f"\nLoading Topic Model with ID <{_loading_id}>...")
+    # _loaded_model = MonoTopics.load(model_id=_loading_id, show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+    # # ---------------------------------------------
+    # # Show Loaded Topics.
+    # print(f"\nThe Loaded Topic Model has {_loaded_model.topic_size} topics.")
+    # # Show Topics.
+    # print("\nTopic by number of documents (Loaded Model):")
+    # _topics_sizes = _loaded_model.topic_by_size()
+    # for _topic_size in _topics_sizes:
+    #     print(_topic_size)
+    # # Show Topics' Words.
+    # top_n = 15
+    # print(f"\nTop {top_n} words per topic:")
+    # _topics_words = _loaded_model.topics_top_words(n=top_n)
+    # for _topic_id, _topic_words in _topics_words.items():
+    #     print(f"\n-----> {_topic_id}:")
+    #     pprint(_topic_words)
+
+    # -- Show Saved Models --
+    _saved_topic_models = MonoTopics.saved_models()
+    if _saved_topic_models:
+        print("\nSaved Topic Models:")
+    else:
+        print("\nNo Topic Models Saved.")
+    for _model_id in _saved_topic_models:
+        print(f"  -> {_model_id}")
+
+    # --------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
 #     # # --Test Creating Hierarchically Reduced Topics--
 #     # # Save the Hierarchically Reduced Topic Models.
@@ -923,6 +995,9 @@ if __name__ == '__main__':
 #     #     print(f"\n----> Topic <{i}>:")
 #     #     for word_sim in word_list:
 #     #         print(word_sim)
+
+    # --------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
     print("\nDone.")
     print(f"[{_stopwatch.formatted_runtime()}]\n")
