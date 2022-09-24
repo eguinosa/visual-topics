@@ -1,17 +1,23 @@
 # Gelin Eguinosa Rosique
 # 2022
 
+import json
 import multiprocessing
 import numpy as np
 import umap
 import hdbscan
+from os import mkdir
+from shutil import rmtree
+from os.path import isdir, isfile, join
 from abc import ABC, abstractmethod
 
 from topic_corpus import TopicCorpus
 from model_manager import ModelManager
 from vocabulary import Vocabulary
-from util_funcs import closest_vector, cosine_sim, find_top_n
 from extra_funcs import progress_bar, progress_msg
+from util_funcs import (
+    closest_vector, cosine_sim, find_top_n, dict_list2ndarray, dict_ndarray2list
+)
 
 
 # The Core Multiplier to calculate the Chunk sizes when doing Parallelism.
@@ -27,7 +33,15 @@ class BaseTopics(ABC):
 
     @property
     @abstractmethod
-    def base_topic_embeds_docs(self):
+    def base_model_id(self) -> str:
+        """
+        String the ID used to identify the current Topic Model.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def base_topic_embeds_docs(self) -> dict:
         """
         Dictionary with the vector representation of the topics in the same
         vector space as the documents in the corpus.
@@ -36,17 +50,7 @@ class BaseTopics(ABC):
 
     @property
     @abstractmethod
-    def base_topic_embeds_words(self):
-        """
-        Dictionary with the vector representation of the topics in the same
-        vector space as the words in the vocabulary of the corpus. Used to
-        search the words that best represent the topic.
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def base_topic_docs(self):
+    def base_topic_docs(self) -> dict:
         """
         Dictionary with a list of the IDs of the documents belonging to each
         topic.
@@ -55,7 +59,7 @@ class BaseTopics(ABC):
 
     @property
     @abstractmethod
-    def base_topic_words(self):
+    def base_topic_words(self) -> dict:
         """
         Dictionary with the Topic IDs as keys and the list of words that best
         describe the topics as values.
@@ -64,7 +68,7 @@ class BaseTopics(ABC):
 
     @property
     @abstractmethod
-    def base_doc_embeds(self):
+    def base_doc_embeds(self) -> dict:
         """
         Dictionary with the embeddings of the documents in the corpus.
         """
@@ -72,20 +76,107 @@ class BaseTopics(ABC):
 
     @property
     @abstractmethod
-    def base_corpus_vocab(self) -> Vocabulary:
+    def base_red_topic_embeds_docs(self) -> dict:
         """
-        Vocabulary() class containing the words and all the data related with
-        the corpus used to create the Topic Model.
+        Dictionary with the vector representation of the Reduced Topics in the
+        same vector space as the documents in the corpus.
         """
         pass
 
     @property
-    def topic_ids(self):
+    @abstractmethod
+    def base_class_folder(self) -> str:
+        """
+        String with the name of the folder where the models of the class will
+        be stored.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def model_folder_name(self) -> str:
+        """
+        Name of the folder where the Topic Model will be stored.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def base_reduced_folder(self) -> str:
+        """
+        String with the name of the folder where the Reduced Topic Models will
+        be stored.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def base_reduced_prefix(self) -> str:
+        """
+        String with the prefix used to create the name of the files used store
+        the reduced Topics.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def model_saved(cls, model_id: str):
+        """
+        Check if the given 'model_id' string corresponds to a saved Topic Model.
+
+        Args:
+            model_id: String with the ID of the Topic Model we want to check.
+        Returns:
+            Bool indicating if the Topic Model is saved or not.
+        """
+        pass
+
+    @property
+    def topic_size(self) -> int:
+        """
+        Int with the number of Topic the model has.
+        """
+        return len(self.base_topic_embeds_docs)
+
+    @property
+    def topic_ids(self) -> list:
         """
         List[str] with the IDs of the topics found by the Topic Model.
         """
-        result = list(self.base_topic_embeds_docs)
-        return result
+        id_list = list(self.base_topic_embeds_docs.keys())
+        return id_list
+
+    @property
+    def red_topic_size(self) -> int:
+        """
+        Int with the Number of Topics the Reduced Model has.
+        """
+        if self.base_red_topic_embeds_docs:
+            return len(self.base_red_topic_embeds_docs)
+        else:
+            return 0
+
+    @property
+    def red_topic_ids(self) -> list:
+        """
+        List[str] with the IDs of the reduced topics in the Model.
+        """
+        if self.base_red_topic_embeds_docs:
+            id_list = list(self.base_red_topic_embeds_docs.keys())
+            return id_list
+        else:
+            return []
+
+    @property
+    def reduced_topics(self) -> bool:
+        """
+        Bool indicating if the Model has Reduced Topics.
+        """
+        # Check if we have loaded some reduced topics.
+        if self.base_red_topic_embeds_docs:
+            return True
+        else:
+            return False
 
     def topic_by_size(self):
         """
@@ -129,75 +220,177 @@ class BaseTopics(ABC):
         # Dictionary with Top N words per topic.
         return result_dict
 
-    def create_topic_words(self, top_n=50, min_sim=0.0, show_progress=False):
+    def base_reduce_topics(self, new_size: int, parallelism=False, show_progress=False):
         """
-        Find the 'top_n' words that best describe each topic using the words from
-        the documents of the topic.
+        Create a new Hierarchical Topic Model with specified number of topics
+        (new_size). The 'new_size' needs to be at least 2, and smaller than the
+        current number of topics in the model.
 
         Args:
-            top_n: Int with the amount of words we want to describe the topic.
-            min_sim: The minimum value of cosine similarity accepted for a word
-                to describe a Topic.
+            new_size: Int with the desired topic count for the Model.
+            parallelism: Bool indicating if we can use multiprocessing or not.
             show_progress: Bool representing whether we show the progress of
                 the method or not.
         Returns:
-            Dictionary(Topic ID -> List[str]) with the Topic IDs as keys and
-                the list of words that best describe the topic as values.
+            Dictionary with the Topic Embeddings of the new Reduced Topic Model.
         """
-        # Progress Variables.
-        count = 0
-        total = len(self.topic_ids)
-        # Create Set of Words per each Topic.
-        topic_top_words = {}
-        for topic_id in self.topic_ids:
-            # Create list of words with a similarity higher than 'min_sim'.
-            topic_words_sim = [
-                (word, similarity)
-                for word, similarity in self.topic_docs_words(topic_id)
-                if similarity > min_sim
-            ]
-            # Get the closest 'top_n' words to the topic. (Result is Sorted).
-            top_words = find_top_n(id_values=topic_words_sim, n=top_n, top_max=True)
-            # Save the closest words.
-            topic_top_words[topic_id] = top_words
-            # Progress.
+        # Check the topic size requested is valid.
+        if not 1 < new_size < self.topic_size:
+            # Invalid topic size requested.
+            raise Exception(
+                    f"Invalid reduced topic size of {new_size} requested, when "
+                    f"the Topic Model only has {self.topic_size} topics."
+                )
+
+        # Check if we have saved Reduced Topic Models.
+        if not self.reduced_topics_saved():
+            # No - Start Reducing from the Total Size of Topics in the Corpus.
+            current_size = self.topic_size
+            new_topic_embeds = self.base_topic_embeds_docs.copy()
+            new_topic_sizes = dict(
+                [(topic_id, len(doc_list))
+                 for topic_id, doc_list in self.base_topic_docs.items()]
+            )
+        else:
+            # Yes - Get the closest Reduced Topics.
+            main_sizes = best_midway_sizes(self.topic_size)
+            closest_size = min(size for size in main_sizes if size >= new_size)
+            # Upload the Reduced Topic Model.
             if show_progress:
-                count += 1
-                progress_bar(count, total)
+                progress_msg(f"Loading Reduced model with {closest_size} topics...")
+            reduced_topic_file = self._create_reduced_filename(closest_size)
+            model_folder_path = join(self.base_class_folder, self.model_folder_name)
+            reduced_topic_path = join(model_folder_path, reduced_topic_file)
+            with open(reduced_topic_path, 'r') as f:
+                reduced_topic_index = json.load(f)
+            # Get the Reduced Topic Sizes.
+            json_topic_embeds = reduced_topic_index['topic_embeds']
+            current_size = len(json_topic_embeds)
+            new_topic_embeds = dict_list2ndarray(json_topic_embeds)
+            new_topic_sizes = reduced_topic_index['topic_sizes']
 
-        # Dictionary with the Topics and their Top Words.
-        return topic_top_words
+        # Reduce Topic Size until we get the desired number of topics.
+        if current_size > new_size and show_progress:
+            progress_msg(
+                f"Reducing Topic Model from {current_size} topics to {new_size} "
+                f"topics..."
+            )
+        while current_size > new_size:
+            # Reduce the Topic Size by 1.
+            if show_progress:
+                progress_msg(
+                    f"Reducing from {current_size} to {current_size - 1} topics..."
+                )
+                new_topic_embeds, new_topic_sizes = self.reduce_topic_size(
+                    ref_topic_embeds=new_topic_embeds, topic_sizes=new_topic_sizes,
+                    parallelism=parallelism, show_progress=show_progress
+                )
+                # Update Current Topic Size.
+                current_size = len(new_topic_embeds)
 
-    def topic_docs_words(self, topic_id: str):
+        # Dictionary with the Topic Embeddings of the reduced Topic Model.
+        if show_progress:
+            progress_msg(f"Topic Model reduced to {current_size} topics.")
+        return new_topic_embeds
+
+    def base_save_reduced_topics(self, parallelism=False, override=False,
+                                 show_progress=False):
         """
-        Get all the words in the vocabulary of the documents belonging to the
-        given 'topic_id'.
+        Create a list of basic topic sizes between 2 and the size of the current
+        Topic Model, to create and save the Hierarchical Topic Models of this
+        Model with these sizes, so when we create a new Hierarchical Topic Model
+        we can do it faster, only having to start reducing the Topic sizes from
+        the closest basic topic size.
+
+        The saved topic sizes will be in the range of 2-1000, with different
+        steps depending on the Topic Size range.
+          - Step of  5 between  2 and 30.
+          - Step of 10 between 30 and 100.
+          - Step of 25 between 100 and 300.
+          - Step of 50 between 300 and 1000.
 
         Args:
-            topic_id: String with the ID of the topic.
-        Returns:
-            List[Tuple(str, sim)] with the list of all the words in the
-                documents and their similarity to the topic.
+            parallelism: Bool to indicate if we can use multiprocessing to speed
+                up the runtime of the method.
+            override: Bool indicating if we can delete a previously saved
+                Reduced Topics.
+            show_progress: Bool representing whether we show the progress of
+                the method or not.
         """
-        # Get Properties to use in the method.
-        topic_docs = self.base_topic_docs
-        corpus_vocab = self.base_corpus_vocab
-        topic_embed = self.base_topic_embeds_words[topic_id]
-        word_embeds = corpus_vocab.word_embeds
+        # Check the Model is Saved.
+        if show_progress:
+            progress_msg("Checking the given ID corresponds to the current Topic Model...")
+        if not self.model_saved(model_id=self.base_model_id):
+            raise Exception(
+                "The Model needs to be saved before saving its Reduced Topics."
+            )
+        # Check we can create a Reduced Topic Model.
+        if self.topic_size <= 2:
+            return
+        # Check if the Model has Reduced Topics Saved.
+        if self.reduced_topics_saved() and not override:
+            raise FileExistsError(
+                "This Topic Model already has its Reduced Topics saved. Set "
+                "the 'override' parameter to 'True' to replace them with new "
+                "Reduced Topics. "
+            )
 
-        # Create Set of Words in the Documents.
-        doc_ids_sim = topic_docs[topic_id]
-        topic_vocab = {
-            word for doc_id, sim in doc_ids_sim
-            for word in corpus_vocab.doc_words(doc_id)
-        }
-        # Create Tuples with the words and their similarity to the topic.
-        words_sim = [
-            (word, cosine_sim(topic_embed, word_embeds[word]))
-            for word in topic_vocab
-        ]
-        # The List of Tuples of the Topic's words and their similarity.
-        return words_sim
+        # Create Reduced Topics Folder.
+        model_folder_path = join(self.base_class_folder, self.model_folder_name)
+        reduced_folder_path = join(model_folder_path, self.base_reduced_folder)
+        if isdir(reduced_folder_path):
+            # Remove the previously saved Hierarchy.
+            rmtree(reduced_folder_path)
+        mkdir(reduced_folder_path)
+
+        # Get the Set of Reduced Topic Sizes we have to save.
+        main_sizes = best_midway_sizes(self.topic_size)
+        # Initialize Topic Reduction dictionaries.
+        current_size = self.topic_size
+        new_topic_embeds = self.base_topic_embeds_docs.copy()
+        new_topic_sizes = dict(
+            [(topic_id, len(doc_list))
+             for topic_id, doc_list in self.base_topic_docs.items()]
+        )
+        # Start Reducing Topics and Saving the Main Topic Sizes.
+        if show_progress:
+            progress_msg("Saving the Hierarchically Reduced Topic Models...")
+        while current_size > 2:
+            # Reduce the Topic Size by 1.
+            if show_progress:
+                progress_msg(
+                    f"Reducing from {current_size} to {current_size - 1} topics..."
+                )
+            new_topic_embeds, new_topic_sizes = self.reduce_topic_size(
+                ref_topic_embeds=new_topic_embeds, topic_sizes=new_topic_sizes,
+                parallelism=parallelism, show_progress=show_progress
+            )
+            # Update the current number of topics.
+            current_size = len(new_topic_embeds)
+
+            # Check if we have to save the current embeddings and sizes.
+            if current_size in main_sizes:
+                if show_progress:
+                    progress_msg(
+                        "<<Main Topic Found>>\n"
+                        f"Saving Reduced Topic Model with {current_size} topics..."
+                    )
+                # Transform Topic Embeddings to List[float].
+                json_topic_embeds = dict_ndarray2list(new_topic_embeds)
+                # Create Dict with embeddings and sizes.
+                reduced_topics_index = {
+                    'topic_embeds': json_topic_embeds,
+                    'topic_sizes': new_topic_sizes,
+                }
+                # Save Index of the current Reduced Topics.
+                reduced_topics_file = (
+                        self.base_reduced_prefix + str(current_size) + '.json'
+                )
+                reduced_topics_path = join(reduced_folder_path, reduced_topics_file)
+                with open(reduced_topics_path, 'w') as f:
+                    json.dump(reduced_topics_index, f)
+                if show_progress:
+                    progress_msg("<<Saved>>")
 
     def reduce_topic_size(self, ref_topic_embeds: dict, topic_sizes: dict,
                           parallelism=False, show_progress=False):
@@ -251,6 +444,43 @@ class BaseTopics(ABC):
         )
         # Dictionaries with the new Topic Sizes and Embeddings.
         return ref_topic_embeds, new_topic_sizes
+
+    def reduced_topics_saved(self):
+        """
+        Check if the given Topic Model created and saved the Hierarchically
+        Reduced Topics.
+
+        Returns: Bool showing if the Reduced Topic Models were saved.
+        """
+        # Check the Model's Folders.
+        if not isdir(self.base_class_folder):
+            return False
+        model_folder_path = join(self.base_class_folder, self.model_folder_name)
+        if not isdir(model_folder_path):
+            return False
+        reduced_folder_path = join(model_folder_path, self.base_reduced_folder)
+        if not isdir(reduced_folder_path):
+            return False
+
+        # Check that all the Main Reduced Topic Models were saved.
+        main_sizes = best_midway_sizes(self.topic_size)
+        for topic_size in main_sizes:
+            # Check the file for the Reduced Model with the current size.
+            reduced_topic_file = self._create_reduced_filename(topic_size)
+            reduced_topic_path = join(reduced_folder_path, reduced_topic_file)
+            if not isfile(reduced_topic_path):
+                return False
+
+        # All The Files were created correctly.
+        return True
+
+    def _create_reduced_filename(self, topic_size: int):
+        """
+        Create the filename for a Reduced Topic Model using the number of topics
+        the model has.
+        """
+        filename = self.base_reduced_prefix + str(topic_size) + '.json'
+        return filename
 
 
 def create_docs_embeds(corpus: TopicCorpus, model: ModelManager, show_progress=False):
@@ -379,6 +609,63 @@ def find_topics(doc_embeds_list: list, show_progress=False):
 
     # Dictionary with the prominent topics and their embeds.
     return topic_embeds
+
+
+def create_topic_words(topic_embeds: dict, topic_docs: dict, corpus_vocab: Vocabulary,
+                       top_n=50, min_sim=0.0, show_progress=False):
+    """
+    Find the 'top_n' words that best describe each topic using the words from
+    the documents of the topic.
+
+    Args:
+        topic_embeds: Dictionary(Topic ID -> Numpy.ndarray) with the
+            embeddings of the Topics.
+        topic_docs: Dictionary(Topic ID -> List[(str, float)]) with the list
+            of documents belonging to each Topic and their similarity to the
+            topic.
+        corpus_vocab: Vocabulary created with the corpus used to create
+            the Topic Model and the Document embeddings.
+        top_n: Int with the amount of words we want to describe the topic.
+        min_sim: The minimum value of cosine similarity accepted for a word
+            to describe a Topic.
+        show_progress: Bool representing whether we show the progress of
+            the method or not.
+    Returns:
+        Dictionary(Topic ID -> List[str]) with the Topic IDs as keys and
+            the list of words that best describe the topic as values.
+    """
+    # Get the Embedding of the Words.
+    word_embeds = corpus_vocab.word_embeds
+
+    # Progress Variables.
+    count = 0
+    total = len(topic_embeds)
+    # Create Set of Words per each Topic.
+    topic_top_words = {}
+    for topic_id, topic_embed in topic_embeds.items():
+        # Get the documents in the topic and their similarity.
+        doc_sim_list = topic_docs[topic_id]
+        # Create Set with the Words in the Documents.
+        topic_vocab = {
+            word for doc_id, _ in doc_sim_list
+            for word in corpus_vocab.doc_words(doc_id)
+        }
+        # Get the similarity of the words to the topic.
+        topic_words_sim = [
+            (word, word_sim)
+            for word in topic_vocab
+            if min_sim < (word_sim := cosine_sim(topic_embed, word_embeds[word]))
+        ]
+        top_words = find_top_n(id_values=topic_words_sim, n=top_n, top_max=True)
+        # Save the closest words.
+        topic_top_words[topic_id] = top_words
+        # Progress.
+        if show_progress:
+            count += 1
+            progress_bar(count, total)
+
+    # Dictionary with the Topics and their Top Words.
+    return topic_top_words
 
 
 def find_child_embeddings(parent_embeds: dict, child_embeds: dict,
