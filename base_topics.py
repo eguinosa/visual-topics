@@ -21,9 +21,9 @@ from util_funcs import (
 
 
 # The Core Multiplier to calculate the Chunk sizes when doing Parallelism.
-PARALLEL_MULT = 2
+PEAK_ITERATIONS = 3_750_000  # 150 topics * 25,000 docs
+BASE_ITERATIONS = 925_000  # 37 topics * 25,000 docs
 MAX_CORES = 8
-PEAK_SIZE = 150
 
 
 class BaseTopics(ABC):
@@ -806,10 +806,12 @@ def find_child_embeddings(parent_embeds: dict, child_embeds: dict,
             keys, and a List of the closest child_ids to them in the embedding
             space as values.
     """
-    # See if we can use parallelism.
-    parallel_min = 37  # Number when multicore begins to be faster that single-core.
-    # parallel_min = int(2 * PEAK_SIZE / MAX_CORES)  # alternative formula (?)
-    if parallelism and len(parent_embeds) > parallel_min:
+    # See if we can use parallelism, checking the amount of iterations when
+    # parallelism starts being faster than single core.
+    parent_count = len(parent_embeds)
+    child_count = len(child_embeds)
+    total_iterations = child_count * parent_count
+    if parallelism and total_iterations > BASE_ITERATIONS:
         return find_children_parallel(
             parent_embeds, child_embeds, show_progress=show_progress
         )
@@ -868,11 +870,11 @@ def find_children_parallel(parent_embeds: dict, child_embeds: dict, show_progres
 
     # Determine the number of cores to be used. (I made my own formula)
     optimal_cores = min(multiprocessing.cpu_count(), MAX_CORES)
-    efficiency_mult = min(float(1), len(parent_embeds) / PEAK_SIZE)
-    core_count = max(2, int(efficiency_mult * optimal_cores))
+    total_iterations = len(parent_embeds) * len(child_embeds)
+    efficiency_mult = min(float(1), total_iterations / PEAK_ITERATIONS)
+    core_count = max(2, round(efficiency_mult * optimal_cores))
     # Create chunk size to process the tasks in the cores.
     chunk_size = max(1, len(child_embeds) // 100)
-    # chunk_size = max(1, len(child_embeds) // (PARALLEL_MULT * core_count))
 
     # Create tuple parameters.
     tuple_params = [
@@ -966,10 +968,12 @@ def count_child_embeddings(parent_embeds: dict, child_embeds: dict,
             keys, and the number of child_ids that are closer to the Parent ID
             than any other parent.
     """
-    # See if we can use parallelism.
-    parallel_min = 37  # Number when multicore begins to be faster that single-core.
-    # parallel_min = int(2 * PEAK_SIZE / MAX_CORES)  # alternative formula (?)
-    if parallelism and len(parent_embeds) > parallel_min:
+    # See if we can use parallelism, checking the amount of iterations when
+    # parallelism starts being faster than single core.
+    parent_count = len(parent_embeds)
+    child_count = len(child_embeds)
+    total_iterations = child_count * parent_count
+    if parallelism and total_iterations > BASE_ITERATIONS:
         return count_children_parallel(
             parent_embeds, child_embeds, show_progress=show_progress
         )
@@ -1025,11 +1029,11 @@ def count_children_parallel(parent_embeds: dict, child_embeds: dict, show_progre
 
     # Determine the number of cores to be used. (I made my own formula)
     optimal_cores = min(multiprocessing.cpu_count(), MAX_CORES)
-    efficiency_mult = min(float(1), len(parent_embeds) / PEAK_SIZE)
-    core_count = max(2, int(efficiency_mult * optimal_cores))
+    total_iterations = len(parent_embeds) * len(child_embeds)
+    efficiency_mult = min(float(1), total_iterations / PEAK_ITERATIONS)
+    core_count = max(2, round(efficiency_mult * optimal_cores))
     # Create chunk size to process the tasks in the cores.
     chunk_size = max(1, len(child_embeds) // 100)
-    # chunk_size = max(1, len(child_embeds) // (PARALLEL_MULT * core_count))
 
     # Create tuple parameters.
     tuple_params = [
