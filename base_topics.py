@@ -50,10 +50,28 @@ class BaseTopics(ABC):
 
     @property
     @abstractmethod
+    def base_red_topic_embeds_docs(self) -> dict:
+        """
+        Dictionary with the vector representation of the Reduced Topics in the
+        same vector space as the documents in the corpus.
+        """
+        pass
+
+    @property
+    @abstractmethod
     def base_topic_docs(self) -> dict:
         """
         Dictionary with a list of the IDs of the documents belonging to each
         topic.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def base_red_topic_docs(self) -> dict:
+        """
+        Dictionary with the list of Documents (IDs) that belong to each of the
+        Reduced Topics.
         """
         pass
 
@@ -68,18 +86,18 @@ class BaseTopics(ABC):
 
     @property
     @abstractmethod
-    def base_doc_embeds(self) -> dict:
+    def base_red_topic_words(self):
         """
-        Dictionary with the embeddings of the documents in the corpus.
+        Dictionary the list of words that best describe each of the Reduced
+        Topics.
         """
         pass
 
     @property
     @abstractmethod
-    def base_red_topic_embeds_docs(self) -> dict:
+    def base_doc_embeds(self) -> dict:
         """
-        Dictionary with the vector representation of the Reduced Topics in the
-        same vector space as the documents in the corpus.
+        Dictionary with the embeddings of the documents in the corpus.
         """
         pass
 
@@ -118,16 +136,68 @@ class BaseTopics(ABC):
         """
         pass
 
+    @abstractmethod
+    def reduce_topics(self, new_size: int, parallelism: bool, show_progress: bool):
+        """
+        Create a new Hierarchical Topic Model with specified number of topics
+        (new_size). The 'new_size' needs to be at least 2, and smaller than the
+        current number of topics in the model.
+        """
+        pass
+
+    @abstractmethod
+    def save(self, show_progress: bool):
+        """
+        Save the Main Topic Model's Attributes, so the model can be loaded later
+        using the given or created model ID.
+        """
+        pass
+
+    @abstractmethod
+    def save_reduced_topics(self, parallelism: bool, override: bool, show_progress: bool):
+        """
+        Use the base_save_reduced_topics() method to save the Hierarchically
+        Reduced Topic Models for the main sizes, and update the information in
+        the Basic Index to show that the model now has Reduced Topics.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def load(cls, model_id: str, show_progress: bool):
+        """
+        Load a saved Topic Model using its 'model_id'.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def basic_info(cls, model_id: str):
+        """
+        Load the Basic Info of the Topic Model 'model_id'. Basic Information
+        attributes:
+
+        -  topic_size: Int
+        -  corpus_size: Int
+        -  corpus_id: String
+        -  text_model_name: String
+        -  has_reduced_topics: Bool
+        """
+        pass
+
     @classmethod
     @abstractmethod
     def model_saved(cls, model_id: str):
         """
         Check if the given 'model_id' string corresponds to a saved Topic Model.
+        """
+        pass
 
-        Args:
-            model_id: String with the ID of the Topic Model we want to check.
-        Returns:
-            Bool indicating if the Topic Model is saved or not.
+    @classmethod
+    @abstractmethod
+    def saved_models(cls):
+        """
+        Create a list the IDs of the saved Topic Models.
         """
         pass
 
@@ -139,14 +209,6 @@ class BaseTopics(ABC):
         return len(self.base_topic_embeds_docs)
 
     @property
-    def topic_ids(self) -> list:
-        """
-        List[str] with the IDs of the topics found by the Topic Model.
-        """
-        id_list = list(self.base_topic_embeds_docs.keys())
-        return id_list
-
-    @property
     def red_topic_size(self) -> int:
         """
         Int with the Number of Topics the Reduced Model has.
@@ -155,6 +217,14 @@ class BaseTopics(ABC):
             return len(self.base_red_topic_embeds_docs)
         else:
             return 0
+
+    @property
+    def topic_ids(self) -> list:
+        """
+        List[str] with the IDs of the topics found by the Topic Model.
+        """
+        id_list = list(self.base_topic_embeds_docs.keys())
+        return id_list
 
     @property
     def red_topic_ids(self) -> list:
@@ -186,19 +256,46 @@ class BaseTopics(ABC):
         Returns: List[Tuples(str, int)] with the topics and their sizes.
         """
         # Get the topics and sizes.
-        topic_docs = [
+        topic_size = [
             (topic_id, len(doc_list))
             for topic_id, doc_list in self.base_topic_docs.items()
         ]
         # Sort the Topics by size.
-        topic_docs.sort(key=lambda id_size: id_size[1], reverse=True)
-        return topic_docs
+        topic_size.sort(key=lambda id_size: id_size[1], reverse=True)
+        return topic_size
 
-    def top_words(self, topic_id: str, n=10):
+    def red_topic_by_size(self):
+        """
+        Create List of Tuples with the ID and Size for each of the reduced
+        topics.
+
+        Returns: List[Tuples(str, int)] with the reduced topics and their sizes.
+        """
+        # Get Reduced Topics and Sizes.
+        red_topic_size = [
+            (red_topic_id, len(doc_list))
+            for red_topic_id, doc_list in self.base_red_topic_docs.items()
+        ]
+        # Sort the Reduced Topics by size.
+        red_topic_size.sort(key=lambda id_size: id_size[1], reverse=True)
+        return red_topic_size
+
+    def top_words_topic(self, topic_id: str, n=10):
         """
         Get the 'n' words that best describe the 'topic_id'.
         """
         words = self.base_topic_words[topic_id]
+        if n >= len(words):
+            return words
+        else:
+            result = words[:n]
+            return result
+
+    def top_words_red_topic(self, red_topic_id: str, n=10):
+        """
+        Get the 'n' words that best describe the 'red_topic_id'.
+        """
+        words = self.base_red_topic_words[red_topic_id]
         if n >= len(words):
             return words
         else:
@@ -218,6 +315,21 @@ class BaseTopics(ABC):
                 new_list = top_words[:n]
                 result_dict[topic_id] = new_list
         # Dictionary with Top N words per topic.
+        return result_dict
+
+    def red_topics_top_words(self, n=10):
+        """
+        Get the 'n' top words that best describe each of the reduced topics in
+        the model.
+        """
+        result_dict = {}
+        for red_topic_id, top_words in self.base_red_topic_words.items():
+            if n >= len(top_words):
+                result_dict[red_topic_id] = top_words
+            else:
+                new_list = top_words[:n]
+                result_dict[red_topic_id] = new_list
+        # Dictionary with Top N words per reduced topic.
         return result_dict
 
     def base_reduce_topics(self, new_size: int, parallelism=False, show_progress=False):
