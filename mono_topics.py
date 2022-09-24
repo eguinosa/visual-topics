@@ -8,7 +8,7 @@ from os.path import isdir, isfile, join
 
 from base_topics import (
     BaseTopics, create_docs_embeds, create_topic_words,
-    find_topics, find_child_embeddings
+    find_topics, find_child_embeddings, refresh_topic_ids
 )
 from topic_corpus import TopicCorpus
 from corpora_manager import CorporaManager
@@ -19,7 +19,7 @@ from extra_funcs import progress_msg, big_number
 
 # Testing Imports.
 import sys
-# from pprint import pprint
+from pprint import pprint
 from sample_manager import SampleManager
 from time_keeper import TimeKeeper
 
@@ -31,7 +31,7 @@ class MonoTopics(BaseTopics):
     """
     # Class Data Locations.
     class_folder = 'topic_models'
-    model_folder_prefix = 'topics_'
+    model_folder_prefix = 'mono_topics_'
     basic_index_file = 'topic_model_basic_index.json'
     model_index_file = 'topic_model_index.json'
     doc_embeds_file = 'topic_model_doc_embeds.json'
@@ -68,9 +68,12 @@ class MonoTopics(BaseTopics):
 
         # -- Load Saved Topic Model --
         if load_model:
-            # Check the Model ID.
-            if not model_id:
+            # Save Model ID.
+            if model_id:
+                self.model_id = model_id
+            else:
                 raise NameError("We need a Topic Model ID to be able to load the model.")
+
             # Check the Class Data Folder.
             if not isdir(self.class_folder):
                 raise NotADirectoryError("The Class Data Folder does not exist.")
@@ -134,8 +137,6 @@ class MonoTopics(BaseTopics):
             self.topic_embeds = topic_embeds
             self.topic_docs = topic_docs
             self.topic_words = topic_words
-            # Model ID.
-            self.model_id = model_id
 
         # -- Create New Topic Model --
         else:
@@ -163,9 +164,8 @@ class MonoTopics(BaseTopics):
             topic_embeds = find_topics(
                 doc_embeds_list=list(doc_embeds.values()), show_progress=show_progress
             )
-            # Report the number of topics found.
-            if show_progress:
-                progress_msg(f"{len(topic_embeds)} topics found.")
+            # Refresh the Topic IDs (So they are correctly formatted)
+            topic_embeds = refresh_topic_ids(topic_dict=topic_embeds)
             # Group Documents by Topics.
             if show_progress:
                 progress_msg("Organizing documents by topics...")
@@ -331,6 +331,8 @@ class MonoTopics(BaseTopics):
         red_topic_embeds = self.base_reduce_topics(
             new_size=new_size, parallelism=parallelism, show_progress=show_progress
         )
+        # Refresh the Topic IDs (so they have the correct top ID number).
+        red_topic_embeds = refresh_topic_ids(topic_dict=red_topic_embeds)
         # Group Documents by the new Reduced Topics.
         if show_progress:
             progress_msg("Organizing documents by the new Reduced Topics...")
@@ -440,6 +442,16 @@ class MonoTopics(BaseTopics):
             show_progress: Bool representing whether we show the progress of
                 the method or not.
         """
+        # Check if the model has already saved its reduced topics.
+        if not override and self.reduced_topics_saved():
+            progress_msg(
+                "This Topic Model already has its Reduced Topics saved. Set "
+                "the 'override' parameter to 'True' to replace them with new "
+                "Reduced Topics. "
+            )
+            # End the method.
+            return
+
         # Use Method from Base Class to save the topics.
         self.base_save_reduced_topics(parallelism, override, show_progress=show_progress)
 
@@ -649,13 +661,13 @@ if __name__ == '__main__':
 
     # Create corpus.
     # ---------------------------------------------
-    # _docs_num = 5_000
+    # _docs_num = 1_000
     # print(f"\nCreating Corpus Sample of {big_number(_docs_num)} documents...")
     # _corpus = SampleManager(sample_size=_docs_num, show_progress=True)
     # print(f"Saving Sample for future use...")
     # _corpus.save()
     # ---------------------------------------------
-    _sample_id = '10_000_docs'
+    _sample_id = '20_000_docs'
     print(f"\nLoading the Corpus Sample <{_sample_id}>...")
     _corpus = SampleManager.load(sample_id=_sample_id, show_progress=True)
     # ---------------------------------------------
@@ -697,19 +709,18 @@ if __name__ == '__main__':
     #     pprint(_topic_words)
 
     # -- Test Saving Model --
-    _saving_id = _topic_model._create_model_id()
-    print(f"\nSaving Topic Model with ID <{_saving_id}>...")
+    print(f"\nSaving Topic Model <{_topic_model.model_id}>...")
     _topic_model.save(show_progress=True)
     print("Done.")
     print(f"[{_stopwatch.formatted_runtime()}]")
 
-    # # -- Test Loading Topic Model --
-    # _loading_id = 'sbert_fast_500_docs_6topics'
+    # # # -- Test Loading Topic Model --
+    # _loading_id = 'sbert_fast_5_000_docs_55_topics'  # _topic_model.model_id
     # print(f"\nLoading Topic Model with ID <{_loading_id}>...")
     # _loaded_model = MonoTopics.load(model_id=_loading_id, show_progress=True)
     # print("Done.")
     # print(f"[{_stopwatch.formatted_runtime()}]")
-    # # ---------------------------------------------
+    # # # ---------------------------------------------
     # # Show Loaded Topics.
     # print(f"\nThe Loaded Topic Model has {_loaded_model.topic_size} topics.")
     # # Show Topics.
@@ -717,13 +728,42 @@ if __name__ == '__main__':
     # _topics_sizes = _loaded_model.topic_by_size()
     # for _topic_size in _topics_sizes:
     #     print(_topic_size)
-    # # Show Topics' Words.
-    # top_n = 15
-    # print(f"\nTop {top_n} words per topic:")
-    # _topics_words = _loaded_model.topics_top_words(n=top_n)
-    # for _topic_id, _topic_words in _topics_words.items():
-    #     print(f"\n-----> {_topic_id}:")
-    #     pprint(_topic_words)
+    # # # Show Topics' Words.
+    # # top_n = 15
+    # # print(f"\nTop {top_n} words per topic:")
+    # # _topics_words = _loaded_model.topics_top_words(n=top_n)
+    # # for _topic_id, _topic_words in _topics_words.items():
+    # #     print(f"\n-----> {_topic_id}:")
+    # #     pprint(_topic_words)
+
+    # --------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
+
+    # # --Test Creating Hierarchically Reduced Topics--
+    # # Save the Hierarchically Reduced Topic Models.
+    # print(f"\nSaving Reduced Topics for the Model <{_loaded_model.model_id}>...")
+    # _loaded_model.save_reduced_topics(parallelism=False, override=False, show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+
+    # # -- Create Hierarchically Reduced Topics --
+    # _new_size = 9
+    # print(f"\nCreating Reduced Model with {_new_size} topics...")
+    # _loaded_model.reduce_topics(new_size=_new_size, parallelism=False, show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+    # # Show Reduced Topics.
+    # print("\nReduced Topics (by number of docs):")
+    # _red_topics_sizes = _loaded_model.red_topic_by_size()
+    # for _red_topic_size in _red_topics_sizes:
+    #     print(_red_topic_size)
+    # # Show Topic Words.
+    # _top_n = 15
+    # print(f"\nTop {_top_n} words per reduced topic:")
+    # _red_topic_words = _loaded_model.red_topics_top_words(n=_top_n)
+    # for _red_topic_id, _red_words in _red_topic_words.items():
+    #     print(f"\n-----> {_red_topic_id}:")
+    #     pprint(_red_words)
 
     # -- Show Saved Models --
     _saved_topic_models = MonoTopics.saved_models()
@@ -733,37 +773,6 @@ if __name__ == '__main__':
         print("\nNo Topic Models Saved.")
     for _model_id in _saved_topic_models:
         print(f"  -> {_model_id}")
-
-    # --------------------------------------------------------------------------
-    # --------------------------------------------------------------------------
-
-#     # # --Test Creating Hierarchically Reduced Topics--
-#     # # Save the Hierarchically Reduced Topic Models.
-#     # print("\nSaving Topic Model's Topic Hierarchy...")
-#     # the_topic_model.save_reduced_topics(parallelism=True, show_progress=True)
-
-#     # # -- Show Hierarchically Reduced Topics --
-#     # new_topics = 10
-#     # print(f"\nCreating Topic Model with {new_topics} topics.")
-#     # the_topic_model.generate_new_topics(number_topics=new_topics, show_progress=True)
-#     # print("Done.")
-#     # print(f"[{stopwatch.formatted_runtime()}]")
-#     #
-#     # print("\nNew Topics and Document count:")
-#     # all_topics = the_topic_model.top_topics()
-#     # for topic in all_topics:
-#     #     print(topic)
-#     #
-#     # top_n = 15
-#     # print(f"\nTop {top_n} words per new topic:")
-#     # words_per_topic = the_topic_model.all_topics_top_words(top_n)
-#     # for i, word_list in words_per_topic:
-#     #     print(f"\n----> Topic <{i}>:")
-#     #     for word_sim in word_list:
-#     #         print(word_sim)
-
-    # --------------------------------------------------------------------------
-    # --------------------------------------------------------------------------
 
     print("\nDone.")
     print(f"[{_stopwatch.formatted_runtime()}]\n")
