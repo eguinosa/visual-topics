@@ -659,75 +659,75 @@ if __name__ == '__main__':
     # Terminal Parameters.
     _args = sys.argv
 
-    # Create corpus.
-    # ---------------------------------------------
-    # _docs_num = 1_000
-    # print(f"\nCreating Corpus Sample of {big_number(_docs_num)} documents...")
-    # _corpus = SampleManager(sample_size=_docs_num, show_progress=True)
-    # print(f"Saving Sample for future use...")
-    # _corpus.save()
-    # ---------------------------------------------
-    _sample_id = '20_000_docs'
-    print(f"\nLoading the Corpus Sample <{_sample_id}>...")
-    _corpus = SampleManager.load(sample_id=_sample_id, show_progress=True)
-    # ---------------------------------------------
-    print("Done.")
-    print(f"[{_stopwatch.formatted_runtime()}]")
-
-    # Report amount of papers in the loaded Corpus
-    _paper_count = len(_corpus)
-    print(f"\n{big_number(_paper_count)} documents loaded.")
-
-    # Load Text Model.
-    _model_id = 'sbert_fast'
-    print(f"\nLoading the model in ModelManager <{_model_id}>...")
-    _text_model = ModelManager(model_name=_model_id, show_progress=True)
-    print("Done.")
-    print(f"[{_stopwatch.formatted_runtime()}]")
-
-    # Create Topic Model.
-    print(f"\nCreating Topic Model...")
-    _topic_model = MonoTopics(corpus=_corpus, model=_text_model, show_progress=True)
-    print("Done.")
-    print(f"[{_stopwatch.formatted_runtime()}]")
-
-    # Report Number of Topics found.
-    print(f"\n{_topic_model.topic_size} topics found.")
-    # ---------------------------------------------
-    # Show Topic by size.
-    print("\nTopics by number of documents:")
-    _topics_sizes = _topic_model.topic_by_size()
-    for _topic_size in _topics_sizes:
-        print(_topic_size)
+    # # Create corpus.
     # # ---------------------------------------------
-    # # Topics' Vocabulary
-    # top_n = 15
-    # print(f"\nTop {top_n} words per topic:")
-    # _topics_words = _topic_model.topics_top_words(n=top_n)
-    # for _topic_id, _topic_words in _topics_words.items():
-    #     print(f"\n-----> {_topic_id}:")
-    #     pprint(_topic_words)
-
-    # -- Test Saving Model --
-    print(f"\nSaving Topic Model <{_topic_model.model_id}>...")
-    _topic_model.save(show_progress=True)
-    print("Done.")
-    print(f"[{_stopwatch.formatted_runtime()}]")
-
-    # # # -- Test Loading Topic Model --
-    # _loading_id = 'sbert_fast_5_000_docs_55_topics'  # _topic_model.model_id
-    # print(f"\nLoading Topic Model with ID <{_loading_id}>...")
-    # _loaded_model = MonoTopics.load(model_id=_loading_id, show_progress=True)
+    # # _docs_num = 1_000
+    # # print(f"\nCreating Corpus Sample of {big_number(_docs_num)} documents...")
+    # # _corpus = SampleManager(sample_size=_docs_num, show_progress=True)
+    # # print(f"Saving Sample for future use...")
+    # # _corpus.save()
+    # # ---------------------------------------------
+    # _sample_id = '20_000_docs'
+    # print(f"\nLoading the Corpus Sample <{_sample_id}>...")
+    # _corpus = SampleManager.load(sample_id=_sample_id, show_progress=True)
+    # # ---------------------------------------------
     # print("Done.")
     # print(f"[{_stopwatch.formatted_runtime()}]")
-    # # # ---------------------------------------------
-    # # Show Loaded Topics.
-    # print(f"\nThe Loaded Topic Model has {_loaded_model.topic_size} topics.")
-    # # Show Topics.
-    # print("\nTopic by number of documents (Loaded Model):")
-    # _topics_sizes = _loaded_model.topic_by_size()
+
+    # # Report amount of papers in the loaded Corpus
+    # _paper_count = len(_corpus)
+    # print(f"\n{big_number(_paper_count)} documents loaded.")
+
+    # # Load Text Model.
+    # _model_id = 'sbert_fast'
+    # print(f"\nLoading the model in ModelManager <{_model_id}>...")
+    # _text_model = ModelManager(model_name=_model_id, show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+
+    # # Create Topic Model.
+    # print(f"\nCreating Topic Model...")
+    # _topic_model = MonoTopics(corpus=_corpus, model=_text_model, show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+
+    # # Report Number of Topics found.
+    # print(f"\n{_topic_model.topic_size} topics found.")
+    # # ---------------------------------------------
+    # # Show Topic by size.
+    # print("\nTopics by number of documents:")
+    # _topics_sizes = _topic_model.topic_by_size()
     # for _topic_size in _topics_sizes:
     #     print(_topic_size)
+    # # # ---------------------------------------------
+    # # # Topics' Vocabulary
+    # # top_n = 15
+    # # print(f"\nTop {top_n} words per topic:")
+    # # _topics_words = _topic_model.topics_top_words(n=top_n)
+    # # for _topic_id, _topic_words in _topics_words.items():
+    # #     print(f"\n-----> {_topic_id}:")
+    # #     pprint(_topic_words)
+
+    # # -- Test Saving Model --
+    # print(f"\nSaving Topic Model <{_topic_model.model_id}>...")
+    # _topic_model.save(show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+
+    # # -- Test Loading Topic Model --
+    _loading_id = 'sbert_fast_20_000_docs_182_topics'  # _topic_model.model_id
+    print(f"\nLoading Topic Model with ID <{_loading_id}>...")
+    _loaded_model = MonoTopics.load(model_id=_loading_id, show_progress=True)
+    print("Done.")
+    print(f"[{_stopwatch.formatted_runtime()}]")
+    # # ---------------------------------------------
+    # Show Loaded Topics.
+    print(f"\nThe Loaded Topic Model has {_loaded_model.topic_size} topics.")
+    # Show Topics.
+    print("\nTopic by number of documents (Loaded Model):")
+    _topics_sizes = _loaded_model.topic_by_size()
+    for _topic_size in _topics_sizes:
+        print(_topic_size)
     # # # Show Topics' Words.
     # # top_n = 15
     # # print(f"\nTop {top_n} words per topic:")
@@ -742,28 +742,28 @@ if __name__ == '__main__':
     # # --Test Creating Hierarchically Reduced Topics--
     # # Save the Hierarchically Reduced Topic Models.
     # print(f"\nSaving Reduced Topics for the Model <{_loaded_model.model_id}>...")
-    # _loaded_model.save_reduced_topics(parallelism=False, override=False, show_progress=True)
+    # _loaded_model.save_reduced_topics(parallelism=True, override=False, show_progress=True)
     # print("Done.")
     # print(f"[{_stopwatch.formatted_runtime()}]")
 
-    # # -- Create Hierarchically Reduced Topics --
-    # _new_size = 9
-    # print(f"\nCreating Reduced Model with {_new_size} topics...")
-    # _loaded_model.reduce_topics(new_size=_new_size, parallelism=False, show_progress=True)
-    # print("Done.")
-    # print(f"[{_stopwatch.formatted_runtime()}]")
-    # # Show Reduced Topics.
-    # print("\nReduced Topics (by number of docs):")
-    # _red_topics_sizes = _loaded_model.red_topic_by_size()
-    # for _red_topic_size in _red_topics_sizes:
-    #     print(_red_topic_size)
-    # # Show Topic Words.
-    # _top_n = 15
-    # print(f"\nTop {_top_n} words per reduced topic:")
-    # _red_topic_words = _loaded_model.red_topics_top_words(n=_top_n)
-    # for _red_topic_id, _red_words in _red_topic_words.items():
-    #     print(f"\n-----> {_red_topic_id}:")
-    #     pprint(_red_words)
+    # -- Create Hierarchically Reduced Topics --
+    _new_size = 10
+    print(f"\nCreating Reduced Model with {_new_size} topics...")
+    _loaded_model.reduce_topics(new_size=_new_size, parallelism=False, show_progress=True)
+    print("Done.")
+    print(f"[{_stopwatch.formatted_runtime()}]")
+    # Show Reduced Topics.
+    print("\nReduced Topics (by number of docs):")
+    _red_topics_sizes = _loaded_model.red_topic_by_size()
+    for _red_topic_size in _red_topics_sizes:
+        print(_red_topic_size)
+    # Show Topic Words.
+    _top_n = 15
+    print(f"\nTop {_top_n} words per reduced topic:")
+    _red_topic_words = _loaded_model.red_topics_top_words(n=_top_n)
+    for _red_topic_id, _red_words in _red_topic_words.items():
+        print(f"\n-----> {_red_topic_id}:")
+        pprint(_red_words)
 
     # -- Show Saved Models --
     _saved_topic_models = MonoTopics.saved_models()
