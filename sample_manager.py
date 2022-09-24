@@ -282,29 +282,29 @@ if __name__ == '__main__':
     # Get the Console arguments.
     _args = sys.argv
 
-    # Create a Sample.
-    _size = 20_000
-    print(f"\nCreating a Sample of {_size} documents...")
-    _sample = SampleManager(sample_size=_size)
-    print("Done.")
-    print(f"[{_stopwatch.formatted_runtime()}]")
-
-    # Show Doc IDs.
-    print(f"\nSample size: {big_number(len(_sample.doc_ids))}")
-    # print("\nSample IDs:")
-    # print(_sample.doc_ids)
-
-    # Save Sample.
-    # ------------------------------------------------
-    # _old_id = 'old_sample'
-    # print(f"\nSaving Sample with ID <{_old_id}>...")
-    # _sample.save(sample_id=_old_id)
-    # ------------------------------------------------
-    print("\nSaving Sample...")
-    _sample.save()
-    # ------------------------------------------------
-    print("Done.")
-    print(f"[{_stopwatch.formatted_runtime()}]")
+    # # Create a Sample.
+    # _size = 20_000
+    # print(f"\nCreating a Sample of {_size} documents...")
+    # _sample = SampleManager(sample_size=_size)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+    #
+    # # Show Doc IDs.
+    # print(f"\nSample size: {big_number(len(_sample.doc_ids))}")
+    # # print("\nSample IDs:")
+    # # print(_sample.doc_ids)
+    #
+    # # Save Sample.
+    # # ------------------------------------------------
+    # # _old_id = 'old_sample'
+    # # print(f"\nSaving Sample with ID <{_old_id}>...")
+    # # _sample.save(sample_id=_old_id)
+    # # ------------------------------------------------
+    # print("\nSaving Sample...")
+    # _sample.save()
+    # # ------------------------------------------------
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
 
     # # -- Create New Sample --
     # _new_size = 10
