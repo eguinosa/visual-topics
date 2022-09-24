@@ -14,7 +14,7 @@ from abc import ABC, abstractmethod
 from topic_corpus import TopicCorpus
 from model_manager import ModelManager
 from vocabulary import Vocabulary
-from extra_funcs import progress_bar, progress_msg
+from extra_funcs import progress_bar, progress_msg, number_to_size
 from util_funcs import (
     closest_vector, cosine_sim, find_top_n, dict_list2ndarray, dict_ndarray2list
 )
@@ -308,7 +308,8 @@ class BaseTopics(ABC):
         model.
         """
         result_dict = {}
-        for topic_id, top_words in self.base_topic_words.items():
+        for topic_id, _ in self.topic_by_size():
+            top_words = self.base_topic_words[topic_id]
             if n >= len(top_words):
                 result_dict[topic_id] = top_words
             else:
@@ -323,7 +324,8 @@ class BaseTopics(ABC):
         the model.
         """
         result_dict = {}
-        for red_topic_id, top_words in self.base_red_topic_words.items():
+        for red_topic_id, _ in self.red_topic_by_size():
+            top_words = self.base_red_topic_words[red_topic_id]
             if n >= len(top_words):
                 result_dict[red_topic_id] = top_words
             else:
@@ -372,7 +374,8 @@ class BaseTopics(ABC):
                 progress_msg(f"Loading Reduced model with {closest_size} topics...")
             reduced_topic_file = self._create_reduced_filename(closest_size)
             model_folder_path = join(self.base_class_folder, self.model_folder_name)
-            reduced_topic_path = join(model_folder_path, reduced_topic_file)
+            reduced_folder_path = join(model_folder_path, self.base_reduced_folder)
+            reduced_topic_path = join(reduced_folder_path, reduced_topic_file)
             with open(reduced_topic_path, 'r') as f:
                 reduced_topic_index = json.load(f)
             # Get the Reduced Topic Sizes.
@@ -440,7 +443,7 @@ class BaseTopics(ABC):
         if self.topic_size <= 2:
             return
         # Check if the Model has Reduced Topics Saved.
-        if self.reduced_topics_saved() and not override:
+        if not override and self.reduced_topics_saved():
             raise FileExistsError(
                 "This Topic Model already has its Reduced Topics saved. Set "
                 "the 'override' parameter to 'True' to replace them with new "
@@ -528,7 +531,7 @@ class BaseTopics(ABC):
         """
         # Get the ID and Embed of the smallest Topic.
         min_topic_id = min(
-            topic_sizes.keys(), key=lambda topic_id: len(topic_sizes[topic_id])
+            topic_sizes.keys(), key=lambda topic_id: topic_sizes[topic_id]
         )
         min_embed = ref_topic_embeds[min_topic_id]
 
@@ -720,6 +723,8 @@ def find_topics(doc_embeds_list: list, show_progress=False):
             progress_bar(count, total)
 
     # Dictionary with the prominent topics and their embeds.
+    if show_progress:
+        progress_msg(f"{len(topic_embeds)} topics found.")
     return topic_embeds
 
 
@@ -922,7 +927,7 @@ def find_children_parallel(parent_embeds: dict, child_embeds: dict, show_progres
 def _custom_closest_vector(id_embed_parents: tuple):
     """
     Custom-made version of the method closest_vector to use in the methods
-    find_children_parallel() and children_count_parallel().
+    find_children_parallel().
 
     Take the 'child_id' and 'child_embed', with the parent_embeds inside the
     'id_dicts_tuple' parameter, and find the closest parent embedding to the
@@ -1043,10 +1048,10 @@ def count_children_parallel(parent_embeds: dict, child_embeds: dict, show_progre
             total = len(child_embeds)
             # Create Lazy iterator of results using Pool.imap().
             imap_results_iter = pool.imap(
-                closest_vector, tuple_params, chunksize=chunk_size
+                _count_closest_vector, tuple_params, chunksize=chunk_size
             )
             # Add count to the child_ids' closest parent.
-            for parent_id, _ in imap_results_iter:
+            for parent_id in imap_results_iter:
                 # Check if we have found this parent before.
                 if parent_id in parent_child_count:
                     parent_child_count[parent_id] += 1
@@ -1059,10 +1064,10 @@ def count_children_parallel(parent_embeds: dict, child_embeds: dict, show_progre
         else:
             # Get the closest parent to each child.
             map_results = pool.map(
-                closest_vector, tuple_params, chunksize=chunk_size
+                _count_closest_vector, tuple_params, chunksize=chunk_size
             )
             # Get the Number of Children per each Parent.
-            for parent_id, _ in map_results:
+            for parent_id in map_results:
                 if parent_id in parent_child_count:
                     parent_child_count[parent_id] += 1
                 else:
@@ -1070,6 +1075,50 @@ def count_children_parallel(parent_embeds: dict, child_embeds: dict, show_progre
 
     # Dictionary with Children count per each Parent.
     return parent_child_count
+
+
+def _count_closest_vector(embed_parents: tuple):
+    """
+    Custom-made version of the method closest_vector() to use with the method
+    count_children_parallel(), given that Pool.map & Pool.imap can take
+    iterables the multiple parameters.
+
+    In this version we don't return the similarity between the 'child_embed' and
+    the closest parent, the method count_children_parallel() doesn't need it.
+
+    Args:
+        embed_parents: Tuple with (child_embed, parent_embeds).
+    Returns:
+        String with the ID of the closest parent.
+    """
+    child_embed, parent_embeds = embed_parents
+    parent_id, _ = closest_vector(child_embed, parent_embeds)
+    return parent_id
+
+
+def refresh_topic_ids(topic_dict: dict):
+    """
+    Updates the IDs (keys) of the Topics in the dictionary, naming the Topics
+    'Topic_1', 'Topic_2', ..., 'Topic_N' where N is the number of topics in the
+    dictionary.
+    The <N> number is formatted so all topics numbers have the same string
+    length. For example, if the dictionary has 222 topics, then the topic IDs
+    are formatted as 'Topic_001', ..., 'Topic_012'..., 'Topic_222'.
+
+    Returns: Dictionary with the Dict_Keys updated.
+    """
+    # Get Topic Size.
+    size_total = len(str(len(topic_dict)))
+    topic_values = list(topic_dict.values())
+    id_count = 0
+    new_topic_dict = {}
+    for t_value in topic_values:
+        id_count += 1
+        new_id = 'Topic_' + number_to_size(number=id_count, size=size_total)
+        new_topic_dict[new_id] = t_value
+
+    # Dictionary with new Topic IDs.
+    return new_topic_dict
 
 
 def best_midway_sizes(original_size: int):
