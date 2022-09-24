@@ -197,7 +197,7 @@ class MonoTopics(BaseTopics):
             self.topic_docs = topic_docs
             self.topic_words = topic_words
             # Model ID (create a name if none was provided).
-            self.model_id = model_id if model_id else self.create_model_id()
+            self.model_id = model_id if model_id else self._create_model_id()
 
         # Create Reduced Topic Model's Attributes with default values.
         self.red_topic_embeds = None
@@ -220,6 +220,15 @@ class MonoTopics(BaseTopics):
         return self.topic_embeds
 
     @property
+    def base_red_topic_embeds_docs(self):
+        """
+        Dictionary with the vector representation of the Reduced Topics in the
+        same vector space as the words in the vocabulary of the corpus. Used to
+        search the words that best represent the topic.
+        """
+        return self.red_topic_embeds
+
+    @property
     def base_topic_docs(self):
         """
         Dictionary with a list of the IDs of the documents belonging to each
@@ -228,12 +237,28 @@ class MonoTopics(BaseTopics):
         return self.topic_docs
 
     @property
+    def base_red_topic_docs(self) -> dict:
+        """
+        Dictionary with the list of Documents (IDs) that belong to each of the
+        Reduced Topics.
+        """
+        return self.red_topic_docs
+
+    @property
     def base_topic_words(self):
         """
         Dictionary with the Topic IDs as keys and the list of words that best
         describe the topics as values.
         """
         return self.topic_words
+
+    @property
+    def base_red_topic_words(self):
+        """
+        Dictionary the list of words that best describe each of the Reduced
+        Topics.
+        """
+        return self.red_topic_words
 
     @property
     def base_doc_embeds(self):
@@ -273,15 +298,6 @@ class MonoTopics(BaseTopics):
         the reduced Topics.
         """
         return self.reduced_topic_prefix
-
-    @property
-    def base_red_topic_embeds_docs(self):
-        """
-        Dictionary with the vector representation of the Reduced Topics in the
-        same vector space as the words in the vocabulary of the corpus. Used to
-        search the words that best represent the topic.
-        """
-        return self.red_topic_embeds
 
     def reduce_topics(self, new_size: int, parallelism=False, show_progress=False):
         """
@@ -410,20 +426,6 @@ class MonoTopics(BaseTopics):
             progress_msg("Saving Vocabulary...")
         self.corpus_vocab.save(topic_dir_path=model_folder_path, show_progress=show_progress)
 
-    def create_model_id(self):
-        """
-        Create a default ID for the current Topic Model using its corpus size,
-        Text Model and the number of topics found.
-
-        Returns: String with the created ID of the topic model.
-        """
-        num_docs = big_number(len(self.doc_embeds)).replace(',', '_')
-        model_name = self.text_model_name
-        topics_size = big_number(self.topic_size).replace(',', '_')
-        new_model_id = model_name + '_' + num_docs + '_docs_' + topics_size + '_topics'
-        # Example: bert_fast_10_000_docs_100_topics
-        return new_model_id
-
     def save_reduced_topics(self, parallelism=False, override=False, show_progress=False):
         """
         Use the base_save_reduced_topics() method to save the Hierarchically
@@ -454,17 +456,27 @@ class MonoTopics(BaseTopics):
         with open(basic_index_path, 'w') as f:
             json.dump(basic_index, f)
 
+    def _create_model_id(self):
+        """
+        Create a default ID for the current Topic Model using its corpus size,
+        Text Model and the number of topics found.
+
+        Returns: String with the created ID of the topic model.
+        """
+        num_docs = big_number(len(self.doc_embeds)).replace(',', '_')
+        model_name = self.text_model_name
+        topics_size = big_number(self.topic_size).replace(',', '_')
+        new_model_id = model_name + '_' + num_docs + '_docs_' + topics_size + '_topics'
+        # Example: bert_fast_10_000_docs_100_topics
+        return new_model_id
+
     @classmethod
     def load(cls, model_id: str, show_progress=False):
         """
-        Load a saved Topic Model.
+        Load a saved Topic Model using its 'model_id'.
 
-        Args:
-            model_id: String with the ID of the Topic Model we have to load.
-            show_progress: Bool representing whether we show the progress of
-                the method or not.
         Returns:
-            TopicModel saved with the given 'model_id'.
+            MonoTopics() saved with the given 'model_id'.
         """
         loaded_instance = cls(
             model_id=model_id, load_model=True, show_progress=show_progress
@@ -479,6 +491,7 @@ class MonoTopics(BaseTopics):
 
         -  topic_size: Int
         -  corpus_size: Int
+        -  corpus_id: String
         -  text_model_name: String
         -  has_reduced_topics: Bool
 
@@ -591,7 +604,7 @@ class MonoTopics(BaseTopics):
         created_ids = []
         provided_ids = []
         for topic_id in topic_ids:
-            if cls.is_created_id(topic_id):
+            if cls._is_created_id(topic_id):
                 created_ids.append(topic_id)
             else:
                 provided_ids.append(topic_id)
@@ -602,7 +615,7 @@ class MonoTopics(BaseTopics):
         return topic_ids
 
     @classmethod
-    def is_created_id(cls, model_id: str):
+    def _is_created_id(cls, model_id: str):
         """
         Check if the string 'model_id' was created using the method
         'create_model_id()'.
@@ -684,7 +697,7 @@ if __name__ == '__main__':
     #     pprint(_topic_words)
 
     # -- Test Saving Model --
-    _saving_id = _topic_model.create_model_id()
+    _saving_id = _topic_model._create_model_id()
     print(f"\nSaving Topic Model with ID <{_saving_id}>...")
     _topic_model.save(show_progress=True)
     print("Done.")
