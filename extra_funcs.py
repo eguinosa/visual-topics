@@ -94,3 +94,24 @@ def number_to_3digits(number):
         return "0" + str(mod_number)
     else:
         return str(mod_number)
+
+
+def number_to_size(number: int, size: int):
+    """
+    Transform 'number' to a string of the given 'size', using zeros to the left
+    to complete the desired size. The format of the numbers will be in the
+    following form:
+     - 01_000 (number=1_000, size=5)
+     - 033 (number=33, size=3)
+    """
+    # Format with underscores the normal number.
+    n_size = len(str(number))
+    number_str = big_number(number).replace(',', '_')
+
+    # Check if we have to add zeros to the left.
+    if n_size > size:
+        return number_str
+    # Add zeros to the left.
+    for _ in range(size - n_size):
+        number_str = '0' + number_str
+    return number_str
