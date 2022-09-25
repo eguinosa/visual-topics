@@ -169,6 +169,19 @@ class SampleManager(TopicCorpus):
         """
         return self.main_corpus.doc_specter_embed(doc_id)
 
+    def load_embeddings_dict(self):
+        """
+        Load to memory the embeddings Dictionary (around 2GB). Speeds up the
+        process to get the embedding of the documents.
+        """
+        self.main_corpus.load_embeddings_dict()
+
+    def unload_embeddings_dict(self):
+        """
+        Unload from memory the embeddings Dictionary. Frees up space.
+        """
+        self.main_corpus.unload_embeddings_dict()
+
     def save(self, sample_id=''):
         """
         Save the current Sample to use it later. If the 'sample_id' is not
