@@ -23,6 +23,8 @@ wrong_acronyms = {
     'OBJECTIVE': 'objective',
     'PARTICIPANT': 'participant',
     'PARTICIPANTS': 'participant',
+    'PATIENT': 'patient',
+    'PATIENTS': 'patient',
     'PURPOSE': 'purpose',
     'RECENT': 'recent',
     'REGISTRATION': 'registration',
