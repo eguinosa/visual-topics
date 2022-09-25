@@ -17,6 +17,8 @@ from extra_funcs import progress_msg, big_number
 
 # Testing Imports.
 import sys
+from pprint import pprint
+from sample_manager import SampleManager
 from time_keeper import TimeKeeper
 
 
@@ -121,12 +123,8 @@ class MixTopics(BaseMixTopics):
             # Transform Topic Embeddings back to Numpy.ndarray.
             if show_progress:
                 progress_msg("Transforming Topic Embeddings to Numpy.ndarray...")
-            topic_embeds_docs = dict_list2ndarray(
-                embeds_dict=topic_embeds_docs_index, show_progress=show_progress
-            )
-            topic_embeds_words = dict_list2ndarray(
-                embeds_dict=topic_embeds_words_index, show_progress=show_progress
-            )
+            topic_embeds_docs = dict_list2ndarray(embeds_dict=topic_embeds_docs_index)
+            topic_embeds_words = dict_list2ndarray(embeds_dict=topic_embeds_words_index)
 
             # Load Document Embeddings.
             if show_progress:
@@ -139,9 +137,7 @@ class MixTopics(BaseMixTopics):
             # Transform Document Embeddings back to Numpy.ndarray.
             if show_progress:
                 progress_msg("Transforming Document Embeddings to Numpy.ndarray...")
-            doc_embeds = dict_list2ndarray(
-                embeds_dict=doc_embeds_index, show_progress=show_progress
-            )
+            doc_embeds = dict_list2ndarray(embeds_dict=doc_embeds_index)
 
             # Load Topic Model's Vocabulary.
             if show_progress:
@@ -453,12 +449,8 @@ class MixTopics(BaseMixTopics):
         # Transform the Topic Embeddings.
         if show_progress:
             progress_msg("Transforming Topic's Embeddings to List[float]...")
-        topic_embeds_docs_index = dict_ndarray2list(
-            embeds_dict=self.topic_embeds_docs, show_progress=show_progress
-        )
-        topic_embeds_words_index = dict_ndarray2list(
-            embeds_dict=self.topic_embeds_words, show_progress=show_progress
-        )
+        topic_embeds_docs_index = dict_ndarray2list(embeds_dict=self.topic_embeds_docs)
+        topic_embeds_words_index = dict_ndarray2list(embeds_dict=self.topic_embeds_words)
         # Save Topic Embeddings.
         if show_progress:
             progress_msg("Saving Topic's Embeddings...")
@@ -472,7 +464,7 @@ class MixTopics(BaseMixTopics):
         # Transform Document's Embeddings.
         if show_progress:
             progress_msg("Transforming Document's Embeddings to List[Float]...")
-        doc_embeds_index = dict_ndarray2list(self.doc_embeds, show_progress=show_progress)
+        doc_embeds_index = dict_ndarray2list(self.doc_embeds)
         # Save Document's Embeddings.
         if show_progress:
             progress_msg("Saving Document's Embeddings...")
@@ -729,6 +721,121 @@ if __name__ == '__main__':
     _stopwatch = TimeKeeper()
     # Terminal Parameters.
     _args = sys.argv
+
+    # # Create corpus.
+    # # ---------------------------------------------
+    # _sample_id = '20_000_docs'
+    # print(f"\nLoading the Corpus Sample <{_sample_id}>...")
+    # _corpus = SampleManager.load(sample_id=_sample_id, show_progress=True)
+    # # ---------------------------------------------
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+
+    # # Report amount of papers in the loaded Corpus
+    # _paper_count = len(_corpus)
+    # print(f"\n{big_number(_paper_count)} documents loaded.")
+
+    # # Load Text Model.
+    # _model_id = 'sbert_fast'
+    # print(f"\nLoading the model in ModelManager <{_model_id}>...")
+    # _text_model = ModelManager(model_name=_model_id, show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+
+    # # Create Topic Model.
+    # print(f"\nCreating Topic Model...")
+    # _topic_model = MixTopics(
+    #     corpus=_corpus, vocab_model=_text_model, show_progress=True
+    # )
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+
+    # # Report Number of Topics found.
+    # print(f"\n{_topic_model.topic_size} topics found.")
+    # # ---------------------------------------------
+    # # Show Topic by size.
+    # print("\nTopics by number of documents:")
+    # _topics_sizes = _topic_model.topic_by_size()
+    # for _topic_size in _topics_sizes:
+    #     print(_topic_size)
+    # # ---------------------------------------------
+    # # Topics' Vocabulary
+    # top_n = 15
+    # print(f"\nTop {top_n} words per topic:")
+    # _topics_words = _topic_model.topics_top_words(n=top_n)
+    # for _topic_id, _topic_words in _topics_words.items():
+    #     print(f"\n-----> {_topic_id}:")
+    #     pprint(_topic_words)
+
+    # # -- Test Saving Model --
+    # print(f"\nSaving Topic Model <{_topic_model.model_id}>...")
+    # _topic_model.save(show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+
+    # # -- Test Loading Topic Model --
+    # _loading_id = 'specter_sbert_fast_20_000_docs_119_topics'  # _topic_model.model_id
+    # print(f"\nLoading Topic Model with ID <{_loading_id}>...")
+    # _loaded_model = MixTopics.load(model_id=_loading_id, show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+    # # ---------------------------------------------
+    # # Show Loaded Topics.
+    # print(f"\nThe Loaded Topic Model has {_loaded_model.topic_size} topics.")
+    # ---------------------------------------------
+    # # Show Topics.
+    # print("\nTopic by number of documents (Loaded Model):")
+    # _topics_sizes = _loaded_model.topic_by_size()
+    # for _topic_size in _topics_sizes:
+    #     print(_topic_size)
+    # ---------------------------------------------
+    # # Show Topics' Words.
+    # top_n = 15
+    # print(f"\nTop {top_n} words per topic:")
+    # _topics_words = _loaded_model.topics_top_words(n=top_n)
+    # for _topic_id, _topic_words in _topics_words.items():
+    #     print(f"\n-----> {_topic_id}:")
+    #     pprint(_topic_words)
+
+    # --------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
+
+    # # --Test Creating Hierarchically Reduced Topics--
+    # # Save the Hierarchically Reduced Topic Models.
+    # print(f"\nSaving Reduced Topics for the Model <{_loaded_model.model_id}>...")
+    # _loaded_model.save_reduced_topics(parallelism=True, override=False, show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+
+    # # -- Create Hierarchically Reduced Topics --
+    # _new_size = 5
+    # print(f"\nCreating Reduced Model with {_new_size} topics...")
+    # _loaded_model.reduce_topics(new_size=_new_size, parallelism=False, show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+    # # ---------------------------------------------
+    # # Show Reduced Topics.
+    # print("\nReduced Topics (by number of docs):")
+    # _red_topics_sizes = _loaded_model.red_topic_by_size()
+    # for _red_topic_size in _red_topics_sizes:
+    #     print(_red_topic_size)
+    # # ---------------------------------------------
+    # # Show Topic Words.
+    # _top_n = 15
+    # print(f"\nTop {_top_n} words per reduced topic:")
+    # _red_topic_words = _loaded_model.red_topics_top_words(n=_top_n)
+    # for _red_topic_id, _red_words in _red_topic_words.items():
+    #     print(f"\n-----> {_red_topic_id}:")
+    #     pprint(_red_words)
+
+    # -- Show Saved Models --
+    _saved_topic_models = MixTopics.saved_models()
+    if _saved_topic_models:
+        print("\nSaved Topic Models:")
+    else:
+        print("\nNo Topic Models Saved.")
+    for _model_id in _saved_topic_models:
+        print(f"  -> {_model_id}")
 
     print("\nDone.")
     print(f"[{_stopwatch.formatted_runtime()}]\n")
