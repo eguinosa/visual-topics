@@ -19,7 +19,7 @@ from extra_funcs import progress_msg, big_number
 
 # Testing Imports.
 import sys
-# from pprint import pprint
+from pprint import pprint
 from sample_manager import SampleManager
 from time_keeper import TimeKeeper
 
@@ -108,9 +108,7 @@ class MonoTopics(BaseTopics):
             # Transform Topic Embeddings back to Numpy.ndarray.
             if show_progress:
                 progress_msg("Transforming Topic Embeddings to Numpy.ndarray...")
-            topic_embeds = dict_list2ndarray(
-                embeds_dict=topic_embeds_index, show_progress=show_progress
-            )
+            topic_embeds = dict_list2ndarray(embeds_dict=topic_embeds_index)
 
             # Load Document Embeddings.
             if show_progress:
@@ -123,9 +121,7 @@ class MonoTopics(BaseTopics):
             # Transform Document Embeddings back to Numpy.ndarray.
             if show_progress:
                 progress_msg("Transforming Document Embeddings to Numpy.ndarray...")
-            doc_embeds = dict_list2ndarray(
-                embeds_dict=doc_embeds_index, show_progress=show_progress
-            )
+            doc_embeds = dict_list2ndarray(embeds_dict=doc_embeds_index)
 
             # Load Topic Model's Vocabulary.
             if show_progress:
@@ -413,7 +409,7 @@ class MonoTopics(BaseTopics):
         # Transform the Topic Embeddings.
         if show_progress:
             progress_msg("Transforming Topic's Embeddings to List[float]...")
-        topic_embeds_index = dict_ndarray2list(self.topic_embeds, show_progress=show_progress)
+        topic_embeds_index = dict_ndarray2list(self.topic_embeds)
         # Save Topics Embeddings.
         if show_progress:
             progress_msg("Saving Topic's Embeddings...")
@@ -424,7 +420,7 @@ class MonoTopics(BaseTopics):
         # Transform Document's Embeddings.
         if show_progress:
             progress_msg("Transforming Document's Embeddings to List[Float]...")
-        doc_embeds_index = dict_ndarray2list(self.doc_embeds, show_progress=show_progress)
+        doc_embeds_index = dict_ndarray2list(self.doc_embeds)
         # Save Document's Embeddings.
         if show_progress:
             progress_msg("Saving Document's Embeddings...")
@@ -717,14 +713,14 @@ if __name__ == '__main__':
     _topics_sizes = _topic_model.topic_by_size()
     for _topic_size in _topics_sizes:
         print(_topic_size)
-    # # # ---------------------------------------------
-    # # # Topics' Vocabulary
-    # # top_n = 15
-    # # print(f"\nTop {top_n} words per topic:")
-    # # _topics_words = _topic_model.topics_top_words(n=top_n)
-    # # for _topic_id, _topic_words in _topics_words.items():
-    # #     print(f"\n-----> {_topic_id}:")
-    # #     pprint(_topic_words)
+    # ---------------------------------------------
+    # Topics' Vocabulary
+    top_n = 15
+    print(f"\nTop {top_n} words per topic:")
+    _topics_words = _topic_model.topics_top_words(n=top_n)
+    for _topic_id, _topic_words in _topics_words.items():
+        print(f"\n-----> {_topic_id}:")
+        pprint(_topic_words)
 
     # # -- Test Saving Model --
     # print(f"\nSaving Topic Model <{_topic_model.model_id}>...")
