@@ -737,8 +737,9 @@ def find_topics(doc_embeds_list: list, show_progress=False):
         else:
             topic_clusters_embeds[topic_id] = [doc_embed]
     # Report number of topics.
+    topic_size = len(topic_clusters_embeds)
     if show_progress:
-        progress_msg(f"{len(topic_clusters_embeds)} topics found.")
+        progress_msg(f"{topic_size} topics found.")
 
     # Refresh the Topic IDs (So they are correctly formatted)
     topic_clusters_embeds = refresh_topic_ids(topic_dict=topic_clusters_embeds)
@@ -756,8 +757,7 @@ def find_topics(doc_embeds_list: list, show_progress=False):
     topic_embeds = {}
     if show_progress:
         progress_msg(
-            "Creating the embeddings of the prominent topics using the clusters"
-            "found..."
+            f"Creating the embeddings of the {topic_size} prominent topics..."
         )
     for topic_id, cluster_embeds in topic_clusters_embeds.items():
         # Use Numpy to get the average embedding.
