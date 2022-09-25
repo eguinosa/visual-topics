@@ -41,7 +41,7 @@ class BaseTopics(ABC):
 
     @property
     @abstractmethod
-    def base_topic_embeds_docs(self) -> dict:
+    def base_topic_embeds(self) -> dict:
         """
         Dictionary with the vector representation of the topics in the same
         vector space as the documents in the corpus.
@@ -50,7 +50,7 @@ class BaseTopics(ABC):
 
     @property
     @abstractmethod
-    def base_red_topic_embeds_docs(self) -> dict:
+    def base_red_topic_embeds(self) -> dict:
         """
         Dictionary with the vector representation of the Reduced Topics in the
         same vector space as the documents in the corpus.
@@ -206,15 +206,15 @@ class BaseTopics(ABC):
         """
         Int with the number of Topic the model has.
         """
-        return len(self.base_topic_embeds_docs)
+        return len(self.base_topic_embeds)
 
     @property
     def red_topic_size(self) -> int:
         """
         Int with the Number of Topics the Reduced Model has.
         """
-        if self.base_red_topic_embeds_docs:
-            return len(self.base_red_topic_embeds_docs)
+        if self.base_red_topic_embeds:
+            return len(self.base_red_topic_embeds)
         else:
             return 0
 
@@ -223,7 +223,7 @@ class BaseTopics(ABC):
         """
         List[str] with the IDs of the topics found by the Topic Model.
         """
-        id_list = list(self.base_topic_embeds_docs.keys())
+        id_list = list(self.base_topic_embeds.keys())
         return id_list
 
     @property
@@ -231,8 +231,8 @@ class BaseTopics(ABC):
         """
         List[str] with the IDs of the reduced topics in the Model.
         """
-        if self.base_red_topic_embeds_docs:
-            id_list = list(self.base_red_topic_embeds_docs.keys())
+        if self.base_red_topic_embeds:
+            id_list = list(self.base_red_topic_embeds.keys())
             return id_list
         else:
             return []
@@ -243,7 +243,7 @@ class BaseTopics(ABC):
         Bool indicating if the Model has Reduced Topics.
         """
         # Check if we have loaded some reduced topics.
-        if self.base_red_topic_embeds_docs:
+        if self.base_red_topic_embeds:
             return True
         else:
             return False
@@ -360,19 +360,19 @@ class BaseTopics(ABC):
         if not self.reduced_topics_saved():
             # No - Start Reducing from the Total Size of Topics in the Corpus.
             current_size = self.topic_size
-            new_topic_embeds = self.base_topic_embeds_docs.copy()
+            new_topic_embeds = self.base_topic_embeds.copy()
             new_topic_sizes = dict(
                 [(topic_id, len(doc_list))
                  for topic_id, doc_list in self.base_topic_docs.items()]
             )
         else:
             # Yes - Get the closest Reduced Topics.
-            main_sizes = best_midway_sizes(self.topic_size)
+            main_sizes = self.main_sizes(self.topic_size)
             closest_size = min(size for size in main_sizes if size >= new_size)
             # Upload the Reduced Topic Model.
             if show_progress:
                 progress_msg(f"Loading Reduced model with {closest_size} topics...")
-            reduced_topic_file = self._create_reduced_filename(closest_size)
+            reduced_topic_file = self.base_reduced_prefix + str(closest_size) + '.json'
             model_folder_path = join(self.base_class_folder, self.model_folder_name)
             reduced_folder_path = join(model_folder_path, self.base_reduced_folder)
             reduced_topic_path = join(reduced_folder_path, reduced_topic_file)
@@ -396,12 +396,12 @@ class BaseTopics(ABC):
                 progress_msg(
                     f"Reducing from {current_size} to {current_size - 1} topics..."
                 )
-                new_topic_embeds, new_topic_sizes = self.reduce_topic_size(
-                    ref_topic_embeds=new_topic_embeds, topic_sizes=new_topic_sizes,
-                    parallelism=parallelism, show_progress=show_progress
-                )
-                # Update Current Topic Size.
-                current_size = len(new_topic_embeds)
+            new_topic_embeds, new_topic_sizes = self.reduce_topic_size(
+                ref_topic_embeds=new_topic_embeds, topic_sizes=new_topic_sizes,
+                parallelism=parallelism, show_progress=show_progress
+            )
+            # Update Current Topic Size.
+            current_size = len(new_topic_embeds)
 
         # Dictionary with the Topic Embeddings of the reduced Topic Model.
         if show_progress:
@@ -459,10 +459,10 @@ class BaseTopics(ABC):
         mkdir(reduced_folder_path)
 
         # Get the Set of Reduced Topic Sizes we have to save.
-        main_sizes = best_midway_sizes(self.topic_size)
+        main_sizes = self.main_sizes(self.topic_size)
         # Initialize Topic Reduction dictionaries.
         current_size = self.topic_size
-        new_topic_embeds = self.base_topic_embeds_docs.copy()
+        new_topic_embeds = self.base_topic_embeds.copy()
         new_topic_sizes = dict(
             [(topic_id, len(doc_list))
              for topic_id, doc_list in self.base_topic_docs.items()]
@@ -538,17 +538,17 @@ class BaseTopics(ABC):
         # Delete Smallest Topic.
         del ref_topic_embeds[min_topic_id]
         # Get the closest topic to the Smallest Topic.
-        closest_topic_id, _ = closest_vector(min_embed, ref_topic_embeds)
-        close_embed = ref_topic_embeds[closest_topic_id]
+        close_topic_id, _ = closest_vector(min_embed, ref_topic_embeds)
+        close_embed = ref_topic_embeds[close_topic_id]
         # Merge the embeddings of the topics.
         min_size = topic_sizes[min_topic_id]
-        closest_size = topic_sizes[closest_topic_id]
-        total_size = min_size + closest_size
+        close_size = topic_sizes[close_topic_id]
+        total_size = min_size + close_size
         merged_topic_embed = (
-                (min_size * min_embed + closest_size * close_embed) / total_size
+                (min_size * min_embed + close_size * close_embed) / total_size
         )
         # Update embedding of the closest topic.
-        ref_topic_embeds[closest_topic_id] = merged_topic_embed
+        ref_topic_embeds[close_topic_id] = merged_topic_embed
 
         # Get new the new Topic Sizes.
         if show_progress:
@@ -578,10 +578,10 @@ class BaseTopics(ABC):
             return False
 
         # Check that all the Main Reduced Topic Models were saved.
-        main_sizes = best_midway_sizes(self.topic_size)
+        main_sizes = self.main_sizes(self.topic_size)
         for topic_size in main_sizes:
             # Check the file for the Reduced Model with the current size.
-            reduced_topic_file = self._create_reduced_filename(topic_size)
+            reduced_topic_file = self.base_reduced_prefix + str(topic_size) + '.json'
             reduced_topic_path = join(reduced_folder_path, reduced_topic_file)
             if not isfile(reduced_topic_path):
                 return False
@@ -589,13 +589,45 @@ class BaseTopics(ABC):
         # All The Files were created correctly.
         return True
 
-    def _create_reduced_filename(self, topic_size: int):
+    @staticmethod
+    def main_sizes(original_size: int):
         """
-        Create the filename for a Reduced Topic Model using the number of topics
-        the model has.
+        Create a set containing the topic sizes for whom we are going to save a
+        Hierarchically Reduced Topic Model to speed up the process of returning
+        a Topic Model when a user requests a custom size.
+
+        The Topic Sizes will have a different step depending on the range of topic
+        sizes:
+        - Base topic size of 2.
+        - Step of  5 between  5 and 30.
+        - Step of 10 between 30 and 100.
+        - Step of 25 between 100 and 300.
+        - Step of 50 between 300 and 1000.
+
+        Example: 2, 5, 10, ..., 25, 30, 40,..., 90, 100, 125, ..., 275, 300, 350...
+
+        Args:
+            original_size: Int with the size of the original Topic Model.
+
+        Returns:
+            Set containing the Ints with the topic sizes we have to save when
+                generating the reduced Topic Model.
         """
-        filename = self.base_reduced_prefix + str(topic_size) + '.json'
-        return filename
+        # Check we don't have an Original Topic of size 2.
+        midway_sizes = set()
+        if original_size > 2:
+            midway_sizes.add(2)
+        # Sizes between 5 and 30.
+        midway_sizes.update(range(5, min(30, original_size), 5))
+        # Sizes between 30 and 100.
+        midway_sizes.update(range(30, min(100, original_size), 10))
+        # Sizes between 100 and 300.
+        midway_sizes.update(range(100, min(300, original_size), 25))
+        # Sizes between 300 and 1000.
+        midway_sizes.update(range(300, min(1_001, original_size), 50))
+
+        # The Intermediate sizes to create a reference Hierarchical Topic Model.
+        return midway_sizes
 
 
 def create_docs_embeds(corpus: TopicCorpus, model: ModelManager, show_progress=False):
@@ -692,20 +724,29 @@ def find_topics(doc_embeds_list: list, show_progress=False):
 
     # Assign each cluster found to a new prominent topic.
     if show_progress:
-        progress_msg(
-            "Creating the embeddings of the prominent topics using the clusters found..."
-        )
+        progress_msg("Assign each document in a cluster to a topic...")
     topic_clusters_embeds = {}
     for label, doc_embed in zip(cluster_labels, doc_embeds_list):
         # Skip Noise labels.
-        if str(label) == '-1':
+        if label == -1:
             continue
-        # Check if this is the first time we find this prominent Topic.
+        # Check if this is the first time we found this prominent Topic.
         topic_id = 'Topic_' + str(label)
         if topic_id in topic_clusters_embeds:
             topic_clusters_embeds[topic_id].append(doc_embed)
         else:
             topic_clusters_embeds[topic_id] = [doc_embed]
+    # Report number of topics.
+    if show_progress:
+        progress_msg(f"{len(topic_clusters_embeds)} topics found.")
+
+    # Refresh the Topic IDs (So they are correctly formatted)
+    topic_clusters_embeds = refresh_topic_ids(topic_dict=topic_clusters_embeds)
+    # # Report Prominent Topics cluster sizes.
+    # if show_progress:
+    #     progress_msg("<< Prominent Topics cluster sizes >>")
+    #     for topic_id, cluster_embeds in topic_clusters_embeds.items():
+    #         progress_msg(f" -> {topic_id}: {big_number(len(cluster_embeds))} docs")
 
     # Progress Variables.
     count = 0
@@ -713,6 +754,11 @@ def find_topics(doc_embeds_list: list, show_progress=False):
     # Create the topic's embeddings using the average of the doc's embeddings in
     # their cluster.
     topic_embeds = {}
+    if show_progress:
+        progress_msg(
+            "Creating the embeddings of the prominent topics using the clusters"
+            "found..."
+        )
     for topic_id, cluster_embeds in topic_clusters_embeds.items():
         # Use Numpy to get the average embedding.
         mean_embed = np.mean(cluster_embeds, axis=0)
@@ -723,8 +769,6 @@ def find_topics(doc_embeds_list: list, show_progress=False):
             progress_bar(count, total)
 
     # Dictionary with the prominent topics and their embeds.
-    if show_progress:
-        progress_msg(f"{len(topic_embeds)} topics found.")
     return topic_embeds
 
 
@@ -1123,43 +1167,3 @@ def refresh_topic_ids(topic_dict: dict):
 
     # Dictionary with new Topic IDs.
     return new_topic_dict
-
-
-def best_midway_sizes(original_size: int):
-    """
-    Create a set containing the topic sizes for whom we are going to save a
-    Hierarchically Reduced Topic Model to speed up the process of returning
-    a Topic Model when a user requests a custom size.
-
-    The Topic Sizes will have a different step depending on the range of topic
-    sizes:
-    - Base topic size of 2.
-    - Step of  5 between  5 and 30.
-    - Step of 10 between 30 and 100.
-    - Step of 25 between 100 and 300.
-    - Step of 50 between 300 and 1000.
-
-    Example: 2, 5, 10, ..., 25, 30, 40,..., 90, 100, 125, ..., 275, 300, 350...
-
-    Args:
-        original_size: Int with the size of the original Topic Model.
-
-    Returns:
-        Set containing the Ints with the topic sizes we have to save when
-            generating the reduced Topic Model.
-    """
-    # Check we don't have an Original Topic of size 2.
-    midway_sizes = set()
-    if original_size > 2:
-        midway_sizes.add(2)
-    # Sizes between 5 and 30.
-    midway_sizes.update(range(5, min(30, original_size), 5))
-    # Sizes between 30 and 100.
-    midway_sizes.update(range(30, min(100, original_size), 10))
-    # Sizes between 100 and 300.
-    midway_sizes.update(range(100, min(300, original_size), 25))
-    # Sizes between 300 and 1000.
-    midway_sizes.update(range(300, min(1_001, original_size), 50))
-
-    # The Intermediate sizes to create a reference Hierarchical Topic Model.
-    return midway_sizes
