@@ -19,7 +19,7 @@ from extra_funcs import progress_msg, big_number
 
 # Testing Imports.
 import sys
-from pprint import pprint
+# from pprint import pprint
 from sample_manager import SampleManager
 from time_keeper import TimeKeeper
 
@@ -34,29 +34,30 @@ class MonoTopics(BaseTopics):
     model_folder_prefix = 'mono_topics_'
     basic_index_file = 'topic_model_basic_index.json'
     model_index_file = 'topic_model_index.json'
-    doc_embeds_file = 'topic_model_doc_embeds.json'
     topic_embeds_file = 'topic_model_topic_embeds.json'
+    doc_embeds_file = 'topic_model_doc_embeds.json'
     reduced_topics_folder = 'reduced_topic_models'
     reduced_topic_prefix = 'reduced_topic_model_'
 
     def __init__(self, model_id='', load_model=False, corpus: TopicCorpus = None,
-                 model: ModelManager = None, parallelism=False, show_progress=False):
+                 text_model: ModelManager = None, parallelism=False, show_progress=False):
         """
         Find the topics present in the provided 'corpus' using 'model' to create
         the vector representation of the topics, documents and words.
           - When creating a new Topic Model, if no 'corpus' is provided uses the
             default corpus in CorporaManager().
-          - If no 'model' is provided, uses the default model in ModelManager().
+          - If no 'text_model' is provided, uses the default model in
+            ModelManager().
           - If 'load_model' is True, loads a saved model using the 'model_id'.
           - If no 'model_id' is provided a new ID is created using the number of
-            Documents, the Text Model, and the number topics found.
+            Documents, the text model name, and the number topics found.
 
         Args:
-            model_id: String with the ID of the saved Topic Model.
+            model_id: String with the ID of the Topic Model.
             load_model: Bool indicating if we have to load a saved Topic Model.
             corpus: TopicCorpus representing documents extracted from the
                 Cord-19 dataset.
-            model: ModelManager class containing a Text Model to create the
+            text_model: ModelManager class containing a Text Model to create the
                 embeddings of the documents and words in the corpus.
             parallelism: Bool to indicate if we can use parallelism to create
                 the topics and create the topics' documents and vocabulary.
@@ -107,7 +108,9 @@ class MonoTopics(BaseTopics):
             # Transform Topic Embeddings back to Numpy.ndarray.
             if show_progress:
                 progress_msg("Transforming Topic Embeddings to Numpy.ndarray...")
-            topic_embeds = dict_list2ndarray(topic_embeds_index, show_progress=show_progress)
+            topic_embeds = dict_list2ndarray(
+                embeds_dict=topic_embeds_index, show_progress=show_progress
+            )
 
             # Load Document Embeddings.
             if show_progress:
@@ -120,12 +123,16 @@ class MonoTopics(BaseTopics):
             # Transform Document Embeddings back to Numpy.ndarray.
             if show_progress:
                 progress_msg("Transforming Document Embeddings to Numpy.ndarray...")
-            doc_embeds = dict_list2ndarray(doc_embeds_index, show_progress=show_progress)
+            doc_embeds = dict_list2ndarray(
+                embeds_dict=doc_embeds_index, show_progress=show_progress
+            )
 
             # Load Topic Model's Vocabulary.
             if show_progress:
                 progress_msg("Loading Topic Model's Vocabulary...")
-            corpus_vocab = Vocabulary.load(model_folder_path, show_progress=show_progress)
+            corpus_vocab = Vocabulary.load(
+                topic_dir_path=model_folder_path, show_progress=show_progress
+            )
 
             # Corpus & Text Model Attributes.
             self.corpus_id = corpus_id
@@ -146,26 +153,26 @@ class MonoTopics(BaseTopics):
                     progress_msg("Loading default full corpus to create the Topic Model...")
                 corpus = CorporaManager(show_progress=show_progress)
             # Check if a Text Model was provided.
-            if not model:
+            if not text_model:
                 if show_progress:
                     progress_msg("Loading default Text Model to create the Topic Model...")
-                model = ModelManager(show_progress=show_progress)
+                text_model = ModelManager(show_progress=show_progress)
             # Save the Corpus ID & Model Name.
             corpus_id = corpus.corpus_identifier()
-            text_model_name = model.model_name
+            text_model_name = text_model.model_name
 
             # Get the embeddings of the documents.
             if show_progress:
                 progress_msg("Creating Document Embeddings...")
-            doc_embeds = create_docs_embeds(corpus, model, show_progress=show_progress)
+            doc_embeds = create_docs_embeds(
+                corpus=corpus, model=text_model, show_progress=show_progress
+            )
             # Use the embeddings of the documents to find the prominent topics.
             if show_progress:
                 progress_msg("Finding the Topics...")
             topic_embeds = find_topics(
                 doc_embeds_list=list(doc_embeds.values()), show_progress=show_progress
             )
-            # Refresh the Topic IDs (So they are correctly formatted)
-            topic_embeds = refresh_topic_ids(topic_dict=topic_embeds)
             # Group Documents by Topics.
             if show_progress:
                 progress_msg("Organizing documents by topics...")
@@ -177,7 +184,9 @@ class MonoTopics(BaseTopics):
             # Create Corpus Vocabulary.
             if show_progress:
                 progress_msg("Creating Corpus Vocabulary...")
-            corpus_vocab = Vocabulary(corpus, model, show_progress=show_progress)
+            corpus_vocab = Vocabulary(
+                corpus=corpus, model=text_model, show_progress=show_progress
+            )
             # Create Topic Words.
             if show_progress:
                 progress_msg("Creating Topics' Vocabulary...")
@@ -205,14 +214,14 @@ class MonoTopics(BaseTopics):
         self.red_topic_words = None
 
     @property
-    def base_model_id(self) -> str:
+    def base_model_id(self):
         """
         String the ID used to identify the current Topic Model.
         """
         return self.model_id
 
     @property
-    def base_topic_embeds_docs(self):
+    def base_topic_embeds(self):
         """
         Dictionary with the vector representation of the topics in the same
         vector space as the documents in the corpus.
@@ -220,7 +229,7 @@ class MonoTopics(BaseTopics):
         return self.topic_embeds
 
     @property
-    def base_red_topic_embeds_docs(self):
+    def base_red_topic_embeds(self):
         """
         Dictionary with the vector representation of the Reduced Topics in the
         same vector space as the words in the vocabulary of the corpus. Used to
@@ -237,7 +246,7 @@ class MonoTopics(BaseTopics):
         return self.topic_docs
 
     @property
-    def base_red_topic_docs(self) -> dict:
+    def base_red_topic_docs(self):
         """
         Dictionary with the list of Documents (IDs) that belong to each of the
         Reduced Topics.
@@ -268,7 +277,7 @@ class MonoTopics(BaseTopics):
         return self.doc_embeds
 
     @property
-    def base_class_folder(self) -> str:
+    def base_class_folder(self):
         """
         String with the name of the folder where the models of the class will
         be stored.
@@ -284,7 +293,7 @@ class MonoTopics(BaseTopics):
         return model_folder_name
 
     @property
-    def base_reduced_folder(self) -> str:
+    def base_reduced_folder(self):
         """
         String with the name of the folder where the Reduced Topic Models will
         be stored.
@@ -292,7 +301,7 @@ class MonoTopics(BaseTopics):
         return self.reduced_topics_folder
 
     @property
-    def base_reduced_prefix(self) -> str:
+    def base_reduced_prefix(self):
         """
         String with the prefix used to create the name of the files used store
         the reduced Topics.
@@ -313,17 +322,17 @@ class MonoTopics(BaseTopics):
         """
         # Check the topic size requested is valid.
         if not 1 < new_size < self.topic_size:
-            # Invalid topic size requested. Reset reduced topics variables.
-            self.red_topic_embeds = None
-            self.red_topic_docs = None
-            self.red_topic_words = None
             if show_progress:
                 progress_msg(
                     f"Invalid reduced topic size of {new_size} requested, when "
                     f"the Topic Model only has {self.topic_size} topics."
                 )
-                # Exit Function.
-                return
+            # Invalid topic size requested. Reset reduced topics variables.
+            self.red_topic_embeds = None
+            self.red_topic_docs = None
+            self.red_topic_words = None
+            # Exit Function.
+            return
 
         # Get the Topic Embeddings of the Reduced Model with 'new_size' topics.
         if show_progress:
@@ -443,7 +452,8 @@ class MonoTopics(BaseTopics):
                 the method or not.
         """
         # Check if the model has already saved its reduced topics.
-        if not override and self.reduced_topics_saved():
+        has_reduced = self.reduced_topics_saved()
+        if not override and has_reduced:
             progress_msg(
                 "This Topic Model already has its Reduced Topics saved. Set "
                 "the 'override' parameter to 'True' to replace them with new "
@@ -455,32 +465,24 @@ class MonoTopics(BaseTopics):
         # Use Method from Base Class to save the topics.
         self.base_save_reduced_topics(parallelism, override, show_progress=show_progress)
 
-        # Update the Basic Info of the Model (It has now a Hierarchy).
-        model_folder_path = join(self.class_folder, self.model_folder_name)
-        basic_index = {
-            'topic_size': self.topic_size,
-            'corpus_size': len(self.doc_embeds),
-            'corpus_id': self.corpus_id,
-            'text_model_name': self.text_model_name,
-            'has_reduced_topics': True,
-        }
-        basic_index_path = join(model_folder_path, self.basic_index_file)
-        with open(basic_index_path, 'w') as f:
-            json.dump(basic_index, f)
-
-    def _create_model_id(self):
-        """
-        Create a default ID for the current Topic Model using its corpus size,
-        Text Model and the number of topics found.
-
-        Returns: String with the created ID of the topic model.
-        """
-        num_docs = big_number(len(self.doc_embeds)).replace(',', '_')
-        model_name = self.text_model_name
-        topics_size = big_number(self.topic_size).replace(',', '_')
-        new_model_id = model_name + '_' + num_docs + '_docs_' + topics_size + '_topics'
-        # Example: bert_fast_10_000_docs_100_topics
-        return new_model_id
+        # Check if we need to update the Basic Info of the Model.
+        if not has_reduced:
+            # Update the Basic Info of the Model (It has now a Hierarchy).
+            if show_progress:
+                progress_msg("Updating Topic Model's Basic Info...")
+            # Update the Basic Info of the Model (It has now a Hierarchy).
+            basic_index = {
+                'topic_size': self.topic_size,
+                'corpus_size': len(self.doc_embeds),
+                'corpus_id': self.corpus_id,
+                'text_model_name': self.text_model_name,
+                'has_reduced_topics': True,
+            }
+            # Create Path & Save.
+            model_folder_path = join(self.class_folder, self.model_folder_name)
+            basic_index_path = join(model_folder_path, self.basic_index_file)
+            with open(basic_index_path, 'w') as f:
+                json.dump(basic_index, f)
 
     @classmethod
     def load(cls, model_id: str, show_progress=False):
@@ -626,13 +628,29 @@ class MonoTopics(BaseTopics):
         topic_ids = created_ids + provided_ids
         return topic_ids
 
+    def _create_model_id(self):
+        """
+        Create a default ID for the current Topic Model using its corpus size,
+        Text Model and the number of topics found.
+
+        Returns: String with the created ID of the topic model.
+        """
+        model_name = self.text_model_name
+        corpus_size = big_number(len(self.doc_embeds)).replace(',', '_')
+        topics_size = big_number(self.topic_size).replace(',', '_')
+        new_model_id = (
+                model_name + '_' + corpus_size + '_docs_' + topics_size + '_topics'
+        )
+        # Example: bert_fast_10_000_docs_100_topics
+        return new_model_id
+
     @classmethod
     def _is_created_id(cls, model_id: str):
         """
         Check if the string 'model_id' was created using the method
-        'create_model_id()'.
+        '_create_model_id()'.
 
-        Returns: (Bool, docs,  indicating if the 'model_id' was created by the class.
+        Returns: Bool indicating if the 'model_id' was created by the class.
         """
         # Check has the topics and docs.
         if not model_id.endswith('_topics'):
@@ -642,9 +660,9 @@ class MonoTopics(BaseTopics):
         # Check it has the text model name.
         for model_name in ModelManager.models_dict.keys():
             if model_name in model_id:
-                stripped_id = model_id.replace('_topics', '')
+                stripped_id = model_id.replace(model_name, '')
                 stripped_id = stripped_id.replace('_docs_', '')
-                stripped_id = stripped_id.replace(model_name, '')
+                stripped_id = stripped_id.replace('_topics', '')
                 stripped_id = stripped_id.replace('_', '')
                 # Check it only has numbers after eliminating Topics, Docs and model.
                 result = stripped_id.isnumeric()
@@ -659,46 +677,46 @@ if __name__ == '__main__':
     # Terminal Parameters.
     _args = sys.argv
 
-    # # Create corpus.
-    # # ---------------------------------------------
-    # # _docs_num = 1_000
-    # # print(f"\nCreating Corpus Sample of {big_number(_docs_num)} documents...")
-    # # _corpus = SampleManager(sample_size=_docs_num, show_progress=True)
-    # # print(f"Saving Sample for future use...")
-    # # _corpus.save()
-    # # ---------------------------------------------
-    # _sample_id = '20_000_docs'
-    # print(f"\nLoading the Corpus Sample <{_sample_id}>...")
-    # _corpus = SampleManager.load(sample_id=_sample_id, show_progress=True)
-    # # ---------------------------------------------
-    # print("Done.")
-    # print(f"[{_stopwatch.formatted_runtime()}]")
+    # Create corpus.
+    # ---------------------------------------------
+    # _docs_num = 1_000
+    # print(f"\nCreating Corpus Sample of {big_number(_docs_num)} documents...")
+    # _corpus = SampleManager(sample_size=_docs_num, show_progress=True)
+    # print(f"Saving Sample for future use...")
+    # _corpus.save()
+    # ---------------------------------------------
+    _sample_id = '500_docs'
+    print(f"\nLoading the Corpus Sample <{_sample_id}>...")
+    _corpus = SampleManager.load(sample_id=_sample_id, show_progress=True)
+    # ---------------------------------------------
+    print("Done.")
+    print(f"[{_stopwatch.formatted_runtime()}]")
 
-    # # Report amount of papers in the loaded Corpus
-    # _paper_count = len(_corpus)
-    # print(f"\n{big_number(_paper_count)} documents loaded.")
+    # Report amount of papers in the loaded Corpus
+    _paper_count = len(_corpus)
+    print(f"\n{big_number(_paper_count)} documents loaded.")
 
-    # # Load Text Model.
-    # _model_id = 'sbert_fast'
-    # print(f"\nLoading the model in ModelManager <{_model_id}>...")
-    # _text_model = ModelManager(model_name=_model_id, show_progress=True)
-    # print("Done.")
-    # print(f"[{_stopwatch.formatted_runtime()}]")
+    # Load Text Model.
+    _model_id = 'sbert_fast'
+    print(f"\nLoading the model in ModelManager <{_model_id}>...")
+    _text_model = ModelManager(model_name=_model_id, show_progress=True)
+    print("Done.")
+    print(f"[{_stopwatch.formatted_runtime()}]")
 
-    # # Create Topic Model.
-    # print(f"\nCreating Topic Model...")
-    # _topic_model = MonoTopics(corpus=_corpus, model=_text_model, show_progress=True)
-    # print("Done.")
-    # print(f"[{_stopwatch.formatted_runtime()}]")
+    # Create Topic Model.
+    print(f"\nCreating Topic Model...")
+    _topic_model = MonoTopics(corpus=_corpus, text_model=_text_model, show_progress=True)
+    print("Done.")
+    print(f"[{_stopwatch.formatted_runtime()}]")
 
-    # # Report Number of Topics found.
-    # print(f"\n{_topic_model.topic_size} topics found.")
-    # # ---------------------------------------------
-    # # Show Topic by size.
-    # print("\nTopics by number of documents:")
-    # _topics_sizes = _topic_model.topic_by_size()
-    # for _topic_size in _topics_sizes:
-    #     print(_topic_size)
+    # Report Number of Topics found.
+    print(f"\n{_topic_model.topic_size} topics found.")
+    # ---------------------------------------------
+    # Show Topic by size.
+    print("\nTopics by number of documents:")
+    _topics_sizes = _topic_model.topic_by_size()
+    for _topic_size in _topics_sizes:
+        print(_topic_size)
     # # # ---------------------------------------------
     # # # Topics' Vocabulary
     # # top_n = 15
@@ -714,20 +732,20 @@ if __name__ == '__main__':
     # print("Done.")
     # print(f"[{_stopwatch.formatted_runtime()}]")
 
-    # # -- Test Loading Topic Model --
-    _loading_id = 'sbert_fast_20_000_docs_182_topics'  # _topic_model.model_id
-    print(f"\nLoading Topic Model with ID <{_loading_id}>...")
-    _loaded_model = MonoTopics.load(model_id=_loading_id, show_progress=True)
-    print("Done.")
-    print(f"[{_stopwatch.formatted_runtime()}]")
-    # # ---------------------------------------------
-    # Show Loaded Topics.
-    print(f"\nThe Loaded Topic Model has {_loaded_model.topic_size} topics.")
-    # Show Topics.
-    print("\nTopic by number of documents (Loaded Model):")
-    _topics_sizes = _loaded_model.topic_by_size()
-    for _topic_size in _topics_sizes:
-        print(_topic_size)
+    # # # -- Test Loading Topic Model --
+    # _loading_id = 'sbert_fast_20_000_docs_182_topics'  # _topic_model.model_id
+    # print(f"\nLoading Topic Model with ID <{_loading_id}>...")
+    # _loaded_model = MonoTopics.load(model_id=_loading_id, show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+    # # # ---------------------------------------------
+    # # Show Loaded Topics.
+    # print(f"\nThe Loaded Topic Model has {_loaded_model.topic_size} topics.")
+    # # Show Topics.
+    # print("\nTopic by number of documents (Loaded Model):")
+    # _topics_sizes = _loaded_model.topic_by_size()
+    # for _topic_size in _topics_sizes:
+    #     print(_topic_size)
     # # # Show Topics' Words.
     # # top_n = 15
     # # print(f"\nTop {top_n} words per topic:")
@@ -746,24 +764,24 @@ if __name__ == '__main__':
     # print("Done.")
     # print(f"[{_stopwatch.formatted_runtime()}]")
 
-    # -- Create Hierarchically Reduced Topics --
-    _new_size = 10
-    print(f"\nCreating Reduced Model with {_new_size} topics...")
-    _loaded_model.reduce_topics(new_size=_new_size, parallelism=False, show_progress=True)
-    print("Done.")
-    print(f"[{_stopwatch.formatted_runtime()}]")
-    # Show Reduced Topics.
-    print("\nReduced Topics (by number of docs):")
-    _red_topics_sizes = _loaded_model.red_topic_by_size()
-    for _red_topic_size in _red_topics_sizes:
-        print(_red_topic_size)
-    # Show Topic Words.
-    _top_n = 15
-    print(f"\nTop {_top_n} words per reduced topic:")
-    _red_topic_words = _loaded_model.red_topics_top_words(n=_top_n)
-    for _red_topic_id, _red_words in _red_topic_words.items():
-        print(f"\n-----> {_red_topic_id}:")
-        pprint(_red_words)
+    # # -- Create Hierarchically Reduced Topics --
+    # _new_size = 10
+    # print(f"\nCreating Reduced Model with {_new_size} topics...")
+    # _loaded_model.reduce_topics(new_size=_new_size, parallelism=False, show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+    # # Show Reduced Topics.
+    # print("\nReduced Topics (by number of docs):")
+    # _red_topics_sizes = _loaded_model.red_topic_by_size()
+    # for _red_topic_size in _red_topics_sizes:
+    #     print(_red_topic_size)
+    # # Show Topic Words.
+    # _top_n = 15
+    # print(f"\nTop {_top_n} words per reduced topic:")
+    # _red_topic_words = _loaded_model.red_topics_top_words(n=_top_n)
+    # for _red_topic_id, _red_words in _red_topic_words.items():
+    #     print(f"\n-----> {_red_topic_id}:")
+    #     pprint(_red_words)
 
     # -- Show Saved Models --
     _saved_topic_models = MonoTopics.saved_models()
