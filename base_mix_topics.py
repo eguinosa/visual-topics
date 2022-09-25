@@ -431,8 +431,9 @@ def find_mix_topics(doc_embeds: dict, corpus: TopicCorpus, text_model: ModelMana
         else:
             topic_clusters_docs[topic_id] = [doc_id]
     # Report number of topics.
+    topic_size = len(topic_clusters_docs)
     if show_progress:
-        progress_msg(f"{len(topic_clusters_docs)} topics found.")
+        progress_msg(f"{topic_size} topics found.")
 
     # Refresh the Topic IDs (So they are correctly formatted).
     topic_clusters_docs = refresh_topic_ids(topic_dict=topic_clusters_docs)
@@ -451,13 +452,12 @@ def find_mix_topics(doc_embeds: dict, corpus: TopicCorpus, text_model: ModelMana
     topic_embeds_words = {}
     if show_progress:
         progress_msg(
-            "Creating the Doc & Vocab Embeds of the Prominent Topics using the "
-            "clusters found..."
+            f"Creating the Doc & Vocab Embeds of the {topic_size} topics found..."
         )
     for topic_id, cluster_doc_ids in topic_clusters_docs.items():
         # Create Topic Embed in the Document Space.
         specter_cluster_embeds = [doc_embeds[doc_id] for doc_id in cluster_doc_ids]
-        specter_mean_embed = np.mean(specter_cluster_embeds)
+        specter_mean_embed = np.mean(specter_cluster_embeds, axis=0)
         topic_embeds_docs[topic_id] = specter_mean_embed
 
         # Create Topic Embed in the Vocabulary Space.
@@ -466,7 +466,7 @@ def find_mix_topics(doc_embeds: dict, corpus: TopicCorpus, text_model: ModelMana
             for doc_id in cluster_doc_ids
         ]
         vocab_cluster_embeds = text_model.doc_list_embeds(cluster_docs_content)
-        vocab_mean_embed = np.mean(vocab_cluster_embeds)
+        vocab_mean_embed = np.mean(vocab_cluster_embeds, axis=0)
         topic_embeds_words[topic_id] = vocab_mean_embed
 
         # Progress.
