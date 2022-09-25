@@ -61,6 +61,21 @@ class TopicCorpus(ABC):
         """
         pass
 
+    @abstractmethod
+    def load_embeddings_dict(self) -> None:
+        """
+        Load to memory the embeddings Dictionary (around 2GB). Speeds up the
+        process to get the embedding of the documents.
+        """
+        pass
+
+    @abstractmethod
+    def unload_embeddings_dict(self) -> None:
+        """
+        Unload from memory the embeddings Dictionary. Frees up space.
+        """
+        pass
+
     def doc_title_abstract(self, doc_id: str):
         """
         Get the title and abstract of the document with the given 'doc_id'.
