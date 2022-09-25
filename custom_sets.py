@@ -14,6 +14,8 @@ wrong_acronyms = {
     'FINDINGS': 'finding',
     'HYPOTHESIS': 'hypothesis',
     'INTRODUCTION': 'introduction',
+    'INTERVENTION': 'intervention',
+    'INTERVENTIONS': 'intervention',
     'MATERIAL': 'material',
     'MATERIALS': 'material',
     'METHOD': 'method',
