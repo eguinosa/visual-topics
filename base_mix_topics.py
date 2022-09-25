@@ -437,11 +437,11 @@ def find_mix_topics(doc_embeds: dict, corpus: TopicCorpus, text_model: ModelMana
 
     # Refresh the Topic IDs (So they are correctly formatted).
     topic_clusters_docs = refresh_topic_ids(topic_dict=topic_clusters_docs)
-    # Report Prominent Topics cluster sizes.
-    if show_progress:
-        progress_msg("<< Prominent Topics cluster sizes >>")
-        for topic_id, cluster_doc_ids in topic_clusters_docs.items():
-            progress_msg(f" -> {topic_id}: {big_number(len(cluster_doc_ids))} docs")
+    # # Report Prominent Topics cluster sizes.
+    # if show_progress:
+    #     progress_msg("<< Prominent Topics cluster sizes >>")
+    #     for topic_id, cluster_doc_ids in topic_clusters_docs.items():
+    #         progress_msg(f" -> {topic_id}: {big_number(len(cluster_doc_ids))} docs")
 
     # Progress Variables.
     count = 0
