@@ -279,7 +279,7 @@ class MixTopics(BaseMixTopics):
         return self.topic_docs
 
     @property
-    def base_red_topic_docs(self) -> dict:
+    def base_cur_topic_docs(self) -> dict:
         """
         Dictionary with the list of Documents (IDs) that belong to each of the
         Reduced Topics.
@@ -295,7 +295,7 @@ class MixTopics(BaseMixTopics):
         return self.topic_words
 
     @property
-    def base_red_topic_words(self):
+    def base_cur_topic_words(self):
         """
         Dictionary the list of words that best describe each of the Reduced
         Topics.
