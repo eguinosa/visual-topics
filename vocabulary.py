@@ -2,6 +2,7 @@
 # 2022
 
 import json
+import math
 from os import mkdir
 from os.path import isdir, isfile, join
 from shutil import rmtree
@@ -15,6 +16,7 @@ from extra_funcs import progress_bar, progress_msg, big_number
 
 # Testing Imports.
 import sys
+from pprint import pprint
 from sample_manager import SampleManager
 from util_funcs import find_top_n
 from time_keeper import TimeKeeper
@@ -71,6 +73,7 @@ class Vocabulary:
                 vocab_index = json.load(f)
             # Get the Index variables.
             corpus_length = vocab_index['corpus_length']
+            word_docs_count = vocab_index['word_docs_count']
             corpus_freqs = vocab_index['corpus_freqs']
             docs_lengths = vocab_index['docs_lengths']
             docs_freqs = vocab_index['docs_freqs']
@@ -97,6 +100,7 @@ class Vocabulary:
 
             # Variables of the Vocabulary for the given 'corpus'.
             corpus_length = 0
+            word_docs = {}
             corpus_freqs = {}
             docs_lengths = {}
             docs_freqs = {}
@@ -117,12 +121,12 @@ class Vocabulary:
                 doc_content = corpus.doc_title_abstract(doc_id)
                 doc_tokens = tokenizer.vocab_tokenizer(doc_content)
                 # Analyze the Tokens to save new words and token's variations.
+                # Update corpus data and create frequencies for the document.
                 new_words = []
-                doc_tokens_lower = []
+                doc_word_count = {}
                 for token in doc_tokens:
+                    # Use token in lower form.
                     token_lower = token.lower()
-                    # Save tokens in lower form.
-                    doc_tokens_lower.append(token_lower)
                     # Save new Words.
                     if token_lower not in word_embeds:
                         new_words.append(token_lower)
@@ -134,13 +138,11 @@ class Vocabulary:
                         token_reps = defaultdict(int)
                         token_reps[token] += 1
                         token_variations[token_lower] = token_reps
-                # Create embeddings for the new words.
-                new_embeds = model.word_list_embeds(new_words)
-                for new_word, new_embed in zip(new_words, new_embeds):
-                    word_embeds[new_word] = new_embed
-                # Update corpus data and create frequencies for the document.
-                doc_word_count = {}
-                for token_lower in doc_tokens_lower:
+                    # Update Word Documents.
+                    if token_lower in word_docs:
+                        word_docs[token_lower].add(doc_id)
+                    else:
+                        word_docs[token_lower] = set(doc_id)
                     # Update corpus data.
                     corpus_length += 1
                     if token_lower in corpus_freqs:
@@ -152,8 +154,13 @@ class Vocabulary:
                         doc_word_count[token_lower] += 1
                     else:
                         doc_word_count[token_lower] = 1
+                    # Update
+                # Create embeddings for the new words.
+                new_embeds = model.word_list_embeds(new_words)
+                for new_word, new_embed in zip(new_words, new_embeds):
+                    word_embeds[new_word] = new_embed
                 # Save the Document's length and frequencies.
-                docs_lengths[doc_id] = len(doc_tokens_lower)
+                docs_lengths[doc_id] = len(doc_tokens)
                 docs_freqs[doc_id] = doc_word_count
                 # Progress.
                 if show_progress:
@@ -180,12 +187,17 @@ class Vocabulary:
                 count += 1
                 progress_bar(count, total)
             # Use Most Common Representation in Embeddings and Corpus Frequencies.
+            # Create dictionary with the number of document where the words appear.
+            word_docs_count = {}
             for token_lower in corpus_tokens_lower:
-                # Check if the token has the same most common representation.
-                if token_lower == token_variations[token_lower]:
-                    continue
                 # Get new Representation.
                 new_token_rep = token_variations[token_lower]
+                # Get number of Docs where the Word appears.
+                doc_set = word_docs[token_lower]
+                word_docs_count[new_token_rep] = len(doc_set)
+                # Check if the token has the same most common representation.
+                if token_lower == new_token_rep:
+                    continue
                 # Update Keys of Corpus Frequencies.
                 freq_value = corpus_freqs[token_lower]
                 del corpus_freqs[token_lower]
@@ -219,9 +231,10 @@ class Vocabulary:
 
         # Save the Vocabulary Info.
         self.corpus_length = corpus_length
+        self.word_docs_count = word_docs_count
+        self.corpus_freqs = corpus_freqs
         self.docs_lengths = docs_lengths
         self.docs_freqs = docs_freqs
-        self.corpus_freqs = corpus_freqs
         self.word_embeds = word_embeds
 
         # Vocabulary Statistics.
@@ -260,6 +273,133 @@ class Vocabulary:
         doc_vocab = list(doc_freqs)
         return doc_vocab
 
+    def pwi_tf_idf(self, word: str, doc_id: str):
+        """
+        Get the tf-idf Probability-Weighted amount of Information (PWI) between
+        the 'word' and the document 'doc_id'.
+
+        Args:
+            word: String with the text of the word.
+            doc_id: String with the ID of the document.
+        Returns:
+            Float with the PWI tf-idf of the word and the document.
+        """
+        # Doc Frequencies.
+        doc_freqs = self.docs_freqs[doc_id]
+        # Check the word is in the Document.
+        if word not in doc_freqs:
+            return 0
+        # Get the values needed to calculate the PWI.
+        word_doc_freq = doc_freqs[word]
+        corpus_length = self.corpus_length
+        word_doc_count = self.word_docs_count[word]
+        corpus_size = len(self.docs_lengths)
+        # Calculate the PWI tf-idf.
+        pwi_result = (
+            (word_doc_freq/corpus_length) * math.log(corpus_size/word_doc_count)
+        )
+        return pwi_result
+
+    def pwi_exact(self, word: str, doc_id: str):
+        """
+        Get the exact Probability-Weighted amount of Information (PWI) between
+        the 'word' and the document 'doc_id'.
+
+        Args:
+            word: String with the text of the word.
+            doc_id: String with the ID of the document.
+        Returns:
+            Float with the PWI exact of the word and the document.
+        """
+        # Doc Frequencies.
+        doc_freqs = self.docs_freqs[doc_id]
+        # Check the word is in the Document.
+        if word not in doc_freqs:
+            return 0
+        # Get the values of the variables to calculate PWI exact.
+        word_doc_freq = doc_freqs[word]
+        corpus_length = self.corpus_length
+        word_corpus_freq = self.corpus_freqs[word]
+        doc_length = self.docs_lengths[doc_id]
+        # Calculate PWI exact.
+        pwi_result = (
+            (word_doc_freq/corpus_length) *
+            math.log(
+                (word_doc_freq * corpus_length) / (word_corpus_freq * doc_length)
+            )
+        )
+        return pwi_result
+
+    def word_pwi_tf_idf(self, word: str, doc_ids: list):
+        """
+        Get the tf-idf Probability-Weighted amount of Information (PWI-tf-idf)
+        between the 'word' and the list of documents 'doc_ids'.
+
+        Args:
+            word: String with the text of the word.
+            doc_ids: List[str] with the IDs of the documents.
+        Returns:
+            Float with the PWI-tf-idf of the word and the documents.
+        """
+        # Get the Number of documents in the corpus.
+        corpus_size = len(self.docs_lengths)
+        # Get the sum of the word frequency in the documents.
+        if len(doc_ids) == corpus_size:
+            # The Docs are the whole corpus. Get the corpus frequency instead.
+            word_docs_freq = self.corpus_freqs[word]
+        else:
+            # Use the doc_ids for the word total frequency.
+            word_docs_freq = sum(
+                doc_freqs[word] for doc_id in doc_ids
+                if word in (doc_freqs := self.docs_freqs[doc_id])
+            )
+        # Create the rest of the variables for the formula.
+        corpus_length = self.corpus_length
+        word_doc_count = self.word_docs_count[word]
+        # Calculate the PWI-tf-idf.
+        pwi_result = (
+                (word_docs_freq / corpus_length) * math.log(corpus_size/word_doc_count)
+        )
+        return pwi_result
+
+    def word_pwi_exact(self, word: str, doc_ids: list):
+        """
+        Get the exact Probability-Weighted amount of Information (PWI-exact)
+        between the 'word' and the list of documents 'doc_ids'.
+
+        Args:
+            word: String with the text of the word.
+            doc_ids: List[str] with the IDs of the documents.
+        Returns:
+            Float with the PWI-exact of the word and the documents.
+        """
+        # Get corpus variables.
+        word_corpus_freq = self.corpus_freqs[word]
+        corpus_length = self.corpus_length
+        # Calculate the summation in the formula.
+        summation = 0
+        for doc_id in doc_ids:
+            # Get Frequencies of words in the current Document.
+            doc_freqs = self.docs_freqs[doc_id]
+            # Check the word is in the Document.
+            if word not in doc_freqs:
+                continue
+            # Variables of the summation.
+            word_doc_freq = doc_freqs[word]
+            doc_length = self.docs_lengths[doc_id]
+            # Calculate Iteration.
+            summand = (
+                word_doc_freq *
+                math.log(
+                    (corpus_length * word_doc_freq) / (word_corpus_freq * doc_length)
+                )
+            )
+            # Add iteration to summation.
+            summation += summand
+        # Divide summation with the corpus frequency.
+        pwi_result = summation / corpus_length
+        return pwi_result
+
     def save(self, topic_dir_path: str, show_progress=False):
         """
         Save the Vocabulary data.
@@ -284,6 +424,7 @@ class Vocabulary:
             progress_msg("Saving Vocabulary Index File...")
         vocab_index = {
             'corpus_length': self.corpus_length,
+            'word_docs_count': self.word_docs_count,
             'corpus_freqs': self.corpus_freqs,
             'docs_lengths': self.docs_lengths,
             'docs_freqs': self.docs_freqs,
@@ -365,11 +506,19 @@ if __name__ == '__main__':
     _args = sys.argv
 
     # Create corpus.
+    # ------------------------------------------------
     _docs_num = 50
     print(f"\nCreating Corpus Sample of {big_number(_docs_num)} documents...")
     _sample = SampleManager(sample_size=_docs_num, show_progress=True)
+    # ------------------------------------------------
+    # _sample_id = '100_docs'
+    # print(f"\nLoading Corpus Sample with ID <{_sample_id}>...")
+    # _sample = SampleManager.load(sample_id=_sample_id)
+    # ------------------------------------------------
     print("Done.")
     print(f"[{_stopwatch.formatted_runtime()}]")
+
+    print(f"\n{big_number(len(_sample))} documents loaded.")
 
     # Creating Text Model.
     print("\nCreating Text Model for the vocabulary embeddings...")
@@ -387,25 +536,7 @@ if __name__ == '__main__':
     # print("\nSaving Vocabulary...")
     # _vocab.save(topic_dir_path='temp_data', show_progress=True)
     # print("Done.")
-    # print(f"[{stopwatch.formatted_runtime()}]")
-
-    # Get the Most Frequent Words in the Corpus.
-    _top_num = 10
-    print(f"\nFinding the Top {_top_num} most frequent words in the corpus:")
-    _top_words = find_top_n(_vocab.corpus_freqs.items(), n=_top_num)
-    print("Done.")
-    print(f"[{_stopwatch.formatted_runtime()}]")
-
-    print(f"\nTop {_top_num} Most Frequent Words:")
-    for _word, _count in _top_words:
-        print(f"  {_word} -> {_count}")
-
-    # Get the Biggest Documents in the Corpus.
-    _top_num = 10
-    print(f"\nThe Top Biggest {_top_num} documents")
-    _big_docs = find_top_n(_vocab.docs_lengths.items(), n=_top_num)
-    for _doc_id, _size in _big_docs:
-        print(f"  Doc <{_doc_id}>: {_size} tokens")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
 
     # # --- Test Loading the Vocabulary ---
     # _location = 'temp_data'
@@ -415,18 +546,51 @@ if __name__ == '__main__':
     #     print("Yes, there is a Vocabulary in the folder.")
     # else:
     #     print("No, there is no Vocabulary saved in that folder.")
-    # # ----------------------------------
+    # # # ----------------------------------
     # print("\nLoading Saved Vocabulary...")
-    # _saved_vocab = Vocabulary.load(topic_dir_path='temp_data', show_progress=True)
+    # _vocab = Vocabulary.load(topic_dir_path='temp_data', show_progress=True)
     # print("Done.")
-    # print(f"[{stopwatch.formatted_runtime()}]")
-    # # ----------------------------------
-    # # Show the Biggest Documents in the Saved Vocabulary.
-    # _top_num = 10
-    # print(f"\nThe {_top_num} Biggest Documents from the Saved Vocabulary:")
-    # _big_docs = find_top_n(_saved_vocab.docs_lengths.items(), n=_top_num)
-    # for _doc_id, _size in _big_docs:
-    #     print(f"  Doc <{_doc_id}>: {_size} tokens")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+
+    # Get the Most Frequent Words in the Corpus.
+    _top_num = 10
+    print(f"\nFinding the Top {_top_num} most frequent words in the corpus:")
+    _top_words = find_top_n(_vocab.corpus_freqs.items(), n=_top_num)
+    print(f"\nTop {_top_num} Most Frequent Words:")
+    for _word, _count in _top_words:
+        print(f"  {_word} -> {_count}")
+    # ------------------------------------------------
+    # Get the Biggest Documents in the Corpus.
+    _top_num = 10
+    print(f"\nThe Top Biggest {_top_num} documents")
+    _big_docs = find_top_n(_vocab.docs_lengths.items(), n=_top_num)
+    for _doc_id, _size in _big_docs:
+        print(f"  Doc <{_doc_id}>: {_size} tokens")
+
+    # # -- Test PWI-tf-idf & PWI-exact --
+    # # Get content of the 15th smallest Document.
+    # _small_docs = find_top_n(_vocab.docs_lengths.items(), n=15, top_max=False)
+    # _least_big_id, _ = _small_docs[-2]
+    # _least_big_content = _sample.doc_title_abstract(_least_big_id)
+    # print(f"\nContent of the Document <{_least_big_id}>:")
+    # pprint(_least_big_content, width=80)
+    # # ------------------------------------------------
+    # # Get the Mutual Information between the Doc and its tokens.
+    # _words_tf_idf = [
+    #     (word, _vocab.pwi_tf_idf(word, _least_big_id))
+    #     for word in _vocab.doc_words(_least_big_id)
+    # ]
+    # _info_words = find_top_n(_words_tf_idf, n=10)
+    # print("\nThe Top 10 most informative words with PWI-tf-idf:")
+    # pprint(_info_words)
+    # # ------------------------------------------------
+    # _words_exact = [
+    #     (word, _vocab.pwi_exact(word, _least_big_id))
+    #     for word in _vocab.doc_words(_least_big_id)
+    # ]
+    # _info_words = find_top_n(_words_exact, n=10)
+    # print("\nThe Top 10 most informative words with PWI-exact:")
+    # pprint(_info_words)
 
     print("\nDone.")
     print(f"[{_stopwatch.formatted_runtime()}]\n")
