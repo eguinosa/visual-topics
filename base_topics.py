@@ -50,10 +50,13 @@ class BaseTopics(ABC):
 
     @property
     @abstractmethod
-    def base_red_topic_embeds(self) -> dict:
+    def base_cur_topic_embeds(self) -> dict:
         """
-        Dictionary with the vector representation of the Reduced Topics in the
+        Dictionary with the vector representation of the current Topics in the
         same vector space as the documents in the corpus.
+
+        When the Base Current Topic Embeds do not return None, then the model
+        assumes that the Reduced Topics of the Model are ready and available.
         """
         pass
 
@@ -68,10 +71,10 @@ class BaseTopics(ABC):
 
     @property
     @abstractmethod
-    def base_red_topic_docs(self) -> dict:
+    def base_cur_topic_docs(self) -> dict:
         """
         Dictionary with the list of Documents (IDs) that belong to each of the
-        Reduced Topics.
+        current Topics.
         """
         pass
 
@@ -86,9 +89,9 @@ class BaseTopics(ABC):
 
     @property
     @abstractmethod
-    def base_red_topic_words(self):
+    def base_cur_topic_words(self):
         """
-        Dictionary the list of words that best describe each of the Reduced
+        Dictionary the list of words that best describe each of the current
         Topics.
         """
         pass
@@ -209,12 +212,12 @@ class BaseTopics(ABC):
         return len(self.base_topic_embeds)
 
     @property
-    def red_topic_size(self) -> int:
+    def cur_topic_size(self) -> int:
         """
-        Int with the Number of Topics the Reduced Model has.
+        Int with the Number of Topics the Current Model has.
         """
-        if self.base_red_topic_embeds:
-            return len(self.base_red_topic_embeds)
+        if self.base_cur_topic_embeds:
+            return len(self.base_cur_topic_embeds)
         else:
             return 0
 
@@ -227,23 +230,23 @@ class BaseTopics(ABC):
         return id_list
 
     @property
-    def red_topic_ids(self) -> list:
+    def cur_topic_ids(self) -> list:
         """
-        List[str] with the IDs of the reduced topics in the Model.
+        List[str] with the IDs of the current topics in the Model.
         """
-        if self.base_red_topic_embeds:
-            id_list = list(self.base_red_topic_embeds.keys())
+        if self.base_cur_topic_embeds:
+            id_list = list(self.base_cur_topic_embeds.keys())
             return id_list
         else:
             return []
 
     @property
-    def reduced_topics(self) -> bool:
+    def has_reduced_topics(self) -> bool:
         """
         Bool indicating if the Model has Reduced Topics.
         """
         # Check if we have loaded some reduced topics.
-        if self.base_red_topic_embeds:
+        if self.base_cur_topic_embeds:
             return True
         else:
             return False
@@ -264,21 +267,21 @@ class BaseTopics(ABC):
         topic_size.sort(key=lambda id_size: id_size[1], reverse=True)
         return topic_size
 
-    def red_topic_by_size(self):
+    def cur_topic_by_size(self):
         """
-        Create List of Tuples with the ID and Size for each of the reduced
+        Create List of Tuples with the ID and Size for each of the current
         topics.
 
-        Returns: List[Tuples(str, int)] with the reduced topics and their sizes.
+        Returns: List[Tuples(str, int)] with the current topics and their sizes.
         """
-        # Get Reduced Topics and Sizes.
-        red_topic_size = [
-            (red_topic_id, len(doc_list))
-            for red_topic_id, doc_list in self.base_red_topic_docs.items()
+        # Get Current Topics and Sizes.
+        cur_topic_sizes = [
+            (cur_topic_id, len(doc_list))
+            for cur_topic_id, doc_list in self.base_cur_topic_docs.items()
         ]
-        # Sort the Reduced Topics by size.
-        red_topic_size.sort(key=lambda id_size: id_size[1], reverse=True)
-        return red_topic_size
+        # Sort the Current Topics by size.
+        cur_topic_sizes.sort(key=lambda id_size: id_size[1], reverse=True)
+        return cur_topic_sizes
 
     def top_words_topic(self, topic_id: str, n=10):
         """
@@ -291,11 +294,11 @@ class BaseTopics(ABC):
             result = words[:n]
             return result
 
-    def top_words_red_topic(self, red_topic_id: str, n=10):
+    def top_words_cur_topic(self, cur_topic_id: str, n=10):
         """
-        Get the 'n' words that best describe the 'red_topic_id'.
+        Get the 'n' words that best describe the 'cur_topic_id'.
         """
-        words = self.base_red_topic_words[red_topic_id]
+        words = self.base_cur_topic_words[cur_topic_id]
         if n >= len(words):
             return words
         else:
@@ -318,20 +321,20 @@ class BaseTopics(ABC):
         # Dictionary with Top N words per topic.
         return result_dict
 
-    def red_topics_top_words(self, n=10):
+    def cur_topics_top_words(self, n=10):
         """
-        Get the 'n' top words that best describe each of the reduced topics in
+        Get the 'n' top words that best describe each of the current topics in
         the model.
         """
         result_dict = {}
-        for red_topic_id, _ in self.red_topic_by_size():
-            top_words = self.base_red_topic_words[red_topic_id]
+        for cur_topic_id, _ in self.cur_topic_by_size():
+            top_words = self.base_cur_topic_words[cur_topic_id]
             if n >= len(top_words):
-                result_dict[red_topic_id] = top_words
+                result_dict[cur_topic_id] = top_words
             else:
                 new_list = top_words[:n]
-                result_dict[red_topic_id] = new_list
-        # Dictionary with Top N words per reduced topic.
+                result_dict[cur_topic_id] = new_list
+        # Dictionary with Top N words per current topic.
         return result_dict
 
     def base_reduce_topics(self, new_size: int, parallelism=False, show_progress=False):
