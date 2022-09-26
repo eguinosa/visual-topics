@@ -556,16 +556,36 @@ if __name__ == '__main__':
     _top_num = 10
     print(f"\nFinding the Top {_top_num} most frequent words in the corpus:")
     _top_words = find_top_n(_vocab.corpus_freqs.items(), n=_top_num)
-    print(f"\nTop {_top_num} Most Frequent Words:")
+    print(f"Top {_top_num} Most Frequent Words:")
     for _word, _count in _top_words:
         print(f"  {_word} -> {_count}")
+
+    # -- Get the most informative words in the corpus --
+    print("\nGetting the TF-IDF most informative words in the Corpus...")
+    _words_tf_idf = [
+        (word, _vocab.word_pwi_tf_idf(word, _vocab.corpus_docs))
+        for word in _vocab.corpus_words
+    ]
+    _info_words = find_top_n(_words_tf_idf, n=10)
+    print("Top 10 most informative Words (TF-IDF):")
+    pprint(_info_words)
     # ------------------------------------------------
-    # Get the Biggest Documents in the Corpus.
-    _top_num = 10
-    print(f"\nThe Top Biggest {_top_num} documents")
-    _big_docs = find_top_n(_vocab.docs_lengths.items(), n=_top_num)
-    for _doc_id, _size in _big_docs:
-        print(f"  Doc <{_doc_id}>: {_size} tokens")
+    print("\nGetting the PWI-exact most informative words in the Corpus...")
+    _words_exact = [
+        (word, _vocab.word_pwi_exact(word, _vocab.corpus_docs))
+        for word in _vocab.corpus_words
+    ]
+    _info_words = find_top_n(_words_exact, n=10)
+    print("Top 10 most informative Words (PWI-exact):")
+    pprint(_info_words)
+
+    # ------------------------------------------------
+    # # Get the Biggest Documents in the Corpus.
+    # _top_num = 10
+    # print(f"\nThe Top Biggest {_top_num} documents")
+    # _big_docs = find_top_n(_vocab.docs_lengths.items(), n=_top_num)
+    # for _doc_id, _size in _big_docs:
+    #     print(f"  Doc <{_doc_id}>: {_size} tokens")
 
     # # -- Test PWI-tf-idf & PWI-exact --
     # # Get content of the 15th smallest Document.
