@@ -16,7 +16,7 @@ from base_topics import (
 from topic_corpus import TopicCorpus
 from model_manager import ModelManager
 from util_funcs import dict_ndarray2list, dict_list2ndarray
-from extra_funcs import progress_bar, progress_msg, big_number
+from extra_funcs import progress_bar, progress_msg  # , big_number
 
 
 class BaseMixTopics(BaseTopics, ABC):
@@ -70,7 +70,7 @@ class BaseMixTopics(BaseTopics, ABC):
         return self.base_topic_embeds_docs
 
     @property
-    def base_red_topic_embeds(self) -> dict:
+    def base_cur_topic_embeds(self) -> dict:
         """
         Dictionary with the vector representation of the Reduced Topics in the
         same vector space as the documents in the corpus.
