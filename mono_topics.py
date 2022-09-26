@@ -225,7 +225,7 @@ class MonoTopics(BaseTopics):
         return self.topic_embeds
 
     @property
-    def base_red_topic_embeds(self):
+    def base_cur_topic_embeds(self):
         """
         Dictionary with the vector representation of the Reduced Topics in the
         same vector space as the words in the vocabulary of the corpus. Used to
@@ -242,7 +242,7 @@ class MonoTopics(BaseTopics):
         return self.topic_docs
 
     @property
-    def base_red_topic_docs(self):
+    def base_cur_topic_docs(self):
         """
         Dictionary with the list of Documents (IDs) that belong to each of the
         Reduced Topics.
@@ -258,7 +258,7 @@ class MonoTopics(BaseTopics):
         return self.topic_words
 
     @property
-    def base_red_topic_words(self):
+    def base_cur_topic_words(self):
         """
         Dictionary the list of words that best describe each of the Reduced
         Topics.
