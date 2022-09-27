@@ -106,6 +106,14 @@ class BaseTopics(ABC):
 
     @property
     @abstractmethod
+    def base_corpus_vocab(self) -> Vocabulary:
+        """
+        Vocabulary class created with the corpus of the Topic Model.
+        """
+        pass
+
+    @property
+    @abstractmethod
     def base_class_folder(self) -> str:
         """
         String with the name of the folder where the models of the class will
@@ -140,7 +148,9 @@ class BaseTopics(ABC):
         pass
 
     @abstractmethod
-    def reduce_topics(self, new_size: int, parallelism: bool, show_progress: bool):
+    def reduce_topics(
+            self, new_size: int, parallelism: bool, show_progress: bool
+    ) -> None:
         """
         Create a new Hierarchical Topic Model with specified number of topics
         (new_size). The 'new_size' needs to be at least 2, and smaller than the
@@ -149,7 +159,15 @@ class BaseTopics(ABC):
         pass
 
     @abstractmethod
-    def save(self, show_progress: bool):
+    def refresh_vocabulary(self, show_progress: bool) -> None:
+        """
+        Remake the Corpus Vocabulary of the Topic Model using the saved info
+        about the Corpus and Text Model used.
+        """
+        pass
+
+    @abstractmethod
+    def save(self, show_progress: bool) -> None:
         """
         Save the Main Topic Model's Attributes, so the model can be loaded later
         using the given or created model ID.
@@ -157,7 +175,9 @@ class BaseTopics(ABC):
         pass
 
     @abstractmethod
-    def save_reduced_topics(self, parallelism: bool, override: bool, show_progress: bool):
+    def save_reduced_topics(
+            self, parallelism: bool, override: bool, show_progress: bool
+    ) -> None:
         """
         Use the base_save_reduced_topics() method to save the Hierarchically
         Reduced Topic Models for the main sizes, and update the information in
@@ -175,7 +195,7 @@ class BaseTopics(ABC):
 
     @classmethod
     @abstractmethod
-    def basic_info(cls, model_id: str):
+    def basic_info(cls, model_id: str) -> dict:
         """
         Load the Basic Info of the Topic Model 'model_id'. Basic Information
         attributes:
@@ -190,7 +210,7 @@ class BaseTopics(ABC):
 
     @classmethod
     @abstractmethod
-    def model_saved(cls, model_id: str):
+    def model_saved(cls, model_id: str) -> bool:
         """
         Check if the given 'model_id' string corresponds to a saved Topic Model.
         """
@@ -198,21 +218,21 @@ class BaseTopics(ABC):
 
     @classmethod
     @abstractmethod
-    def saved_models(cls):
+    def saved_models(cls) -> list:
         """
         Create a list the IDs of the saved Topic Models.
         """
         pass
 
     @property
-    def topic_size(self) -> int:
+    def topic_size(self):
         """
         Int with the number of Topic the model has.
         """
         return len(self.base_topic_embeds)
 
     @property
-    def cur_topic_size(self) -> int:
+    def cur_topic_size(self):
         """
         Int with the Number of Topics the Current Model has.
         """
@@ -222,7 +242,7 @@ class BaseTopics(ABC):
             return 0
 
     @property
-    def topic_ids(self) -> list:
+    def topic_ids(self):
         """
         List[str] with the IDs of the topics found by the Topic Model.
         """
@@ -230,7 +250,7 @@ class BaseTopics(ABC):
         return id_list
 
     @property
-    def cur_topic_ids(self) -> list:
+    def cur_topic_ids(self):
         """
         List[str] with the IDs of the current topics in the Model.
         """
@@ -241,7 +261,7 @@ class BaseTopics(ABC):
             return []
 
     @property
-    def has_reduced_topics(self) -> bool:
+    def has_reduced_topics(self):
         """
         Bool indicating if the Model has Reduced Topics.
         """
@@ -283,59 +303,207 @@ class BaseTopics(ABC):
         cur_topic_sizes.sort(key=lambda id_size: id_size[1], reverse=True)
         return cur_topic_sizes
 
-    def top_words_topic(self, topic_id: str, n=10):
+    def top_words_topic(self, topic_id: str, top_n=10, comparer='cos_sim'):
         """
-        Get the 'n' words that best describe the 'topic_id'.
+        Get the 'n' words that best describe the 'topic_id'. The Top Words can
+        be retrieved using their similarity to the Topic Embedding, or their
+        descriptive value, determined using the PWI formula.
+
+        The 'comparer' determines which formula will be used to determine the
+        top words in the topic, it can be 'cos_sim' for cosine similarity,
+        'pwi_exact' for Mutual Information with the exact formula, or
+        'pwi_tf_idf' for the Mutual Information with the tf-idf formula.
+
+        Args:
+            topic_id: String with the ID of the Document.
+            top_n: Int with the number of words we want to get from the
+                topic.
+            comparer: The formula used to compare the words that best describe
+                the topic 'cos_sim', 'pwi_exact' or 'pwi_tf_idf'.
+        Returns:
+            List[Tuple(word, value)] with the list of tuples of the top words in
+                the topic with the value used to compare the word to the others.
         """
+        # Using PWI.
+        if comparer == 'pwi_exact':
+            words_pwi = self.topic_words_pwi(topic_id, pwi_type='exact')
+            top_words = find_top_n(words_pwi.items(), n=top_n)
+            return top_words
+        elif comparer == 'pwi_tf_idf':
+            words_pwi = self.topic_words_pwi(topic_id, pwi_type='tf-idf')
+            top_words = find_top_n(words_pwi.items(), n=top_n)
+            return top_words
+        # Using the default 'cos_sim' a.k.a. cosine similarity.
         words = self.base_topic_words[topic_id]
-        if n >= len(words):
+        if top_n >= len(words):
             return words
         else:
-            result = words[:n]
+            result = words[:top_n]
             return result
 
-    def top_words_cur_topic(self, cur_topic_id: str, n=10):
+    def top_words_cur_topic(self, cur_topic_id: str, top_n=10, comparer='cos_sim'):
         """
-        Get the 'n' words that best describe the 'cur_topic_id'.
+        Get the 'n' words that best describe the 'cur_topic_id'. The Top Words
+        can be retrieved using their similarity to the Topic Embedding, or their
+        descriptive value, determined using the PWI formula.
         """
+        # Using PWI.
+        if comparer == 'pwi_exact':
+            words_pwi = self.cur_topic_words_pwi(cur_topic_id, pwi_type='exact')
+            top_words = find_top_n(words_pwi.items(), n=top_n)
+            return top_words
+        elif comparer == 'pwi_tf_idf':
+            words_pwi = self.cur_topic_words_pwi(cur_topic_id, pwi_type='tf-idf')
+            top_words = find_top_n(words_pwi.items(), n=top_n)
+            return top_words
+        # Using the default 'cos_sim' a.k.a. cosine similarity.
         words = self.base_cur_topic_words[cur_topic_id]
-        if n >= len(words):
+        if top_n >= len(words):
             return words
         else:
-            result = words[:n]
+            result = words[:top_n]
             return result
 
-    def topics_top_words(self, n=10):
+    def topics_top_words(self, top_n=10, comparer='cos_sim'):
         """
         Get the 'n' top words that best describe each of the topics in the
         model.
         """
         result_dict = {}
         for topic_id, _ in self.topic_by_size():
-            top_words = self.base_topic_words[topic_id]
-            if n >= len(top_words):
-                result_dict[topic_id] = top_words
-            else:
-                new_list = top_words[:n]
-                result_dict[topic_id] = new_list
+            result_dict[topic_id] = self.top_words_topic(
+                topic_id=topic_id, top_n=top_n, comparer=comparer
+            )
         # Dictionary with Top N words per topic.
         return result_dict
 
-    def cur_topics_top_words(self, n=10):
+    def cur_topics_top_words(self, top_n=10, comparer='cos_sim'):
         """
         Get the 'n' top words that best describe each of the current topics in
         the model.
         """
         result_dict = {}
         for cur_topic_id, _ in self.cur_topic_by_size():
-            top_words = self.base_cur_topic_words[cur_topic_id]
-            if n >= len(top_words):
-                result_dict[cur_topic_id] = top_words
-            else:
-                new_list = top_words[:n]
-                result_dict[cur_topic_id] = new_list
+            result_dict[cur_topic_id] = self.top_words_cur_topic(
+                cur_topic_id=cur_topic_id, top_n=top_n, comparer=comparer
+            )
         # Dictionary with Top N words per current topic.
         return result_dict
+
+    def model_pwi(self, pwi_type='exact'):
+        """
+        Get the descriptive value of the topics of the model about the documents
+        in the corpus using the PWI formula (exact or tf-idf).
+
+        Args:
+            pwi_type: String with the PWI formula to use 'exact' or 'tf-idf'.
+        Returns:
+            Float with the descriptive value of the topics of the model.
+        """
+        total_pwi = sum(
+            self.topic_pwi(topic_id=topic_id, pwi_type=pwi_type)
+            for topic_id in self.topic_ids
+        )
+        return total_pwi
+
+    def cur_model_pwi(self, pwi_type='exact'):
+        """
+        Get the descriptive value of the current topics of the model about the
+        documents in the corpus using the PWI formula (exact or tf-idf).
+
+        Args:
+            pwi_type: String with the PWI formula to use 'exact' or 'tf-idf'.
+        Returns:
+            Float with the descriptive value of the current topics.
+        """
+        cur_total_pwi = sum(
+            self.cur_topic_pwi(topic_id=cur_topic_id, pwi_type=pwi_type)
+            for cur_topic_id in self.cur_topic_ids
+        )
+        return cur_total_pwi
+
+    def topic_pwi(self, topic_id: str, pwi_type='exact'):
+        """
+        Get the topic's descriptive value for its documents using the mutual
+        information formula.
+
+        Args:
+            topic_id: String with the ID of the topic.
+            pwi_type: String with the PWI formula to use 'exact' or 'tf-idf'.
+        Returns:
+            Float with the PWI value of the Topic.
+        """
+        topic_words_pwi = self.topic_words_pwi(topic_id, pwi_type)
+        topic_pwi = sum(topic_words_pwi.values())
+        return topic_pwi
+
+    def cur_topic_pwi(self, topic_id: str, pwi_type='exact'):
+        """
+        Get the current topic 'topic_id' descriptive value for its documents
+        using the mutual information formula.
+
+        Args:
+            topic_id: String with the ID of the current topic.
+            pwi_type: String with the PWI formula to use 'exact' or 'tf-idf'.
+        Returns:
+            Float with the PWI value of the current Topic.
+        """
+        cur_topic_words_pwi = self.cur_topic_words_pwi(topic_id, pwi_type)
+        cur_topic_pwi = sum(cur_topic_words_pwi.values())
+        return cur_topic_pwi
+
+    def topic_words_pwi(self, topic_id: str, pwi_type='exact'):
+        """
+        Get the PWI of the words in the vocabulary of the topic.
+
+        Args:
+            topic_id: String with the ID of the topic.
+            pwi_type: String with the PWI formula to use 'exact' or 'tf-idf'.
+        Returns:
+            Dictionary with the PWIs of each word in the topic.
+        """
+        # Get Topic's Attributes.
+        word_list = [word for word, _ in self.base_topic_words[topic_id]]
+        doc_list = [doc_id for doc_id, _ in self.base_topic_docs[topic_id]]
+        corpus_vocab = self.base_corpus_vocab
+        # Get the function to calculate the PWI (exact or tf-idf)
+        if pwi_type == 'exact':
+            pwi_func = corpus_vocab.word_pwi_exact
+        else:
+            pwi_func = corpus_vocab.word_pwi_tf_idf
+        # Get the PWI of the words of the topic.
+        word_pwi_dict = dict(
+            (word, pwi_func(word, doc_list)) for word in word_list
+        )
+        # Dictionary with the PWI for each word of the topic.
+        return word_pwi_dict
+
+    def cur_topic_words_pwi(self, topic_id: str, pwi_type='exact'):
+        """
+        Get the PWI of the words in the vocabulary of the current topic
+        'topic_id'.
+
+        Args:
+            topic_id: String with the ID of a current topic.
+            pwi_type: String with the PWI formula to use 'exact' or 'tf-idf'.
+        Returns:
+            Dictionary with the PWIs of each word in the topic.
+        """
+        # Get Current Topic's Attributes.
+        word_list = [word for word, _ in self.base_cur_topic_words[topic_id]]
+        doc_list = [doc_id for doc_id, _ in self.base_cur_topic_docs[topic_id]]
+        corpus_vocab = self.base_corpus_vocab
+        # Get the function to calculate the PWI (exact or tf-idf)
+        if pwi_type == 'exact':
+            pwi_func = corpus_vocab.word_pwi_exact
+        else:
+            pwi_func = corpus_vocab.word_pwi_tf_idf
+        # Get the PWI of the words of the topic.
+        word_pwi_dict = dict(
+            (word, pwi_func(word, doc_list)) for word in word_list
+        )
+        # Dictionary with the PWI for each word of the topic.
+        return word_pwi_dict
 
     def base_reduce_topics(self, new_size: int, parallelism=False, show_progress=False):
         """
@@ -776,7 +944,7 @@ def find_topics(doc_embeds_list: list, show_progress=False):
 
 
 def create_topic_words(topic_embeds: dict, topic_docs: dict, corpus_vocab: Vocabulary,
-                       top_n=50, min_sim=0.0, show_progress=False):
+                       top_n=100, min_sim=0.0, show_progress=False):
     """
     Find the 'top_n' words that best describe each topic using the words from
     the documents of the topic.
