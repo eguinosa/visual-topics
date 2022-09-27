@@ -25,12 +25,20 @@ class SampleManager(TopicCorpus):
     class_folder = 'sample_manager_files'
     sample_index_suffix = '_sample_index.json'
 
-    def __init__(self, corpus: TopicCorpus = None, sample_size=-1,
-                 _load_sample=False, _sample_id='', show_progress=False):
+    def __init__(
+            self, corpus: TopicCorpus = None, sample_size=-1, _load_sample=False,
+            _sample_id='', _load_custom=False, _ids_list: list = None,
+            show_progress=False
+    ):
         """
         Create a Random Sample of Documents from the provided 'corpus' or the
-        default corpus in Corpora Manager. If '_load_sample' is True, then load
-        the already saved '_sample_id'.
+        default corpus in Corpora Manager.
+
+        If '_load_sample' is True, then load the already saved '_sample_id'.
+
+        If '_load_custom' is True, then create a custom sample with the given
+        'corpus' as the main corpus, and 'ids_list' as the IDs of the documents
+        in the sample.
 
         Args:
             corpus: TopicCorpus we are going to use to create the random sample
@@ -39,6 +47,10 @@ class SampleManager(TopicCorpus):
             _load_sample: Bool indicating if we are going to load an already
                 saved random sample of document.
             _sample_id: String with the ID of the sample we are going to load.
+            _load_custom: Indicates if we are loading a custom Sample, created
+                with a given '_id_list' with the Doc IDs we want on the sample.
+            _ids_list: List[str] with the IDs of the Documents that will be in
+                the sample.
             show_progress: Bool representing whether we show the progress of
                 the function or not.
         """
@@ -72,6 +84,20 @@ class SampleManager(TopicCorpus):
             corpus_id = sample_index['corpus_id']
             sample_doc_ids = sample_index['sample_doc_ids']
             corpus = CorporaManager(corpus_id=corpus_id, show_progress=show_progress)
+        elif _load_custom:
+            if not corpus:
+                raise ValueError(
+                    "To create a custom sample, the Corpus can't be empty."
+                )
+            if not _ids_list:
+                raise ValueError(
+                    "We need the list of the Doc's IDs to create the custom "
+                    "sample."
+                )
+            # Create the custom Sample with the corpus and Doc's IDs.
+            if show_progress:
+                progress_msg("Creating a custom Sample with provided IDs.")
+            sample_doc_ids = _ids_list
         else:
             if show_progress:
                 progress_msg("Creating a new Sample of documents...")
@@ -234,6 +260,16 @@ class SampleManager(TopicCorpus):
         return sample
 
     @classmethod
+    def load_custom(cls, corpus: CorporaManager, doc_ids: list, show_progress=False):
+        """
+        Create a Sample with the 'corpus' and 'doc_ids' provided.
+        """
+        sample = cls(
+            corpus=corpus, _load_custom=True, _ids_list=doc_ids, show_progress=show_progress
+        )
+        return sample
+
+    @classmethod
     def saved_samples(cls):
         """
         Create a list with the IDs of the available samples.
@@ -295,8 +331,8 @@ if __name__ == '__main__':
     # Get the Console arguments.
     _args = sys.argv
 
-    # # Create a Sample.
-    # _size = 20_000
+    # # -- Create a Sample --
+    # _size = 10
     # print(f"\nCreating a Sample of {_size} documents...")
     # _sample = SampleManager(sample_size=_size)
     # print("Done.")
@@ -304,10 +340,10 @@ if __name__ == '__main__':
     #
     # # Show Doc IDs.
     # print(f"\nSample size: {big_number(len(_sample.doc_ids))}")
-    # # print("\nSample IDs:")
-    # # print(_sample.doc_ids)
-    #
-    # # Save Sample.
+    # print("Sample IDs:")
+    # print(_sample.doc_ids)
+
+    # -- Save Sample --
     # # ------------------------------------------------
     # # _old_id = 'old_sample'
     # # print(f"\nSaving Sample with ID <{_old_id}>...")
@@ -348,6 +384,23 @@ if __name__ == '__main__':
     # # Show Sample IDs.
     # print("\nOld Sample IDs:")
     # print(_old_sample.doc_ids)
+
+    # # -- Create a Custom Sample --
+    # print("\nLoading a Custom Sample...")
+    # _source_corpus = _sample.main_corpus
+    # _source_ids = _sample.doc_ids
+    # _custom_sample = SampleManager.load_custom(
+    #     corpus=_source_corpus, doc_ids=_source_ids, show_progress=True
+    # )
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+    # # --------------------------------------------------
+    # print(f"\n{big_number(len(_custom_sample))} documents loaded.")
+    # # --------------------------------------------------
+    # for _doc_id in _custom_sample.doc_ids:
+    #     # Show Doc ID and Title.
+    #     print(f"\nDoc <{_doc_id}>")
+    #     print(f"Title: {_custom_sample.doc_title(_doc_id)}")
 
     # Print the Available Samples.
     print("\nSaved Samples:")
