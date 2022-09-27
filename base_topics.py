@@ -325,44 +325,73 @@ class BaseTopics(ABC):
                 the topic with the value used to compare the word to the others.
         """
         # Using PWI.
-        if comparer == 'pwi_exact':
-            words_pwi = self.topic_words_pwi(topic_id, pwi_type='exact')
-            top_words = find_top_n(words_pwi.items(), n=top_n)
-            return top_words
-        elif comparer == 'pwi_tf_idf':
-            words_pwi = self.topic_words_pwi(topic_id, pwi_type='tf-idf')
-            top_words = find_top_n(words_pwi.items(), n=top_n)
-            return top_words
+        if comparer in {'pwi_exact', 'pwi_tf_idf'}:
+            pwi_type = comparer[4:]
+            words_pwi = self.topic_words_pwi(topic_id, pwi_type)
+            # Get the Top Words with the Highest PWI Value.
+            top_words = {
+                word
+                for word, pwi_value in find_top_n(words_pwi.items(), n=top_n)
+            }
+            # Still sort words by their similarity to the Topic.
+            words_tuple = [
+                (word, sim)
+                for word, sim in self.base_topic_words[topic_id]
+                if word in top_words
+            ]
+            return words_tuple
         # Using the default 'cos_sim' a.k.a. cosine similarity.
-        words = self.base_topic_words[topic_id]
-        if top_n >= len(words):
-            return words
+        words_sims = self.base_topic_words[topic_id]
+        if top_n >= len(words_sims):
+            return words_sims
         else:
-            result = words[:top_n]
-            return result
+            result_tuples = words_sims[:top_n]
+            return result_tuples
 
     def top_words_cur_topic(self, cur_topic_id: str, top_n=10, comparer='cos_sim'):
         """
         Get the 'n' words that best describe the 'cur_topic_id'. The Top Words
         can be retrieved using their similarity to the Topic Embedding, or their
         descriptive value, determined using the PWI formula.
+
+        The 'comparer' determines which formula will be used to determine the
+        top words in the topic, it can be 'cos_sim' for cosine similarity,
+        'pwi_exact' for Mutual Information with the exact formula, or
+        'pwi_tf_idf' for the Mutual Information with the tf-idf formula.
+
+        Args:
+            cur_topic_id: String with the ID of the Document.
+            top_n: Int with the number of words we want to get from the
+                topic.
+            comparer: The formula used to compare the words that best describe
+                the topic 'cos_sim', 'pwi_exact' or 'pwi_tf_idf'.
+        Returns:
+            List[Tuple(word, value)] with the list of tuples of the top words in
+                the topic with the value used to compare the word to the others.
         """
         # Using PWI.
-        if comparer == 'pwi_exact':
-            words_pwi = self.cur_topic_words_pwi(cur_topic_id, pwi_type='exact')
-            top_words = find_top_n(words_pwi.items(), n=top_n)
-            return top_words
-        elif comparer == 'pwi_tf_idf':
-            words_pwi = self.cur_topic_words_pwi(cur_topic_id, pwi_type='tf-idf')
-            top_words = find_top_n(words_pwi.items(), n=top_n)
-            return top_words
+        if comparer in {'pwi_exact', 'pwi_tf_idf'}:
+            pwi_type = comparer[4:]
+            words_pwi = self.cur_topic_words_pwi(cur_topic_id, pwi_type)
+            # Get the Top Words with Higher PWI value.
+            top_words = {
+                word
+                for word, pwi_value in find_top_n(words_pwi.items(), n=top_n)
+            }
+            # Still sort words by their similarity to the Topic.
+            words_tuple = [
+                (word, sim)
+                for word, sim in self.base_cur_topic_words[cur_topic_id]
+                if word in top_words
+            ]
+            return words_tuple
         # Using the default 'cos_sim' a.k.a. cosine similarity.
-        words = self.base_cur_topic_words[cur_topic_id]
-        if top_n >= len(words):
-            return words
+        words_sims = self.base_cur_topic_words[cur_topic_id]
+        if top_n >= len(words_sims):
+            return words_sims
         else:
-            result = words[:top_n]
-            return result
+            result_tuples = words_sims[:top_n]
+            return result_tuples
 
     def topics_top_words(self, top_n=10, comparer='cos_sim'):
         """
@@ -390,66 +419,98 @@ class BaseTopics(ABC):
         # Dictionary with Top N words per current topic.
         return result_dict
 
-    def model_pwi(self, pwi_type='exact'):
+    def model_pwi(self, word_num=-1, pwi_type='exact'):
         """
         Get the descriptive value of the topics of the model about the documents
-        in the corpus using the PWI formula (exact or tf-idf).
+        in the corpus using the PWI formula (exact or tf_idf).
 
         Args:
-            pwi_type: String with the PWI formula to use 'exact' or 'tf-idf'.
+            pwi_type: String with the PWI formula to use 'exact' or 'tf_idf'.
+            word_num: The number of words used to get the topics PWI.
         Returns:
             Float with the descriptive value of the topics of the model.
         """
         total_pwi = sum(
-            self.topic_pwi(topic_id=topic_id, pwi_type=pwi_type)
+            self.topic_pwi(topic_id=topic_id, word_num=word_num, pwi_type=pwi_type)
             for topic_id in self.topic_ids
         )
         return total_pwi
 
-    def cur_model_pwi(self, pwi_type='exact'):
+    def cur_model_pwi(self, word_num=-1, pwi_type='exact'):
         """
         Get the descriptive value of the current topics of the model about the
-        documents in the corpus using the PWI formula (exact or tf-idf).
+        documents in the corpus using the PWI formula (exact or tf_idf).
 
         Args:
-            pwi_type: String with the PWI formula to use 'exact' or 'tf-idf'.
+            pwi_type: String with the PWI formula to use 'exact' or 'tf_idf'.
+            word_num: The number of words used to get the topics PWI.
         Returns:
             Float with the descriptive value of the current topics.
         """
         cur_total_pwi = sum(
-            self.cur_topic_pwi(topic_id=cur_topic_id, pwi_type=pwi_type)
+            self.cur_topic_pwi(
+                cur_topic_id=cur_topic_id, word_num=word_num, pwi_type=pwi_type
+            )
             for cur_topic_id in self.cur_topic_ids
         )
         return cur_total_pwi
 
-    def topic_pwi(self, topic_id: str, pwi_type='exact'):
+    def topic_pwi(self, topic_id: str, word_num=-1, pwi_type='exact'):
         """
         Get the topic's descriptive value for its documents using the mutual
         information formula.
 
+        If 'word_num' is different from -1, then select the number 'word_num' of
+        words closest to the topic, and get their PWI values.
+
         Args:
             topic_id: String with the ID of the topic.
-            pwi_type: String with the PWI formula to use 'exact' or 'tf-idf'.
+            word_num: The number of words used to get the topic PWI.
+            pwi_type: String with the PWI formula to use 'exact' or 'tf_idf'.
         Returns:
             Float with the PWI value of the Topic.
         """
+        # Get the PWI value for all the words in the vocabulary of the topic.
         topic_words_pwi = self.topic_words_pwi(topic_id, pwi_type)
-        topic_pwi = sum(topic_words_pwi.values())
+        # Check if we can use all the words in the topic.
+        if word_num == -1 or word_num >= len(topic_words_pwi):
+            topic_pwi = sum(topic_words_pwi.values())
+        else:
+            # Use the closest 'word_num' words in the semantic space.
+            words_sims = self.base_topic_words[topic_id][:word_num]
+            topic_pwi = sum(
+                topic_words_pwi[word]
+                for word, _ in words_sims
+            )
         return topic_pwi
 
-    def cur_topic_pwi(self, topic_id: str, pwi_type='exact'):
+    def cur_topic_pwi(self, cur_topic_id: str, word_num=-1, pwi_type='exact'):
         """
         Get the current topic 'topic_id' descriptive value for its documents
         using the mutual information formula.
 
+        If 'word_num' is different from -1, then select the number 'word_num' of
+        words closest to the topic, and get their PWI values.
+
         Args:
-            topic_id: String with the ID of the current topic.
-            pwi_type: String with the PWI formula to use 'exact' or 'tf-idf'.
+            cur_topic_id: String with the ID of the current topic.
+            word_num: The number of words used to get the topic PWI.
+            pwi_type: String with the PWI formula to use 'exact' or 'tf_idf'.
         Returns:
             Float with the PWI value of the current Topic.
         """
-        cur_topic_words_pwi = self.cur_topic_words_pwi(topic_id, pwi_type)
-        cur_topic_pwi = sum(cur_topic_words_pwi.values())
+        # Get the PWI value for all the words in the vocabulary of the topic.
+        cur_topic_words_pwi = self.cur_topic_words_pwi(cur_topic_id, pwi_type)
+        # Check if we can use all the words in the topic.
+        if word_num == -1 or word_num >= len(cur_topic_words_pwi):
+            cur_topic_pwi = sum(cur_topic_words_pwi.values())
+        else:
+            # Use the closest 'word_num' words in the semantic space.
+            words_sims = self.base_cur_topic_words[cur_topic_id][:word_num]
+            cur_topic_pwi = sum(
+                cur_topic_words_pwi[word]
+                for word, _ in words_sims
+            )
         return cur_topic_pwi
 
     def topic_words_pwi(self, topic_id: str, pwi_type='exact'):
@@ -458,7 +519,7 @@ class BaseTopics(ABC):
 
         Args:
             topic_id: String with the ID of the topic.
-            pwi_type: String with the PWI formula to use 'exact' or 'tf-idf'.
+            pwi_type: String with the PWI formula to use 'exact' or 'tf_idf'.
         Returns:
             Dictionary with the PWIs of each word in the topic.
         """
@@ -466,7 +527,7 @@ class BaseTopics(ABC):
         word_list = [word for word, _ in self.base_topic_words[topic_id]]
         doc_list = [doc_id for doc_id, _ in self.base_topic_docs[topic_id]]
         corpus_vocab = self.base_corpus_vocab
-        # Get the function to calculate the PWI (exact or tf-idf)
+        # Get the function to calculate the PWI (exact or tf_idf)
         if pwi_type == 'exact':
             pwi_func = corpus_vocab.word_pwi_exact
         else:
@@ -485,7 +546,7 @@ class BaseTopics(ABC):
 
         Args:
             topic_id: String with the ID of a current topic.
-            pwi_type: String with the PWI formula to use 'exact' or 'tf-idf'.
+            pwi_type: String with the PWI formula to use 'exact' or 'tf_idf'.
         Returns:
             Dictionary with the PWIs of each word in the topic.
         """
@@ -493,7 +554,7 @@ class BaseTopics(ABC):
         word_list = [word for word, _ in self.base_cur_topic_words[topic_id]]
         doc_list = [doc_id for doc_id, _ in self.base_cur_topic_docs[topic_id]]
         corpus_vocab = self.base_corpus_vocab
-        # Get the function to calculate the PWI (exact or tf-idf)
+        # Get the function to calculate the PWI (exact or tf_idf)
         if pwi_type == 'exact':
             pwi_func = corpus_vocab.word_pwi_exact
         else:
