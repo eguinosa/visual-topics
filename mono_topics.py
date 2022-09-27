@@ -886,9 +886,10 @@ if __name__ == '__main__':
         pprint(_pwi_words)
 
     # -- Show the Topic Model Descriptive Value (PWI) --
-    print("\nReduced Topic Model Descriptive Value:")
-    _pwi_tf_idf = _loaded_model.cur_model_pwi(pwi_type='tf-idf')
-    _pwi_exact = _loaded_model.cur_model_pwi(pwi_type='exact')
+    _num = 20
+    print(f"\nReduced Topic Model Descriptive Value with {_num} words:")
+    _pwi_tf_idf = _loaded_model.cur_model_pwi(word_num=_num, pwi_type='tf-idf')
+    _pwi_exact = _loaded_model.cur_model_pwi(word_num=_num, pwi_type='exact')
     print(f"  PWI-tf-idf: {_pwi_tf_idf}")
     print(f"  PWI-exact: {_pwi_exact}")
 
