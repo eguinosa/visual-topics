@@ -273,6 +273,13 @@ class MonoTopics(BaseTopics):
         return self.doc_embeds
 
     @property
+    def base_corpus_vocab(self):
+        """
+        Vocabulary class created with the corpus of the Topic Model.
+        """
+        return self.corpus_vocab
+
+    @property
     def base_class_folder(self):
         """
         String with the name of the folder where the models of the class will
@@ -357,6 +364,71 @@ class MonoTopics(BaseTopics):
         self.red_topic_embeds = red_topic_embeds
         self.red_topic_docs = red_topic_docs
         self.red_topic_words = red_topic_words
+
+    def refresh_vocabulary(self, show_progress=False):
+        """
+        Remake the Corpus Vocabulary of the Topic Model using the saved info
+        about the Corpus and Text Model used.
+        """
+        # Create the corpus to remake the Vocabulary.
+        doc_ids = list(self.doc_embeds.keys())
+        main_corpus = CorporaManager(
+            corpus_id=self.corpus_id, show_progress=show_progress
+        )
+        corpus = SampleManager.load_custom(
+            corpus=main_corpus, doc_ids=doc_ids, show_progress=show_progress
+        )
+        # Create Text Model for the Vocabulary.
+        text_model = ModelManager(
+            model_name=self.text_model_name, show_progress=show_progress
+        )
+        # Create Corpus Vocabulary.
+        if show_progress:
+            progress_msg("Creating Corpus Vocabulary again...")
+        corpus_vocab = Vocabulary(
+            corpus=corpus, model=text_model, show_progress=show_progress
+        )
+        # Create Topic Words.
+        if show_progress:
+            progress_msg("Creating Topics' Vocabulary again...")
+        topic_words = create_topic_words(
+            topic_embeds=self.topic_embeds, topic_docs=self.topic_docs,
+            corpus_vocab=corpus_vocab, show_progress=show_progress
+        )
+        # Update the value of the Attributes.
+        self.corpus_vocab = corpus_vocab
+        self.topic_words = topic_words
+        if show_progress:
+            progress_msg("Topic's Attributes Updated!")
+
+        # If the model is saved, update the files of Vocabulary and Topic Words.
+        if self.model_saved(model_id=self.model_id):
+            # Create path to the Model folder.
+            model_folder_path = join(self.class_folder, self.model_folder_name)
+
+            # Update Topic Model's Index file.
+            if show_progress:
+                progress_msg("Updating Topic Model's Index...")
+            topic_model_index = {
+                'corpus_id': self.corpus_id,
+                'text_model_name': self.text_model_name,
+                'topic_docs': self.topic_docs,
+                'topic_words': self.topic_words,
+            }
+            # Create Index path and Save.
+            model_index_path = join(model_folder_path, self.model_index_file)
+            with open(model_index_path, 'w') as f:
+                json.dump(topic_model_index, f)
+
+            # Update Vocabulary files.
+            if show_progress:
+                progress_msg("Updating Vocabulary files...")
+            self.corpus_vocab.save(
+                topic_dir_path=model_folder_path, show_progress=show_progress
+            )
+            # Report all good.
+            if show_progress:
+                progress_msg("All attribute's files updated!")
 
     def save(self, show_progress=False):
         """
@@ -729,28 +801,46 @@ if __name__ == '__main__':
     # # print(f"[{_stopwatch.formatted_runtime()}]")
 
     # # -- Test Loading Topic Model --
-    # _loading_id = 'sbert_fast_20_000_docs_182_topics'  # _topic_model.model_id
-    # print(f"\nLoading Topic Model with ID <{_loading_id}>...")
-    # _loaded_model = MonoTopics.load(model_id=_loading_id, show_progress=True)
-    # print("Done.")
-    # print(f"[{_stopwatch.formatted_runtime()}]")
+    _loading_id = 'sbert_fast_20_000_docs_182_topics'  # _topic_model.model_id
+    print(f"\nLoading Topic Model with ID <{_loading_id}>...")
+    _loaded_model = MonoTopics.load(model_id=_loading_id, show_progress=True)
+    print("Done.")
+    print(f"[{_stopwatch.formatted_runtime()}]")
     # # ---------------------------------------------
-    # # Show Loaded Topics.
-    # print(f"\nThe Loaded Topic Model has {_loaded_model.topic_size} topics.")
+    # Show Loaded Topics.
+    print(f"\nThe Loaded Topic Model has {_loaded_model.topic_size} topics.")
     # ---------------------------------------------
-    # # Show Topics.
-    # print("\nTopic by number of documents (Loaded Model):")
-    # _topics_sizes = _loaded_model.topic_by_size()
-    # for _topic_size in _topics_sizes:
-    #     print(_topic_size)
-    # ---------------------------------------------
+    # Show Topics.
+    print("\nTopic by number of documents (Loaded Model):")
+    _topics_sizes = _loaded_model.topic_by_size()
+    for _topic_size in _topics_sizes:
+        print(_topic_size)
+    # # ---------------------------------------------
     # # Show Topics' Words.
     # top_n = 15
     # print(f"\nTop {top_n} words per topic:")
-    # _topics_words = _loaded_model.topics_top_words(n=top_n)
+    # _topics_words = _loaded_model.topics_top_words(top_n=top_n)
     # for _topic_id, _topic_words in _topics_words.items():
     #     print(f"\n-----> {_topic_id}:")
     #     pprint(_topic_words)
+
+    # # -- Update the Vocabulary of the Topic Model --
+    # print("\nCreating again the Vocabulary of the model...")
+    # _loaded_model.refresh_vocabulary(show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+
+    # # # -- Topics' Words using PWI --
+    # top_n = 15
+    # print(f"\nTop {top_n} words per topic:")
+    # for _topic_id, _size in _loaded_model.topic_by_size():
+    #     print(f"\n{_topic_id} ({big_number(_size)} docs):")
+    #     _sim_words = _loaded_model.top_words_topic(_topic_id, top_n, 'cos_sim')
+    #     print("Top Words by Cosine Similarity:")
+    #     pprint(_sim_words)
+    #     _pwi_words = _loaded_model.top_words_topic(_topic_id, top_n, 'pwi_exact')
+    #     print("Top Words by PWI-exact:")
+    #     pprint(_pwi_words)
 
     # --------------------------------------------------------------------------
     # --------------------------------------------------------------------------
@@ -762,26 +852,45 @@ if __name__ == '__main__':
     # print("Done.")
     # print(f"[{_stopwatch.formatted_runtime()}]")
 
-    # # -- Create Hierarchically Reduced Topics --
-    # _new_size = 5
-    # print(f"\nCreating Reduced Model with {_new_size} topics...")
-    # _loaded_model.reduce_topics(new_size=_new_size, parallelism=False, show_progress=True)
-    # print("Done.")
-    # print(f"[{_stopwatch.formatted_runtime()}]")
-    # # ---------------------------------------------
-    # # Show Reduced Topics.
-    # print("\nReduced Topics (by number of docs):")
-    # _red_topics_sizes = _loaded_model.red_topic_by_size()
-    # for _red_topic_size in _red_topics_sizes:
-    #     print(_red_topic_size)
-    # # ---------------------------------------------
+    # -- Create Hierarchically Reduced Topics --
+    _new_size = 20
+    print(f"\nCreating Reduced Model with {_new_size} topics...")
+    _loaded_model.reduce_topics(new_size=_new_size, parallelism=False, show_progress=True)
+    print("Done.")
+    print(f"[{_stopwatch.formatted_runtime()}]")
+    # ---------------------------------------------
+    # Show Reduced Topics.
+    print("\nReduced Topics (by number of docs):")
+    _red_topics_sizes = _loaded_model.cur_topic_by_size()
+    for _red_topic_size in _red_topics_sizes:
+        print(_red_topic_size)
+    # ---------------------------------------------
     # # Show Topic Words.
     # _top_n = 15
     # print(f"\nTop {_top_n} words per reduced topic:")
-    # _red_topic_words = _loaded_model.red_topics_top_words(n=_top_n)
+    # _red_topic_words = _loaded_model.cur_topics_top_words(top_n=_top_n)
     # for _red_topic_id, _red_words in _red_topic_words.items():
     #     print(f"\n-----> {_red_topic_id}:")
     #     pprint(_red_words)
+
+    # # -- Topics' Words in Reduced Topics using PWI --
+    top_n = 15
+    print(f"\nTop {top_n} words per topic:")
+    for _topic_id, _size in _loaded_model.cur_topic_by_size():
+        print(f"\n{_topic_id} ({big_number(_size)} docs):")
+        _sim_words = _loaded_model.top_words_cur_topic(_topic_id, top_n, 'cos_sim')
+        print("Top Words by Cosine Similarity:")
+        pprint(_sim_words)
+        _pwi_words = _loaded_model.top_words_cur_topic(_topic_id, top_n, 'pwi_exact')
+        print("Top Words by PWI-exact:")
+        pprint(_pwi_words)
+
+    # -- Show the Topic Model Descriptive Value (PWI) --
+    print("\nReduced Topic Model Descriptive Value:")
+    _pwi_tf_idf = _loaded_model.cur_model_pwi(pwi_type='tf-idf')
+    _pwi_exact = _loaded_model.cur_model_pwi(pwi_type='exact')
+    print(f"  PWI-tf-idf: {_pwi_tf_idf}")
+    print(f"  PWI-exact: {_pwi_exact}")
 
     # -- Show Saved Models --
     _saved_topic_models = MonoTopics.saved_models()
