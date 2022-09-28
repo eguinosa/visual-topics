@@ -1,3 +1,3 @@
-# Scientific Documents Retrieval using Topic Models
+# Retrieval of Scientific Documents using Topic Models
 
 ## Gelin Eguinosa
