@@ -9,6 +9,8 @@ topic_models/
 doc_models/
 fasttext_models/
 spacy_models/
+# Reports about the Model's performance.
+reports/
 
 # Virtual Environment.
 venv-visual-topics/
