@@ -7,6 +7,8 @@ wrong_acronyms = {
     'BACKGROUND': 'background',
     'CONCLUSION': 'conclusion',
     'CONCLUSIONS': 'conclusion',
+    'CORONAVIRUS': 'coronavirus',
+    'CORONAVIRUSES': 'coronavirus',
     'DESIGN': 'design',
     'ELECTRONIC': 'electronic',
     'ELECTRONICS': 'electronic',
