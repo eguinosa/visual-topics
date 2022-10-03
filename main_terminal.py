@@ -16,7 +16,10 @@ if __name__ == '__main__':
 
     # Display the Available Mono Topic Models.
     model_ids = MonoTopics.saved_models()
-    print("\n<<- Available Mono Topic Models ->>")
+    if model_ids:
+        print("\n<<- Available Mono Topic Models ->>")
+    else:
+        print("\n<<- Mono Topic: No Models Available ->>")
     for model_id in model_ids:
         print(f"\nMono Topic Model <{model_id}>:")
         basic_info = MonoTopics.basic_info(model_id)
@@ -29,7 +32,10 @@ if __name__ == '__main__':
 
     # Display the Available Mix Topic Models.
     model_ids = MixTopics.saved_models()
-    print("\n<<- Available Mix Topic Models ->>")
+    if model_ids:
+        print("\n<<- Available Mix Topic Models ->>")
+    else:
+        print("\n<<- Mix Topic: No Models Available ->>")
     for model_id in model_ids:
         print(f"\nMix Topic Model <{model_id}>:")
         basic_info = MixTopics.basic_info(model_id)
