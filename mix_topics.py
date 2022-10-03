@@ -794,7 +794,10 @@ if __name__ == '__main__':
     # Terminal Parameters.
     _args = sys.argv
 
-    # # Create corpus.
+    # Create corpus.
+    # ---------------------------------------------
+    # print(f"\nLoading the Documents in the Cord-19 Dataset...")
+    # _corpus = CorporaManager(show_progress=True)
     # # ---------------------------------------------
     # _sample_id = '20_000_docs'
     # print(f"\nLoading the Corpus Sample <{_sample_id}>...")
@@ -830,14 +833,14 @@ if __name__ == '__main__':
     # _topics_sizes = _topic_model.topic_by_size()
     # for _topic_size in _topics_sizes:
     #     print(_topic_size)
-    # # ---------------------------------------------
-    # # Topics' Vocabulary
-    # top_n = 15
-    # print(f"\nTop {top_n} words per topic:")
-    # _topics_words = _topic_model.topics_top_words(n=top_n)
-    # for _topic_id, _topic_words in _topics_words.items():
-    #     print(f"\n-----> {_topic_id}:")
-    #     pprint(_topic_words)
+    # # # ---------------------------------------------
+    # # # Topics' Vocabulary
+    # # top_n = 15
+    # # print(f"\nTop {top_n} words per topic:")
+    # # _topics_words = _topic_model.topics_top_words(n=top_n)
+    # # for _topic_id, _topic_words in _topics_words.items():
+    # #     print(f"\n-----> {_topic_id}:")
+    # #     pprint(_topic_words)
 
     # # -- Test Saving Model --
     # print(f"\nSaving Topic Model <{_topic_model.model_id}>...")
@@ -846,7 +849,7 @@ if __name__ == '__main__':
     # print(f"[{_stopwatch.formatted_runtime()}]")
 
     # -- Test Loading Topic Model --
-    _loading_id = 'specter_sbert_fast_20_000_docs_119_topics'  # _topic_model.model_id
+    _loading_id = 'specter_sbert_fast_105_548_docs_533_topics'  # _topic_model.model_id
     print(f"\nLoading Topic Model with ID <{_loading_id}>...")
     _loaded_model = MixTopics.load(model_id=_loading_id, show_progress=True)
     print("Done.")
@@ -868,12 +871,6 @@ if __name__ == '__main__':
     # for _topic_id, _topic_words in _topics_words.items():
     #     print(f"\n-----> {_topic_id}:")
     #     pprint(_topic_words)
-
-    # # -- Update the Vocabulary of the Topic Model --
-    # print("\nCreating again the Vocabulary of the model...")
-    # _loaded_model.refresh_vocabulary(show_progress=True)
-    # print("Done.")
-    # print(f"[{_stopwatch.formatted_runtime()}]")
 
     # -- Topics' Words using PWI --
     # top_n = 15
@@ -903,7 +900,7 @@ if __name__ == '__main__':
     _loaded_model.reduce_topics(new_size=_new_size, parallelism=False, show_progress=True)
     print("Done.")
     print(f"[{_stopwatch.formatted_runtime()}]")
-    # # ---------------------------------------------
+    # ---------------------------------------------
     # Show Reduced Topics.
     print("\nReduced Topics (by number of docs):")
     _red_topics_sizes = _loaded_model.cur_topic_by_size()
