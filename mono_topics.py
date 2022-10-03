@@ -747,11 +747,8 @@ if __name__ == '__main__':
 
     # # Create corpus.
     # # ---------------------------------------------
-    # # _docs_num = 1_000
-    # # print(f"\nCreating Corpus Sample of {big_number(_docs_num)} documents...")
-    # # _corpus = SampleManager(sample_size=_docs_num, show_progress=True)
-    # # print(f"Saving Sample for future use...")
-    # # _corpus.save()
+    # print(f"\nLoading the Documents in the Cord-19 Dataset...")
+    # _corpus = CorporaManager(show_progress=True)
     # # ---------------------------------------------
     # _sample_id = '500_docs'
     # print(f"\nLoading the Corpus Sample <{_sample_id}>...")
@@ -759,7 +756,7 @@ if __name__ == '__main__':
     # # ---------------------------------------------
     # print("Done.")
     # print(f"[{_stopwatch.formatted_runtime()}]")
-    #
+
     # # Report amount of papers in the loaded Corpus
     # _paper_count = len(_corpus)
     # print(f"\n{big_number(_paper_count)} documents loaded.")
@@ -776,7 +773,7 @@ if __name__ == '__main__':
     # _topic_model = MonoTopics(corpus=_corpus, text_model=_text_model, show_progress=True)
     # print("Done.")
     # print(f"[{_stopwatch.formatted_runtime()}]")
-    #
+
     # # Report Number of Topics found.
     # print(f"\n{_topic_model.topic_size} topics found.")
     # # ---------------------------------------------
@@ -789,19 +786,19 @@ if __name__ == '__main__':
     # # Topics' Vocabulary
     # top_n = 15
     # print(f"\nTop {top_n} words per topic:")
-    # _topics_words = _topic_model.topics_top_words(n=top_n)
+    # _topics_words = _topic_model.topics_top_words(top_n=top_n)
     # for _topic_id, _topic_words in _topics_words.items():
     #     print(f"\n-----> {_topic_id}:")
     #     pprint(_topic_words)
-    #
-    # # # -- Test Saving Model --
-    # # print(f"\nSaving Topic Model <{_topic_model.model_id}>...")
-    # # _topic_model.save(show_progress=True)
-    # # print("Done.")
-    # # print(f"[{_stopwatch.formatted_runtime()}]")
+
+    # # -- Test Saving Model --
+    # print(f"\nSaving Topic Model <{_topic_model.model_id}>...")
+    # _topic_model.save(show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
 
     # # -- Test Loading Topic Model --
-    _loading_id = 'sbert_fast_20_000_docs_182_topics'  # _topic_model.model_id
+    _loading_id = 'sbert_fast_105_548_docs_745_topics'  # _topic_model.model_id
     print(f"\nLoading Topic Model with ID <{_loading_id}>...")
     _loaded_model = MonoTopics.load(model_id=_loading_id, show_progress=True)
     print("Done.")
@@ -823,12 +820,6 @@ if __name__ == '__main__':
     # for _topic_id, _topic_words in _topics_words.items():
     #     print(f"\n-----> {_topic_id}:")
     #     pprint(_topic_words)
-
-    # # -- Update the Vocabulary of the Topic Model --
-    # print("\nCreating again the Vocabulary of the model...")
-    # _loaded_model.refresh_vocabulary(show_progress=True)
-    # print("Done.")
-    # print(f"[{_stopwatch.formatted_runtime()}]")
 
     # # # -- Topics' Words using PWI --
     # top_n = 15
@@ -873,7 +864,7 @@ if __name__ == '__main__':
     #     print(f"\n-----> {_red_topic_id}:")
     #     pprint(_red_words)
 
-    # # -- Topics' Words in Reduced Topics using PWI --
+    # -- Topics' Words in Reduced Topics using PWI --
     top_n = 15
     print(f"\nTop {top_n} words per topic:")
     for _topic_id, _size in _loaded_model.cur_topic_by_size():
