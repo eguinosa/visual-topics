@@ -812,21 +812,21 @@ if __name__ == '__main__':
     # print("Done.")
     # print(f"[{_stopwatch.formatted_runtime()}]")
 
-    # # -- Test Loading Topic Model --
-    _loading_id = 'sbert_fast_105_548_docs_745_topics'  # _topic_model.model_id
-    print(f"\nLoading Topic Model with ID <{_loading_id}>...")
-    _loaded_model = MonoTopics.load(model_id=_loading_id, show_progress=True)
-    print("Done.")
-    print(f"[{_stopwatch.formatted_runtime()}]")
+    # # # -- Test Loading Topic Model --
+    # _loading_id = 'sbert_fast_105_548_docs_745_topics'  # _topic_model.model_id
+    # print(f"\nLoading Topic Model with ID <{_loading_id}>...")
+    # _loaded_model = MonoTopics.load(model_id=_loading_id, show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+    # # # ---------------------------------------------
+    # # Show Loaded Topics.
+    # print(f"\nThe Loaded Topic Model has {_loaded_model.topic_size} topics.")
     # # ---------------------------------------------
-    # Show Loaded Topics.
-    print(f"\nThe Loaded Topic Model has {_loaded_model.topic_size} topics.")
-    # ---------------------------------------------
-    # Show Topics.
-    print("\nTopic by number of documents (Loaded Model):")
-    _topics_sizes = _loaded_model.topic_by_size()
-    for _topic_size in _topics_sizes:
-        print(_topic_size)
+    # # Show Topics.
+    # print("\nTopic by number of documents (Loaded Model):")
+    # _topics_sizes = _loaded_model.topic_by_size()
+    # for _topic_size in _topics_sizes:
+    #     print(_topic_size)
     # # ---------------------------------------------
     # # Show Topics' Words.
     # top_n = 15
@@ -858,18 +858,18 @@ if __name__ == '__main__':
     # print("Done.")
     # print(f"[{_stopwatch.formatted_runtime()}]")
 
-    # -- Create Hierarchically Reduced Topics --
-    _new_size = 20
-    print(f"\nCreating Reduced Model with {_new_size} topics...")
-    _loaded_model.reduce_topics(new_size=_new_size, parallelism=False, show_progress=True)
-    print("Done.")
-    print(f"[{_stopwatch.formatted_runtime()}]")
-    # ---------------------------------------------
-    # Show Reduced Topics.
-    print("\nReduced Topics (by number of docs):")
-    _red_topics_sizes = _loaded_model.cur_topic_by_size()
-    for _red_topic_size in _red_topics_sizes:
-        print(_red_topic_size)
+    # # -- Create Hierarchically Reduced Topics --
+    # _new_size = 20
+    # print(f"\nCreating Reduced Model with {_new_size} topics...")
+    # _loaded_model.reduce_topics(new_size=_new_size, parallelism=False, show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+    # # ---------------------------------------------
+    # # Show Reduced Topics.
+    # print("\nReduced Topics (by number of docs):")
+    # _red_topics_sizes = _loaded_model.cur_topic_by_size()
+    # for _red_topic_size in _red_topics_sizes:
+    #     print(_red_topic_size)
     # ---------------------------------------------
     # # Show Topic Words.
     # _top_n = 15
@@ -879,35 +879,36 @@ if __name__ == '__main__':
     #     print(f"\n-----> {_red_topic_id}:")
     #     pprint(_red_words)
 
-    # -- Topics' Words in Reduced Topics using PWI --
-    top_n = 10
-    print(f"\nTop {top_n} words per topic:")
-    for _topic_id, _size in _loaded_model.cur_topic_by_size():
-        # print(f"\n{_topic_id} ({big_number(_size)} docs):")
-        # For Latex
-        print(f"{_topic_id} & {big_number(_size)} docs", "& {")
-        # ---------------------------------------------
-        _sim_words = _loaded_model.top_words_cur_topic(_topic_id, top_n, 'cos_sim')
-        # print("Top Words by Cosine Similarity:")
-        # pprint(_sim_words)
-        _latex_str = str(_sim_words[0][0])
-        for _word, _ in _sim_words[1:]:
-            _latex_str += f", {_word}"
-        print(_latex_str)
-        print("}\\\\")
-        print("\\hline")
-        # ---------------------------------------------
-        # _pwi_words = _loaded_model.top_words_cur_topic(_topic_id, top_n, 'pwi_exact')
-        # print("Top Words by PWI-exact:")
-        # pprint(_pwi_words)
+    # # -- Topics' Words in Reduced Topics using PWI --
+    # top_n = 10
+    # print(f"\nTop {top_n} words per topic:")
+    # for _topic_id, _size in _loaded_model.cur_topic_by_size():
+    #     print(f"\n{_topic_id} ({big_number(_size)} docs):")
+    #     _sim_words = _loaded_model.top_words_cur_topic(_topic_id, top_n, 'cos_sim')
+    #     print("Top Words by Cosine Similarity:")
+    #     pprint(_sim_words)
+    #     # # ---------------------------------------------
+    #     # _pwi_words = _loaded_model.top_words_cur_topic(_topic_id, top_n, 'pwi_exact')
+    #     # print("Top Words by PWI-exact:")
+    #     # pprint(_pwi_words)
+    #     # # ---------------------------------------------
+    #     # # For Latex
+    #     # print(f"{_topic_id} & {big_number(_size)} docs", "& {")
+    #     # _sim_words = _loaded_model.top_words_cur_topic(_topic_id, top_n, 'cos_sim')
+    #     # _latex_str = str(_sim_words[0][0])
+    #     # for _word, _ in _sim_words[1:]:
+    #     #     _latex_str += f", {_word}"
+    #     # print(f"    {_latex_str}")
+    #     # print("}\\\\")
+    #     # print("\\hline")
 
-    # -- Show the Topic Model Descriptive Value (PWI) --
-    _num = 20
-    print(f"\nReduced Topic Model Descriptive Value with {_num} words:")
-    _pwi_tf_idf = _loaded_model.cur_model_pwi(word_num=_num, pwi_type='tf-idf')
-    _pwi_exact = _loaded_model.cur_model_pwi(word_num=_num, pwi_type='exact')
-    print(f"  PWI-tf-idf: {_pwi_tf_idf}")
-    print(f"  PWI-exact: {_pwi_exact}")
+    # # -- Show the Topic Model Descriptive Value (PWI) --
+    # _num = 20
+    # print(f"\nReduced Topic Model Descriptive Value with {_num} words:")
+    # _pwi_tf_idf = _loaded_model.cur_model_pwi(word_num=_num, pwi_type='tf-idf')
+    # _pwi_exact = _loaded_model.cur_model_pwi(word_num=_num, pwi_type='exact')
+    # print(f"  PWI-tf-idf: {_pwi_tf_idf}")
+    # print(f"  PWI-exact: {_pwi_exact}")
 
     # -- Show Saved Models --
     _saved_topic_models = MonoTopics.saved_models()
