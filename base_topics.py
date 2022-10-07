@@ -41,6 +41,23 @@ class BaseTopics(ABC):
 
     @property
     @abstractmethod
+    def base_corpus_id(self) -> str:
+        """
+        String with the ID of the corpus used to create the Topic Model.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def base_text_model_name(self) -> str:
+        """
+        String with the name of the Text Model used to create the embeddings
+        of the topics, documents and words in the same vector space.
+        """
+        pass
+
+    @property
+    @abstractmethod
     def base_topic_embeds(self) -> dict:
         """
         Dictionary with the vector representation of the topics in the same
@@ -223,6 +240,48 @@ class BaseTopics(ABC):
         Create a list the IDs of the saved Topic Models.
         """
         pass
+
+    @property
+    def current_doc_space_topic_embeds(self):
+        """
+        The embeddings of the topics in the same vector space as the documents
+        of the corpus. Returns the current (reduced) topics if possible,
+        otherwise returns the original topics.
+        """
+        # Check if we have a reduced topic size.
+        if self.base_cur_topic_embeds:
+            return self.base_cur_topic_embeds
+        else:
+            return self.base_topic_embeds
+
+    @property
+    def current_word_space_topic_embeds(self):
+        """
+        The embeddings of the topics in the same vector space as the words in
+        the vocabulary of the corpus. Returns the current (reduced) topics if
+        possible, otherwise returns the original topics.
+        """
+        # Check if we have reduced topics.
+        if self.base_cur_topic_embeds:
+            return self.base_cur_topic_embeds
+        else:
+            return self.base_topic_embeds
+
+    @property
+    def doc_space_doc_embeds(self):
+        """
+        Get the embeddings of the documents in the vector space where the topics
+        and the documents are.
+        """
+        return self.base_doc_embeds
+
+    @property
+    def word_space_doc_embeds(self):
+        """
+        Get the embeddings of the documents in the vector space where the
+        topics, documents and words are all together.
+        """
+        return self.base_doc_embeds
 
     @property
     def topic_size(self):
