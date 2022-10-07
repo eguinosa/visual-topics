@@ -57,12 +57,39 @@ class BaseMixTopics(BaseTopics, ABC):
         """
         pass
 
+    @property
+    @abstractmethod
+    def base_red_topic_embeds_words(self) -> dict:
+        """
+        Dictionary with the vector representations of the Reduced Topics in the
+        same vector space as the words in the vocabulary of the corpus.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def doc_space_doc_embeds(self):
+        """
+        Get the embeddings of the documents in the vector space where the topics
+        and the documents are.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def word_space_doc_embeds(self):
+        """
+        Get the embeddings of the documents in the vector space where the
+        topics, documents and words are all together.
+        """
+        pass
+
     # --------------------------------------------
     # BaseTopics Properties
     # --------------------------------------------
 
     @property
-    def base_topic_embeds(self) -> dict:
+    def base_topic_embeds(self):
         """
         Dictionary with the vector representation of the topics in the same
         vector space as the documents in the corpus.
@@ -70,12 +97,46 @@ class BaseMixTopics(BaseTopics, ABC):
         return self.base_topic_embeds_docs
 
     @property
-    def base_cur_topic_embeds(self) -> dict:
+    def base_cur_topic_embeds(self):
         """
         Dictionary with the vector representation of the Reduced Topics in the
         same vector space as the documents in the corpus.
         """
         return self.base_red_topic_embeds_docs
+
+    @property
+    def base_doc_embeds(self):
+        """
+        Dictionary with the embeddings of the documents in the corpus, in the
+        document vector space.
+        """
+        return self.doc_space_doc_embeds
+
+    @property
+    def current_doc_space_topic_embeds(self):
+        """
+        The embeddings of the topics in the same vector space as the documents
+        of the corpus. Returns the current (reduced) topics if possible,
+        otherwise returns the original topics.
+        """
+        # Check if we have a reduced topic size.
+        if self.base_red_topic_embeds_docs:
+            return self.base_red_topic_embeds_docs
+        else:
+            return self.base_topic_embeds_docs
+
+    @property
+    def current_word_space_topic_embeds(self):
+        """
+        The embeddings of the topics in the same vector space as the words in
+        the vocabulary of the corpus. Returns the current (reduced) topics if
+        possible, otherwise returns the original topics.
+        """
+        # Check if we have reduced topics.
+        if self.base_red_topic_embeds_words:
+            return self.base_red_topic_embeds_words
+        else:
+            return self.base_topic_embeds_words
 
     def base_reduce_topics(self, new_size: int, parallelism=False, show_progress=False):
         """
@@ -380,19 +441,17 @@ def create_specter_embeds(corpus: TopicCorpus, load_full_dict=False, show_progre
     return doc_embeds
 
 
-def find_mix_topics(doc_embeds: dict, corpus: TopicCorpus, text_model: ModelManager,
-                    show_progress=False):
+def find_mix_topics(doc_specter_embeds: dict, doc_text_embeds: dict, show_progress=False):
     """
     Find the number of prominent topics in the corpus, given the Specter embeddings
     of its documents, and create the vector representation of the topics in the
     Document Space (Specter) and in the Vocabulary Space (text_model).
 
     Args:
-        doc_embeds: Dictionary with the specter embeddings of the documents.
-        corpus: CorporaManager with the content of the documents we are
-            processing.
-        text_model: TopicCorpus used to create the vector representation of the
-            topics in the Vocabulary Space.
+        doc_specter_embeds: Dictionary with the specter embeddings of the
+            documents.
+        doc_text_embeds: Dictionary with the Text Model embeddings of the
+            documents in the corpus.
         show_progress: Bool representing whether we show the progress of the
             method or not.
     Returns:
@@ -400,8 +459,8 @@ def find_mix_topics(doc_embeds: dict, corpus: TopicCorpus, text_model: ModelMana
             and the Vocabulary Space.
     """
     # Create Document Embeddings with 5 dimensions.
-    doc_ids = list(doc_embeds.keys())
-    embeds_list = list(doc_embeds.values())
+    doc_ids = list(doc_specter_embeds.keys())
+    embeds_list = list(doc_specter_embeds.values())
     if show_progress:
         progress_msg("UMAP: Reducing dimensions of the documents...")
     umap_model = umap.UMAP(n_neighbors=15, n_components=5, metric='cosine')
@@ -456,16 +515,16 @@ def find_mix_topics(doc_embeds: dict, corpus: TopicCorpus, text_model: ModelMana
         )
     for topic_id, cluster_doc_ids in topic_clusters_docs.items():
         # Create Topic Embed in the Document Space.
-        specter_cluster_embeds = [doc_embeds[doc_id] for doc_id in cluster_doc_ids]
+        specter_cluster_embeds = [
+            doc_specter_embeds[doc_id] for doc_id in cluster_doc_ids
+        ]
         specter_mean_embed = np.mean(specter_cluster_embeds, axis=0)
         topic_embeds_docs[topic_id] = specter_mean_embed
 
         # Create Topic Embed in the Vocabulary Space.
-        cluster_docs_content = [
-            corpus.doc_title_abstract(doc_id)
-            for doc_id in cluster_doc_ids
+        vocab_cluster_embeds = [
+            doc_text_embeds[doc_id] for doc_id in cluster_doc_ids
         ]
-        vocab_cluster_embeds = text_model.doc_list_embeds(cluster_docs_content)
         vocab_mean_embed = np.mean(vocab_cluster_embeds, axis=0)
         topic_embeds_words[topic_id] = vocab_mean_embed
 
