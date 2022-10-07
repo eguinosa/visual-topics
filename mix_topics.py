@@ -7,7 +7,8 @@ from shutil import rmtree
 from os.path import isdir, isfile, join
 
 from base_mix_topics import BaseMixTopics, create_specter_embeds, find_mix_topics
-from base_topics import create_topic_words, find_child_embeddings, refresh_topic_ids
+from base_topics import (create_topic_words, find_child_embeddings,
+                         refresh_topic_ids, create_docs_embeds)
 from topic_corpus import TopicCorpus
 from corpora_manager import CorporaManager
 from model_manager import ModelManager
@@ -36,7 +37,8 @@ class MixTopics(BaseMixTopics):
     model_index_file = 'topic_model_index.json'
     topic_embeds_docs_file = 'topic_model_embeds_doc_space.json'
     topic_embeds_words_file = 'topic_model_embeds_word_space.json'
-    doc_embeds_file = 'topic_model_doc_embeds.json'
+    doc_specter_embeds_file = 'topic_model_doc_specter_embeds.json'
+    doc_text_embeds_file = 'topic_model_doc_text_embeds.json'
     reduced_topics_folder = 'reduced_topic_models'
     reduced_topic_prefix = 'reduced_topic_model_'
 
@@ -129,15 +131,27 @@ class MixTopics(BaseMixTopics):
             # Load Document Embeddings.
             if show_progress:
                 progress_msg("Loading Document Embeddings...")
-            doc_embeds_path = join(model_folder_path, self.doc_embeds_file)
-            if not isfile(doc_embeds_path):
-                raise FileNotFoundError("There is no Document Embeddings file available.")
-            with open(doc_embeds_path, 'r') as f:
-                doc_embeds_index = json.load(f)
+            # Specter Embeddings.
+            doc_specter_embeds_path = join(model_folder_path, self.doc_specter_embeds_file)
+            if not isfile(doc_specter_embeds_path):
+                raise FileNotFoundError(
+                    "There is no Document's Specter Embeddings file available."
+                )
+            with open(doc_specter_embeds_path, 'r') as f:
+                doc_specter_embeds_index = json.load(f)
+            # Text Model Embeddings.
+            doc_text_embeds_path = join(model_folder_path, self.doc_text_embeds_file)
+            if not isfile(doc_text_embeds_path):
+                raise FileNotFoundError(
+                    "There is no Document's Text Model Embeddings file available."
+                )
+            with open(doc_text_embeds_path, 'r') as f:
+                doc_text_embeds_index = json.load(f)
             # Transform Document Embeddings back to Numpy.ndarray.
             if show_progress:
                 progress_msg("Transforming Document Embeddings to Numpy.ndarray...")
-            doc_embeds = dict_list2ndarray(embeds_dict=doc_embeds_index)
+            doc_specter_embeds = dict_list2ndarray(embeds_dict=doc_specter_embeds_index)
+            doc_text_embeds = dict_list2ndarray(embeds_dict=doc_text_embeds_index)
 
             # Load Topic Model's Vocabulary.
             if show_progress:
@@ -150,7 +164,8 @@ class MixTopics(BaseMixTopics):
             self.corpus_id = corpus_id
             self.vocab_model_name = vocab_model_name
             # Document & Vocabulary Attributes.
-            self.doc_embeds = doc_embeds
+            self.doc_specter_embeds = doc_specter_embeds
+            self.doc_text_embeds = doc_text_embeds
             self.corpus_vocab = corpus_vocab
             # Topic Attributes.
             self.topic_embeds_docs = topic_embeds_docs
@@ -177,15 +192,21 @@ class MixTopics(BaseMixTopics):
             # Get the Embeddings of the Documents.
             if show_progress:
                 progress_msg("Getting the Specter Embeddings of the Documents...")
-            doc_embeds = create_specter_embeds(
+            doc_specter_embeds = create_specter_embeds(
                 corpus=corpus, load_full_dict=(len(corpus) > 3_000),
                 show_progress=show_progress
             )
+            if show_progress:
+                progress_msg("Creating the Text Model Embeddings of the Documents...")
+            doc_text_embeds = create_docs_embeds(
+                corpus=corpus, model=vocab_model, show_progress=show_progress
+            )
             # Use the doc embeddings to find the prominent topics.
             if show_progress:
-                progress_msg("Finding the Topics in the Corpus...")
+                progress_msg("Finding the Topics...")
             topic_embeds_docs, topic_embeds_words = find_mix_topics(
-                doc_embeds=doc_embeds, corpus=corpus, text_model=vocab_model,
+                doc_specter_embeds=doc_specter_embeds,
+                doc_text_embeds=doc_text_embeds,
                 show_progress=show_progress
             )
             # Group Documents by Topics.
@@ -193,7 +214,7 @@ class MixTopics(BaseMixTopics):
                 progress_msg("Organizing Documents by topics...")
             topic_docs = find_child_embeddings(
                 # parallelism can generate some conflicts with huggingface/tokenizers.
-                parent_embeds=topic_embeds_docs, child_embeds=doc_embeds,
+                parent_embeds=topic_embeds_docs, child_embeds=doc_specter_embeds,
                 parallelism=parallelism, show_progress=show_progress
             )
             # Create Corpus Vocabulary.
@@ -214,7 +235,8 @@ class MixTopics(BaseMixTopics):
             self.corpus_id = corpus_id
             self.vocab_model_name = vocab_model_name
             # Document & Vocabulary Attributes.
-            self.doc_embeds = doc_embeds
+            self.doc_specter_embeds = doc_specter_embeds
+            self.doc_text_embeds = doc_text_embeds
             self.corpus_vocab = corpus_vocab
             # Topic Attributes.
             self.topic_embeds_docs = topic_embeds_docs
@@ -259,6 +281,30 @@ class MixTopics(BaseMixTopics):
         """
         return self.red_topic_embeds_docs
 
+    @property
+    def base_red_topic_embeds_words(self) -> dict:
+        """
+        Dictionary with the vector representations of the Reduced Topics in the
+        same vector space as the words in the vocabulary of the corpus.
+        """
+        return self.red_topic_embeds_words
+
+    @property
+    def doc_space_doc_embeds(self):
+        """
+        Get the embeddings of the documents in the vector space where the topics
+        and the documents are.
+        """
+        return self.doc_specter_embeds
+
+    @property
+    def word_space_doc_embeds(self):
+        """
+        Get the embeddings of the documents in the vector space where the
+        topics, documents and words are all together.
+        """
+        return self.doc_text_embeds
+
     # ---------------------------------------------
     # BaseTopics Properties
     # ---------------------------------------------
@@ -269,6 +315,21 @@ class MixTopics(BaseMixTopics):
         String the ID used to identify the current Topic Model.
         """
         return self.model_id
+
+    @property
+    def base_corpus_id(self) -> str:
+        """
+        String with the ID of the corpus used to create the Topic Model.
+        """
+        return self.corpus_id
+
+    @property
+    def base_text_model_name(self) -> str:
+        """
+        String with the name of the Text Model used to create the embeddings
+        of the topics, documents and words in the same vector space.
+        """
+        return self.vocab_model_name
 
     @property
     def base_topic_docs(self):
@@ -301,13 +362,6 @@ class MixTopics(BaseMixTopics):
         Topics.
         """
         return self.red_topic_words
-
-    @property
-    def base_doc_embeds(self):
-        """
-        Dictionary with the embeddings of the documents in the corpus.
-        """
-        return self.doc_embeds
 
     @property
     def base_corpus_vocab(self):
@@ -388,7 +442,7 @@ class MixTopics(BaseMixTopics):
         if show_progress:
             progress_msg("Organizing documents by the new Reduced Topics...")
         red_topic_docs = find_child_embeddings(
-            parent_embeds=red_topic_embeds_docs, child_embeds=self.doc_embeds,
+            parent_embeds=red_topic_embeds_docs, child_embeds=self.doc_specter_embeds,
             parallelism=parallelism, show_progress=show_progress
         )
         # Create Topic Words.
@@ -411,7 +465,7 @@ class MixTopics(BaseMixTopics):
         about the Corpus and Text Model used.
         """
         # Create the corpus to remake the Vocabulary.
-        doc_ids = list(self.doc_embeds.keys())
+        doc_ids = list(self.doc_specter_embeds.keys())
         main_corpus = CorporaManager(
             corpus_id=self.corpus_id, show_progress=show_progress
         )
@@ -494,7 +548,7 @@ class MixTopics(BaseMixTopics):
             progress_msg("Saving Topic Model's Basic Info...")
         basic_index = {
             'topic_size': self.topic_size,
-            'corpus_size': len(self.doc_embeds),
+            'corpus_size': len(self.doc_specter_embeds),
             'corpus_id': self.corpus_id,
             'vocab_model_name': self.vocab_model_name,
             'has_reduced_topics': self.reduced_topics_saved(),
@@ -536,13 +590,19 @@ class MixTopics(BaseMixTopics):
         # Transform Document's Embeddings.
         if show_progress:
             progress_msg("Transforming Document's Embeddings to List[Float]...")
-        doc_embeds_index = dict_ndarray2list(self.doc_embeds)
+        doc_specter_embeds_index = dict_ndarray2list(self.doc_specter_embeds)
+        doc_text_embeds_index = dict_ndarray2list(self.doc_text_embeds)
         # Save Document's Embeddings.
         if show_progress:
             progress_msg("Saving Document's Embeddings...")
-        doc_embeds_path = join(model_folder_path, self.doc_embeds_file)
-        with open(doc_embeds_path, 'w') as f:
-            json.dump(doc_embeds_index, f)
+        # Specter Embeddings.
+        doc_specter_embeds_path = join(model_folder_path, self.doc_specter_embeds_file)
+        with open(doc_specter_embeds_path, 'w') as f:
+            json.dump(doc_specter_embeds_index, f)
+        # Text Model Embeddings.
+        doc_text_embeds_path = join(model_folder_path, self.doc_text_embeds_file)
+        with open(doc_text_embeds_path, 'w') as f:
+            json.dump(doc_text_embeds_index, f)
 
         # Save Vocabulary.
         if show_progress:
@@ -584,7 +644,7 @@ class MixTopics(BaseMixTopics):
                 progress_msg("Updating Topic Model's Basic Info...")
             basic_index = {
                 'topic_size': self.topic_size,
-                'corpus_size': len(self.doc_embeds),
+                'corpus_size': len(self.doc_specter_embeds),
                 'corpus_id': self.corpus_id,
                 'vocab_model_name': self.vocab_model_name,
                 'has_reduced_topics': self.reduced_topics_saved(),
@@ -675,7 +735,7 @@ class MixTopics(BaseMixTopics):
         topic_embeds_words_path = join(model_folder_path, cls.topic_embeds_words_file)
         if not isfile(topic_embeds_words_path):
             return False
-        doc_embeds_path = join(model_folder_path, cls.doc_embeds_file)
+        doc_embeds_path = join(model_folder_path, cls.doc_specter_embeds_file)
         if not isfile(doc_embeds_path):
             return False
         # Check Vocabulary.
@@ -718,7 +778,7 @@ class MixTopics(BaseMixTopics):
             topic_embeds_words_path = join(entry_path, cls.topic_embeds_words_file)
             if not isfile(topic_embeds_words_path):
                 continue
-            doc_embeds_path = join(entry_path, cls.doc_embeds_file)
+            doc_embeds_path = join(entry_path, cls.doc_specter_embeds_file)
             if not isfile(doc_embeds_path):
                 continue
             # Check Vocabulary Files.
@@ -752,7 +812,7 @@ class MixTopics(BaseMixTopics):
         Returns: String with the created ID of the topic model.
         """
         mix_name = 'specter_' + self.vocab_model_name
-        corpus_size = big_number(len(self.doc_embeds)).replace(',', '_')
+        corpus_size = big_number(len(self.doc_specter_embeds)).replace(',', '_')
         topics_size = big_number(self.topic_size).replace(',', '_')
         new_model_id = (
                 mix_name + '_' + corpus_size + '_docs_' + topics_size + '_topics'
@@ -798,41 +858,41 @@ if __name__ == '__main__':
     # ---------------------------------------------
     # print(f"\nLoading the Documents in the Cord-19 Dataset...")
     # _corpus = CorporaManager(show_progress=True)
-    # # ---------------------------------------------
-    # _sample_id = '20_000_docs'
-    # print(f"\nLoading the Corpus Sample <{_sample_id}>...")
-    # _corpus = SampleManager.load(sample_id=_sample_id, show_progress=True)
-    # # ---------------------------------------------
-    # print("Done.")
-    # print(f"[{_stopwatch.formatted_runtime()}]")
+    # ---------------------------------------------
+    _sample_id = '1_000_docs'
+    print(f"\nLoading the Corpus Sample <{_sample_id}>...")
+    _corpus = SampleManager.load(sample_id=_sample_id, show_progress=True)
+    # ---------------------------------------------
+    print("Done.")
+    print(f"[{_stopwatch.formatted_runtime()}]")
 
-    # # Report amount of papers in the loaded Corpus
-    # _paper_count = len(_corpus)
-    # print(f"\n{big_number(_paper_count)} documents loaded.")
+    # Report amount of papers in the loaded Corpus
+    _paper_count = len(_corpus)
+    print(f"\n{big_number(_paper_count)} documents loaded.")
 
-    # # Load Text Model.
-    # _model_id = 'sbert_fast'
-    # print(f"\nLoading the model in ModelManager <{_model_id}>...")
-    # _text_model = ModelManager(model_name=_model_id, show_progress=True)
-    # print("Done.")
-    # print(f"[{_stopwatch.formatted_runtime()}]")
+    # Load Text Model.
+    _model_id = 'sbert_fast'
+    print(f"\nLoading the model in ModelManager <{_model_id}>...")
+    _text_model = ModelManager(model_name=_model_id, show_progress=True)
+    print("Done.")
+    print(f"[{_stopwatch.formatted_runtime()}]")
 
-    # # Create Topic Model.
-    # print(f"\nCreating Topic Model...")
-    # _topic_model = MixTopics(
-    #     corpus=_corpus, vocab_model=_text_model, show_progress=True
-    # )
-    # print("Done.")
-    # print(f"[{_stopwatch.formatted_runtime()}]")
+    # Create Topic Model.
+    print(f"\nCreating Topic Model...")
+    _topic_model = MixTopics(
+        corpus=_corpus, vocab_model=_text_model, show_progress=True
+    )
+    print("Done.")
+    print(f"[{_stopwatch.formatted_runtime()}]")
 
-    # # Report Number of Topics found.
-    # print(f"\n{_topic_model.topic_size} topics found.")
-    # # ---------------------------------------------
-    # # Show Topic by size.
-    # print("\nTopics by number of documents:")
-    # _topics_sizes = _topic_model.topic_by_size()
-    # for _topic_size in _topics_sizes:
-    #     print(_topic_size)
+    # Report Number of Topics found.
+    print(f"\n{_topic_model.topic_size} topics found.")
+    # ---------------------------------------------
+    # Show Topic by size.
+    print("\nTopics by number of documents:")
+    _topics_sizes = _topic_model.topic_by_size()
+    for _topic_size in _topics_sizes:
+        print(_topic_size)
     # # # ---------------------------------------------
     # # # Topics' Vocabulary
     # # top_n = 15
@@ -842,19 +902,20 @@ if __name__ == '__main__':
     # #     print(f"\n-----> {_topic_id}:")
     # #     pprint(_topic_words)
 
-    # # -- Test Saving Model --
-    # print(f"\nSaving Topic Model <{_topic_model.model_id}>...")
-    # _topic_model.save(show_progress=True)
-    # print("Done.")
-    # print(f"[{_stopwatch.formatted_runtime()}]")
+    # -- Test Saving Model --
+    print(f"\nSaving Topic Model <{_topic_model.model_id}>...")
+    _topic_model.save(show_progress=True)
+    print("Done.")
+    print(f"[{_stopwatch.formatted_runtime()}]")
 
     # -- Test Loading Topic Model --
-    _loading_id = 'specter_sbert_fast_105_548_docs_533_topics'  # _topic_model.model_id
+    _loading_id = _topic_model.model_id
+    # _loading_id = 'specter_sbert_fast_5_000_docs_25_topics'
     print(f"\nLoading Topic Model with ID <{_loading_id}>...")
     _loaded_model = MixTopics.load(model_id=_loading_id, show_progress=True)
     print("Done.")
     print(f"[{_stopwatch.formatted_runtime()}]")
-    # ---------------------------------------------
+    # # ---------------------------------------------
     # Show Loaded Topics.
     print(f"\nThe Loaded Topic Model has {_loaded_model.topic_size} topics.")
     # ---------------------------------------------
@@ -864,13 +925,13 @@ if __name__ == '__main__':
     for _topic_size in _topics_sizes:
         print(_topic_size)
     # ---------------------------------------------
-    # # Show Topics' Words.
-    # top_n = 15
-    # print(f"\nTop {top_n} words per topic:")
-    # _topics_words = _loaded_model.topics_top_words(n=top_n)
-    # for _topic_id, _topic_words in _topics_words.items():
-    #     print(f"\n-----> {_topic_id}:")
-    #     pprint(_topic_words)
+    # Show Topics' Words.
+    top_n = 10
+    print(f"\nTop {top_n} words per topic:")
+    _topics_words = _loaded_model.topics_top_words(top_n=top_n)
+    for _topic_id, _topic_words in _topics_words.items():
+        print(f"\n-----> {_topic_id}:")
+        pprint(_topic_words)
 
     # -- Topics' Words using PWI --
     # top_n = 15
@@ -895,17 +956,17 @@ if __name__ == '__main__':
     # print(f"[{_stopwatch.formatted_runtime()}]")
 
     # # -- Create Hierarchically Reduced Topics --
-    _new_size = 20
-    print(f"\nCreating Reduced Model with {_new_size} topics...")
-    _loaded_model.reduce_topics(new_size=_new_size, parallelism=False, show_progress=True)
-    print("Done.")
-    print(f"[{_stopwatch.formatted_runtime()}]")
-    # ---------------------------------------------
-    # Show Reduced Topics.
-    print("\nReduced Topics (by number of docs):")
-    _red_topics_sizes = _loaded_model.cur_topic_by_size()
-    for _red_topic_size in _red_topics_sizes:
-        print(_red_topic_size)
+    # _new_size = 10
+    # print(f"\nCreating Reduced Model with {_new_size} topics...")
+    # _loaded_model.reduce_topics(new_size=_new_size, parallelism=False, show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+    # # ---------------------------------------------
+    # # Show Reduced Topics.
+    # print("\nReduced Topics (by number of docs):")
+    # _red_topics_sizes = _loaded_model.cur_topic_by_size()
+    # for _red_topic_size in _red_topics_sizes:
+    #     print(_red_topic_size)
     # # ---------------------------------------------
     # # Show Topic Words.
     # _top_n = 15
@@ -915,25 +976,36 @@ if __name__ == '__main__':
     #     print(f"\n-----> {_red_topic_id}:")
     #     pprint(_red_words)
 
-    # # -- Topics' Words in Reduced Topics using PWI --
-    top_n = 15
-    print(f"\nTop {top_n} words per topic:")
-    for _topic_id, _size in _loaded_model.cur_topic_by_size():
-        print(f"\n{_topic_id} ({big_number(_size)} docs):")
-        _sim_words = _loaded_model.top_words_cur_topic(_topic_id, top_n, 'cos_sim')
-        print("Top Words by Cosine Similarity:")
-        pprint(_sim_words)
-        _pwi_words = _loaded_model.top_words_cur_topic(_topic_id, top_n, 'pwi_exact')
-        print("Top Words by PWI-exact:")
-        pprint(_pwi_words)
+    # # # -- Topics' Words in Reduced Topics using PWI --
+    # top_n = 10
+    # print(f"\nTop {top_n} words per topic:")
+    # for _topic_id, _size in _loaded_model.cur_topic_by_size():
+    #     print(f"\n{_topic_id} ({big_number(_size)} docs):")
+    #     _sim_words = _loaded_model.top_words_cur_topic(_topic_id, top_n, 'cos_sim')
+    #     print("Top Words by Cosine Similarity:")
+    #     pprint(_sim_words)
+    #     # # ---------------------------------------------
+    #     # _pwi_words = _loaded_model.top_words_cur_topic(_topic_id, top_n, 'pwi_exact')
+    #     # print("Top Words by PWI-exact:")
+    #     # pprint(_pwi_words)
+    #     # # ---------------------------------------------
+    #     # # For Latex
+    #     # print(f"{_topic_id} & {big_number(_size)} docs", "& {")
+    #     # _sim_words = _loaded_model.top_words_cur_topic(_topic_id, top_n, 'cos_sim')
+    #     # _latex_str = str(_sim_words[0][0])
+    #     # for _word, _ in _sim_words[1:]:
+    #     #     _latex_str += f", {_word}"
+    #     # print(f"    {_latex_str}")
+    #     # print("}\\\\")
+    #     # print("\\hline")
 
-    # -- Show the Topic Model Descriptive Value (PWI) --
-    _num = 20
-    print(f"\nReduced Topic Model Descriptive Value with {_num} words:")
-    _pwi_tf_idf = _loaded_model.cur_model_pwi(word_num=_num, pwi_type='tf-idf')
-    _pwi_exact = _loaded_model.cur_model_pwi(word_num=_num, pwi_type='exact')
-    print(f"  PWI-tf-idf: {_pwi_tf_idf}")
-    print(f"  PWI-exact: {_pwi_exact}")
+    # # -- Show the Topic Model Descriptive Value (PWI) --
+    # _num = 20
+    # print(f"\nReduced Topic Model Descriptive Value with {_num} words:")
+    # _pwi_tf_idf = _loaded_model.cur_model_pwi(word_num=_num, pwi_type='tf-idf')
+    # _pwi_exact = _loaded_model.cur_model_pwi(word_num=_num, pwi_type='exact')
+    # print(f"  PWI-tf-idf: {_pwi_tf_idf}")
+    # print(f"  PWI-exact: {_pwi_exact}")
 
     # -- Show Saved Models --
     _saved_topic_models = MixTopics.saved_models()
