@@ -217,6 +217,21 @@ class MonoTopics(BaseTopics):
         return self.model_id
 
     @property
+    def base_corpus_id(self) -> str:
+        """
+        String with the ID of the corpus used to create the Topic Model.
+        """
+        return self.corpus_id
+
+    @property
+    def base_text_model_name(self) -> str:
+        """
+        String with the name of the Text Model used to create the embeddings
+        of the topics, documents and words in the same vector space.
+        """
+        return self.text_model_name
+
+    @property
     def base_topic_embeds(self):
         """
         Dictionary with the vector representation of the topics in the same
@@ -865,16 +880,26 @@ if __name__ == '__main__':
     #     pprint(_red_words)
 
     # -- Topics' Words in Reduced Topics using PWI --
-    top_n = 15
+    top_n = 10
     print(f"\nTop {top_n} words per topic:")
     for _topic_id, _size in _loaded_model.cur_topic_by_size():
-        print(f"\n{_topic_id} ({big_number(_size)} docs):")
+        # print(f"\n{_topic_id} ({big_number(_size)} docs):")
+        # For Latex
+        print(f"{_topic_id} & {big_number(_size)} docs", "& {")
+        # ---------------------------------------------
         _sim_words = _loaded_model.top_words_cur_topic(_topic_id, top_n, 'cos_sim')
-        print("Top Words by Cosine Similarity:")
-        pprint(_sim_words)
-        _pwi_words = _loaded_model.top_words_cur_topic(_topic_id, top_n, 'pwi_exact')
-        print("Top Words by PWI-exact:")
-        pprint(_pwi_words)
+        # print("Top Words by Cosine Similarity:")
+        # pprint(_sim_words)
+        _latex_str = str(_sim_words[0][0])
+        for _word, _ in _sim_words[1:]:
+            _latex_str += f", {_word}"
+        print(_latex_str)
+        print("}\\\\")
+        print("\\hline")
+        # ---------------------------------------------
+        # _pwi_words = _loaded_model.top_words_cur_topic(_topic_id, top_n, 'pwi_exact')
+        # print("Top Words by PWI-exact:")
+        # pprint(_pwi_words)
 
     # -- Show the Topic Model Descriptive Value (PWI) --
     _num = 20
