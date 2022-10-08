@@ -345,7 +345,10 @@ class MixTopics(BaseMixTopics):
         Dictionary with the list of Documents (IDs) that belong to each of the
         Reduced Topics.
         """
-        return self.red_topic_docs
+        if self.red_topic_docs:
+            return self.red_topic_docs
+        else:
+            return self.topic_docs
 
     @property
     def base_topic_words(self):
@@ -361,7 +364,10 @@ class MixTopics(BaseMixTopics):
         Dictionary the list of words that best describe each of the Reduced
         Topics.
         """
-        return self.red_topic_words
+        if self.red_topic_words:
+            return self.red_topic_words
+        else:
+            return self.topic_words
 
     @property
     def base_corpus_vocab(self):
