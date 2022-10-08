@@ -14,7 +14,6 @@ from base_topics import (
     BaseTopics, refresh_topic_ids, closest_vector, count_child_embeddings
 )
 from topic_corpus import TopicCorpus
-from model_manager import ModelManager
 from util_funcs import dict_ndarray2list, dict_list2ndarray
 from extra_funcs import progress_bar, progress_msg  # , big_number
 
@@ -102,7 +101,10 @@ class BaseMixTopics(BaseTopics, ABC):
         Dictionary with the vector representation of the Reduced Topics in the
         same vector space as the documents in the corpus.
         """
-        return self.base_red_topic_embeds_docs
+        if self.base_red_topic_embeds_docs:
+            return self.base_red_topic_embeds_docs
+        else:
+            return self.base_topic_embeds_docs
 
     @property
     def base_doc_embeds(self):
