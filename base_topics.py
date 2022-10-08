@@ -298,7 +298,7 @@ class BaseTopics(ABC):
         if self.base_cur_topic_embeds:
             return len(self.base_cur_topic_embeds)
         else:
-            return 0
+            return self.topic_size
 
     @property
     def topic_ids(self):
@@ -317,7 +317,7 @@ class BaseTopics(ABC):
             id_list = list(self.base_cur_topic_embeds.keys())
             return id_list
         else:
-            return []
+            return self.topic_ids
 
     @property
     def has_reduced_topics(self):
