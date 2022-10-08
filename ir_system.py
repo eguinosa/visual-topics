@@ -1,7 +1,8 @@
 # Gelin Eguinosa Rosique
 # 2022
 
-from base_topics import BaseTopics
+from mono_topics import MonoTopics
+from mix_topics import MixTopics
 from corpora_manager import CorporaManager
 from sample_manager import SampleManager
 from model_manager import ModelManager
@@ -11,7 +12,6 @@ from extra_funcs import progress_msg
 # Testing Imports.
 import sys
 from pprint import pprint
-from mono_topics import MonoTopics
 from time_keeper import TimeKeeper
 
 
@@ -21,35 +21,152 @@ class IRSystem:
     Models.
     """
 
-    def __init__(self, topic_model: BaseTopics, show_progress=False):
+    def __init__(self, model_name: str, show_progress=False):
         """
         Using the provided 'topic_model' load the corpus and the text model of
         the topic model to be able to encode the queries made by the user and
         extract the most relevant documents.
 
         Args:
-            topic_model: Model used to create the topics in the corpus.
+            model_name: String with the name of the Topic Model we have to use
+                in the IR system.
             show_progress: Bool representing whether we show the progress of
                 the method or not.
         """
+        # Create Topic Model.
+        mono_topics_ids = MonoTopics.saved_models()
+        mix_topics_ids = MixTopics.saved_models()
+        # Load the given 'model_name'.
+        if show_progress:
+            progress_msg(f"Loading Topic Model <{model_name}>...")
+        if model_name in mono_topics_ids:
+            topic_model = MonoTopics.load(
+                model_id=model_name, show_progress=show_progress
+            )
+        elif model_name in mix_topics_ids:
+            topic_model = MixTopics.load(
+                model_id=model_name, show_progress=show_progress
+            )
+        else:
+            # Model not available.
+            raise FileNotFoundError(
+                f"The Topic Model <{model_name}> is either not available or not"
+                f"supported."
+            )
+
         # Create a Corpus with the IDs of the documents in the Topic Model.
         if show_progress:
             progress_msg("Creating Corpus for the IR system...")
+        # Get the Docs in the Topic Model and create main corpus.
         corpus_id = topic_model.base_corpus_id
         doc_ids = list(topic_model.base_doc_embeds.keys())
         main_corpus = CorporaManager(corpus_id=corpus_id, show_progress=show_progress)
-        corpus = SampleManager.load_custom(
-            corpus=main_corpus, doc_ids=doc_ids, show_progress=show_progress
-        )
+        # Check if the Documents are the whole corpus.
+        if len(doc_ids) == len(main_corpus):
+            corpus = main_corpus
+        else:
+            # They are a Sample of the Corpus.
+            corpus = SampleManager.load_custom(
+                corpus=main_corpus, doc_ids=doc_ids, show_progress=show_progress
+            )
+
         # Load the Text Model of the Topic Model.
         if show_progress:
             progress_msg("Loading Text Model for the IR system...")
         text_model_name = topic_model.base_text_model_name
-        text_model = ModelManager(model_name=text_model_name, show_progress=show_progress)
+        text_model = ModelManager(
+            model_name=text_model_name, show_progress=show_progress
+        )
 
-        # Save the class Attributes.
+        # Supported Topic Models.
+        self.mono_topics_ids = mono_topics_ids
+        self.mix_topics_ids = mix_topics_ids
+        # Topic Model Attributes.
+        self.model_name = model_name
         self.topic_model = topic_model
+        # Corpus Attributes.
+        self.main_corpus = main_corpus
         self.corpus = corpus
+        # Text Model Attributes.
+        self.text_model = text_model
+
+    def update_model(self, new_model: str, show_progress=False):
+        """
+        Update the Topic Model used by the IR system.
+
+        Args:
+            new_model: String with the name of the new Topic Model to be used.
+            show_progress: Bool representing whether we show the progress of
+                the method or not.
+        """
+        # Check we have a new model name.
+        if new_model == self.model_name:
+            # No need to update.
+            return
+
+        # Load the New Topic Model.
+        if show_progress:
+            progress_msg(f"Loading the Topic Model <{new_model}>...")
+        if new_model in self.mono_topics_ids:
+            topic_model = MonoTopics.load(
+                model_id=new_model, show_progress=show_progress
+            )
+        elif new_model in self.mix_topics_ids:
+            topic_model = MixTopics.load(
+                model_id=new_model, show_progress=show_progress
+            )
+        else:
+            # The New Model is not available.
+            raise FileNotFoundError(
+                f"The Topic Model <{new_model}> is either not available or not"
+                f"supported."
+            )
+
+        # Updating the Corpus of the IR system.
+        if show_progress:
+            progress_msg("Loading New Corpus for the IR system...")
+        # Get the Info about the corpus in the Topic Model.
+        corpus_id = topic_model.base_corpus_id
+        doc_ids = list(topic_model.base_doc_embeds.keys())
+        # Check if we have to upload a new Main corpus.
+        if corpus_id != self.main_corpus.corpus_id:
+            main_corpus = CorporaManager(
+                corpus_id=corpus_id, show_progress=show_progress
+            )
+        else:
+            # No need to change the Main Corpus.
+            if show_progress:
+                progress_msg(f"Using the same Main Corpus <{corpus_id}>")
+            main_corpus = self.main_corpus
+        # Check if the documents represent the whole corpus or a sample.
+        if len(doc_ids) == len(main_corpus):
+            corpus = main_corpus
+        else:
+            # We have to use a Sample of the Corpus.
+            corpus = SampleManager.load_custom(
+                corpus=main_corpus, doc_ids=doc_ids, show_progress=show_progress
+            )
+
+        # Check if we have to update the Text Model.
+        cur_text_model_name = self.text_model.model_name
+        new_text_model_name = topic_model.base_text_model_name
+        if cur_text_model_name != new_text_model_name:
+            if show_progress:
+                "Loading a New Text Model ..."
+            text_model = ModelManager(
+                model_name=new_text_model_name, show_progress=show_progress
+            )
+        else:
+            # Using the Same Text Model.
+            text_model = self.text_model
+
+        # Update Topic Model Attributes.
+        self.model_name = new_model
+        self.topic_model = topic_model
+        # Update Corpus Attributes.
+        self.main_corpus = main_corpus
+        self.corpus = corpus
+        # Text Model Attributes.
         self.text_model = text_model
 
     def user_query(self, query: str, topic_num=10, doc_num=10, show_progress=True):
@@ -161,16 +278,10 @@ if __name__ == '__main__':
     # Terminal Parameters.
     _args = sys.argv
 
-    # Load Topic Model.
-    _loading_id = 'sbert_fast_20_000_docs_182_topics'
-    print(f"\nLoading Topic Model with ID <{_loading_id}>...")
-    _loaded_model = MonoTopics.load(model_id=_loading_id, show_progress=True)
-    print("Done.")
-    print(f"[{_stopwatch.formatted_runtime()}]")
-
     # Create IR system.
     print(f"\nCreating the IR System instance...")
-    _ir_sys = IRSystem(topic_model=_loaded_model, show_progress=True)
+    _topic_model_id = 'sbert_fast_20_000_docs_182_topics'
+    _ir_sys = IRSystem(model_name=_topic_model_id, show_progress=True)
     print("Done.")
     print(f"[{_stopwatch.formatted_runtime()}]")
 
