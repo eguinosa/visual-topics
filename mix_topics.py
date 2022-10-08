@@ -859,40 +859,40 @@ if __name__ == '__main__':
     # print(f"\nLoading the Documents in the Cord-19 Dataset...")
     # _corpus = CorporaManager(show_progress=True)
     # ---------------------------------------------
-    _sample_id = '1_000_docs'
-    print(f"\nLoading the Corpus Sample <{_sample_id}>...")
-    _corpus = SampleManager.load(sample_id=_sample_id, show_progress=True)
-    # ---------------------------------------------
-    print("Done.")
-    print(f"[{_stopwatch.formatted_runtime()}]")
+    # _sample_id = '1_000_docs'
+    # print(f"\nLoading the Corpus Sample <{_sample_id}>...")
+    # _corpus = SampleManager.load(sample_id=_sample_id, show_progress=True)
+    # # ---------------------------------------------
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
 
-    # Report amount of papers in the loaded Corpus
-    _paper_count = len(_corpus)
-    print(f"\n{big_number(_paper_count)} documents loaded.")
+    # # Report amount of papers in the loaded Corpus
+    # _paper_count = len(_corpus)
+    # print(f"\n{big_number(_paper_count)} documents loaded.")
 
-    # Load Text Model.
-    _model_id = 'sbert_fast'
-    print(f"\nLoading the model in ModelManager <{_model_id}>...")
-    _text_model = ModelManager(model_name=_model_id, show_progress=True)
-    print("Done.")
-    print(f"[{_stopwatch.formatted_runtime()}]")
+    # # Load Text Model.
+    # _model_id = 'sbert_fast'
+    # print(f"\nLoading the model in ModelManager <{_model_id}>...")
+    # _text_model = ModelManager(model_name=_model_id, show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
 
-    # Create Topic Model.
-    print(f"\nCreating Topic Model...")
-    _topic_model = MixTopics(
-        corpus=_corpus, vocab_model=_text_model, show_progress=True
-    )
-    print("Done.")
-    print(f"[{_stopwatch.formatted_runtime()}]")
+    # # Create Topic Model.
+    # print(f"\nCreating Topic Model...")
+    # _topic_model = MixTopics(
+    #     corpus=_corpus, vocab_model=_text_model, show_progress=True
+    # )
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
 
-    # Report Number of Topics found.
-    print(f"\n{_topic_model.topic_size} topics found.")
-    # ---------------------------------------------
-    # Show Topic by size.
-    print("\nTopics by number of documents:")
-    _topics_sizes = _topic_model.topic_by_size()
-    for _topic_size in _topics_sizes:
-        print(_topic_size)
+    # # Report Number of Topics found.
+    # print(f"\n{_topic_model.topic_size} topics found.")
+    # # ---------------------------------------------
+    # # Show Topic by size.
+    # print("\nTopics by number of documents:")
+    # _topics_sizes = _topic_model.topic_by_size()
+    # for _topic_size in _topics_sizes:
+    #     print(_topic_size)
     # # # ---------------------------------------------
     # # # Topics' Vocabulary
     # # top_n = 15
@@ -902,36 +902,36 @@ if __name__ == '__main__':
     # #     print(f"\n-----> {_topic_id}:")
     # #     pprint(_topic_words)
 
-    # -- Test Saving Model --
-    print(f"\nSaving Topic Model <{_topic_model.model_id}>...")
-    _topic_model.save(show_progress=True)
-    print("Done.")
-    print(f"[{_stopwatch.formatted_runtime()}]")
+    # # -- Test Saving Model --
+    # print(f"\nSaving Topic Model <{_topic_model.model_id}>...")
+    # _topic_model.save(show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
 
-    # -- Test Loading Topic Model --
-    _loading_id = _topic_model.model_id
-    # _loading_id = 'specter_sbert_fast_5_000_docs_25_topics'
-    print(f"\nLoading Topic Model with ID <{_loading_id}>...")
-    _loaded_model = MixTopics.load(model_id=_loading_id, show_progress=True)
-    print("Done.")
-    print(f"[{_stopwatch.formatted_runtime()}]")
+    # # -- Test Loading Topic Model --
+    # _loading_id = _topic_model.model_id
+    # # _loading_id = 'specter_sbert_fast_5_000_docs_25_topics'
+    # print(f"\nLoading Topic Model with ID <{_loading_id}>...")
+    # _loaded_model = MixTopics.load(model_id=_loading_id, show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
+    # # # ---------------------------------------------
+    # # Show Loaded Topics.
+    # print(f"\nThe Loaded Topic Model has {_loaded_model.topic_size} topics.")
     # # ---------------------------------------------
-    # Show Loaded Topics.
-    print(f"\nThe Loaded Topic Model has {_loaded_model.topic_size} topics.")
-    # ---------------------------------------------
-    # Show Topics.
-    print("\nTopic by number of documents (Loaded Model):")
-    _topics_sizes = _loaded_model.topic_by_size()
-    for _topic_size in _topics_sizes:
-        print(_topic_size)
-    # ---------------------------------------------
-    # Show Topics' Words.
-    top_n = 10
-    print(f"\nTop {top_n} words per topic:")
-    _topics_words = _loaded_model.topics_top_words(top_n=top_n)
-    for _topic_id, _topic_words in _topics_words.items():
-        print(f"\n-----> {_topic_id}:")
-        pprint(_topic_words)
+    # # Show Topics.
+    # print("\nTopic by number of documents (Loaded Model):")
+    # _topics_sizes = _loaded_model.topic_by_size()
+    # for _topic_size in _topics_sizes:
+    #     print(_topic_size)
+    # # ---------------------------------------------
+    # # Show Topics' Words.
+    # top_n = 10
+    # print(f"\nTop {top_n} words per topic:")
+    # _topics_words = _loaded_model.topics_top_words(top_n=top_n)
+    # for _topic_id, _topic_words in _topics_words.items():
+    #     print(f"\n-----> {_topic_id}:")
+    #     pprint(_topic_words)
 
     # -- Topics' Words using PWI --
     # top_n = 15
