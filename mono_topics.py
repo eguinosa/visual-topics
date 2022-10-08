@@ -246,7 +246,10 @@ class MonoTopics(BaseTopics):
         same vector space as the words in the vocabulary of the corpus. Used to
         search the words that best represent the topic.
         """
-        return self.red_topic_embeds
+        if self.red_topic_embeds:
+            return self.red_topic_embeds
+        else:
+            return self.topic_embeds
 
     @property
     def base_topic_docs(self):
@@ -262,7 +265,10 @@ class MonoTopics(BaseTopics):
         Dictionary with the list of Documents (IDs) that belong to each of the
         Reduced Topics.
         """
-        return self.red_topic_docs
+        if self.red_topic_docs:
+            return self.red_topic_docs
+        else:
+            return self.topic_docs
 
     @property
     def base_topic_words(self):
@@ -278,7 +284,10 @@ class MonoTopics(BaseTopics):
         Dictionary the list of words that best describe each of the Reduced
         Topics.
         """
-        return self.red_topic_words
+        if self.red_topic_words:
+            return self.red_topic_words
+        else:
+            return self.topic_words
 
     @property
     def base_doc_embeds(self):
