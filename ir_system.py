@@ -90,6 +90,13 @@ class IRSystem:
         # Text Model Attributes.
         self.text_model = text_model
 
+    @property
+    def topic_size(self):
+        """
+        Get the current size of the Topic Model.
+        """
+        return self.topic_model.cur_topic_size
+
     def update_model(self, new_model: str, show_progress=False):
         """
         Update the Topic Model used by the IR system.
@@ -221,6 +228,73 @@ class IRSystem:
         # Most Relevant Topics and Documents with their similarity.
         return top_topics_sims, top_docs_sims
 
+    def supported_model_sizes(self):
+        """
+        Create a list with the sizes of the saved Reduced Topic Models (usually
+        the main sizes).
+
+        Returns: List[int] with the saved reduced sizes.
+        """
+        # Check if the model has reduced sizes.
+        if self.topic_model.has_reduced_topics:
+            saved_sizes = list(self.topic_model.main_sizes(self.topic_model.topic_size))
+            saved_sizes.sort()
+            saved_sizes.append(self.topic_model.topic_size)
+        else:
+            # Only the Original Size of the Model.
+            saved_sizes = [self.topic_model.topic_size]
+        # Saved Topic Sizes.
+        return saved_sizes
+
+    def topics_info(self, word_num=10):
+        """
+        Create a list of tuples with the information about the current topics
+        in the Topic Model, including:
+         - Topic ID
+         - Size
+         - Description (top words that best describe them)
+
+        Args:
+            word_num: Int with the number of words in the description of the
+                Topic.
+        Returns:
+            List[Tuple(ID, Size, Description)] with the info of the topics.
+        """
+        # Get the Current Topics.
+        topics_sizes = self.topic_model.cur_topic_by_size()
+        # Add the Descriptions of the Topics to the List.
+        topics_info = [
+            (topic_id, size,
+             self.topic_description(topic_id=topic_id, word_num=word_num))
+            for topic_id, size in topics_sizes
+        ]
+        # List with the Topics Info: (ID, Size, Description)
+        return topics_info
+
+    def topic_docs_info(self, topic_id: str):
+        """
+        Create a list of tuples with the information about the Documents that
+        belong to the given 'topic_id', including:
+         - Doc ID
+         - Similarity
+         - Title
+         - Abstract
+
+        Args:
+            topic_id: String with the ID of the topic.
+        Returns:
+            List[Tuple(ID, Sim, Title, Abstract)] with the info of the documents
+                in the topic.
+        """
+        topic_docs = self.topic_model.topic_docs[topic_id]
+        docs_info = [
+            (doc_id, similarity,
+             self.corpus.doc_title(doc_id), self.corpus.doc_abstract(doc_id))
+            for doc_id, similarity in topic_docs
+        ]
+        # List with the Doc's Info: (ID, Similarity, Title, Abstract)
+        return docs_info
+
     def topic_description(self, topic_id: str, word_num=10):
         """
         Create a string with the words that best describe the topic 'topic_id'.
@@ -232,8 +306,8 @@ class IRSystem:
             String with the words that describe the topic.
         """
         # Get the Top Words.
-        top_words = self.topic_model.top_words_topic(
-            topic_id=topic_id, top_n=word_num
+        top_words = self.topic_model.top_words_cur_topic(
+            cur_topic_id=topic_id, top_n=word_num
         )
         # Create String with the description.
         first_word, _ = top_words[0]
