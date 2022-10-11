@@ -475,6 +475,7 @@ def find_mix_topics(doc_specter_embeds: dict, doc_text_embeds: dict, show_progre
         min_cluster_size=15, metric='euclidean', cluster_selection_method='eom'
     )
     clusters_found = hdbscan_model.fit(umap_embeds)
+    # noinspection PyUnresolvedReferences
     cluster_labels = clusters_found.labels_
 
     # Assign each cluster found to a new prominent topic, save their doc_ids.
