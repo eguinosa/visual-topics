@@ -1011,6 +1011,7 @@ def find_topics(doc_embeds_list: list, show_progress=False):
         min_cluster_size=15, metric='euclidean', cluster_selection_method='eom'
     )
     clusters_found = hdbscan_model.fit(umap_embeds)
+    # noinspection PyUnresolvedReferences
     cluster_labels = clusters_found.labels_
 
     # Assign each cluster found to a new prominent topic.
