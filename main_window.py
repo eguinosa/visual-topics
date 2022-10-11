@@ -57,6 +57,9 @@ class MainWindow(QMainWindow):
         self.current_model = current_model
         self.search_engine = search_engine
 
+        # Menu Bar Actions.
+        self.quit_act = None
+
         # Create App UI.
         self.initializeUI(show_progress=show_progress)
 
@@ -66,6 +69,7 @@ class MainWindow(QMainWindow):
         """
         # Create Window Size and Name.
         self.setMinimumSize(1000, 800)
+        # self.setGeometry(100, 80, 1300, 900)
         self.setWindowTitle("Scientific Search")
 
         # Organize Layout.
@@ -172,18 +176,18 @@ class MainWindow(QMainWindow):
             )
             top_topics_v_box.addWidget(topic_info_container)
         # Create Scrollable Area with the topics.
-        # topic_info_container = QFrame()
         top_topics_container = QWidget()
         top_topics_container.setLayout(top_topics_v_box)
         topics_scroll_area = QScrollArea()
         topics_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         topics_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         topics_scroll_area.setWidget(top_topics_container)
+        topics_scroll_area.setWidgetResizable(True)
         # -- Topics Final Layout --
         topics_layout = QVBoxLayout()
         topics_layout.addWidget(size_container)
         topics_layout.addWidget(top_topics_label)
-        topics_layout.addWidget(topics_scroll_area)
+        topics_layout.addWidget(topics_scroll_area)  # , 0, Qt.AlignmentFlag.AlignHCenter)
         topics_container = QWidget()
         topics_container.setLayout(topics_layout)
 
@@ -215,13 +219,13 @@ class MainWindow(QMainWindow):
             )
             top_docs_v_box.addWidget(doc_info_container)
         # Create Scrollable Area with the Documents.
-        top_docs_container = QFrame()
-        # top_docs_container = QWidget()
+        top_docs_container = QWidget()
         top_docs_container.setLayout(top_docs_v_box)
         docs_scroll_area = QScrollArea()
         docs_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         docs_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         docs_scroll_area.setWidget(top_docs_container)
+        docs_scroll_area.setWidgetResizable(True)
         # -- Search & Docs Final Layout --
         search_docs_layout = QVBoxLayout()
         search_docs_layout.addWidget(search_container)
@@ -320,6 +324,7 @@ class MainWindow(QMainWindow):
         topic_item_container = QFrame()
         topic_item_container.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Plain)
         topic_item_container.setLayout(topic_item_layout)
+
         # The Item with Info about the Topic.
         return topic_item_container
 
