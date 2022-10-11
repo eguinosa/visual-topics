@@ -18,7 +18,7 @@ from extra_funcs import progress_msg, big_number
 
 # Testing Imports.
 import sys
-from pprint import pprint
+# from pprint import pprint
 from sample_manager import SampleManager
 from time_keeper import TimeKeeper
 
@@ -915,8 +915,8 @@ if __name__ == '__main__':
     # print(f"[{_stopwatch.formatted_runtime()}]")
 
     # # -- Test Loading Topic Model --
-    # _loading_id = _topic_model.model_id
-    # # _loading_id = 'specter_sbert_fast_5_000_docs_25_topics'
+    # # _loading_id = _topic_model.model_id
+    # _loading_id = 'specter_sbert_fast_5_000_docs_25_topics'
     # print(f"\nLoading Topic Model with ID <{_loading_id}>...")
     # _loaded_model = MixTopics.load(model_id=_loading_id, show_progress=True)
     # print("Done.")
@@ -944,18 +944,17 @@ if __name__ == '__main__':
     # print(f"\nTop {top_n} words per topic:")
     # for _topic_id, _size in _loaded_model.topic_by_size():
     #     print(f"\n{_topic_id} ({big_number(_size)} docs):")
-    #     _sim_words = _loaded_model.top_words_topic(_topic_id, top_n, 'cos_sim')
+    #     _sim_words = _loaded_model.top_words_topic(_topic_id, top_n, 'cos-sim')
     #     print("Top Words by Cosine Similarity:")
     #     pprint(_sim_words)
-    #     _pwi_words = _loaded_model.top_words_topic(_topic_id, top_n, 'pwi_exact')
+    #     _pwi_words = _loaded_model.top_words_topic(_topic_id, top_n, 'pwi-exact')
     #     print("Top Words by PWI-exact:")
     #     pprint(_pwi_words)
 
     # --------------------------------------------------------------------------
     # --------------------------------------------------------------------------
 
-    # # --Test Creating Hierarchically Reduced Topics--
-    # # Save the Hierarchically Reduced Topic Models.
+    # # -- Test Saving the Hierarchically Reduced Topics--
     # print(f"\nSaving Reduced Topics for the Model <{_loaded_model.model_id}>...")
     # _loaded_model.save_reduced_topics(parallelism=True, override=False, show_progress=True)
     # print("Done.")
@@ -977,7 +976,7 @@ if __name__ == '__main__':
     # # Show Topic Words.
     # _top_n = 15
     # print(f"\nTop {_top_n} words per reduced topic:")
-    # _red_topic_words = _loaded_model.red_topics_top_words(n=_top_n)
+    # _red_topic_words = _loaded_model.cur_topics_top_words(top_n=_top_n)
     # for _red_topic_id, _red_words in _red_topic_words.items():
     #     print(f"\n-----> {_red_topic_id}:")
     #     pprint(_red_words)
@@ -987,17 +986,17 @@ if __name__ == '__main__':
     # print(f"\nTop {top_n} words per topic:")
     # for _topic_id, _size in _loaded_model.cur_topic_by_size():
     #     print(f"\n{_topic_id} ({big_number(_size)} docs):")
-    #     _sim_words = _loaded_model.top_words_cur_topic(_topic_id, top_n, 'cos_sim')
+    #     _sim_words = _loaded_model.top_words_cur_topic(_topic_id, top_n, 'cos-sim')
     #     print("Top Words by Cosine Similarity:")
     #     pprint(_sim_words)
     #     # # ---------------------------------------------
-    #     # _pwi_words = _loaded_model.top_words_cur_topic(_topic_id, top_n, 'pwi_exact')
+    #     # _pwi_words = _loaded_model.top_words_cur_topic(_topic_id, top_n, 'pwi-exact')
     #     # print("Top Words by PWI-exact:")
     #     # pprint(_pwi_words)
     #     # # ---------------------------------------------
     #     # # For Latex
     #     # print(f"{_topic_id} & {big_number(_size)} docs", "& {")
-    #     # _sim_words = _loaded_model.top_words_cur_topic(_topic_id, top_n, 'cos_sim')
+    #     # _sim_words = _loaded_model.top_words_cur_topic(_topic_id, top_n, 'cos-sim')
     #     # _latex_str = str(_sim_words[0][0])
     #     # for _word, _ in _sim_words[1:]:
     #     #     _latex_str += f", {_word}"
