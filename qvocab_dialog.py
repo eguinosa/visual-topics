@@ -3,12 +3,12 @@
 
 import sys
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QLabel, QScrollArea, QPushButton, QVBoxLayout,
+    QApplication, QDialog, QLabel, QTextEdit, QPushButton, QVBoxLayout,
 )
 from PyQt6.QtCore import Qt
 
 
-class QVocabWindow(QWidget):
+class QVocabDialog(QDialog):
 
     def __init__(self, topic_id: str, word_list: list):
         """
@@ -16,6 +16,7 @@ class QVocabWindow(QWidget):
         """
         # Initialize the base class.
         super().__init__()
+        self.setModal(False)
 
         # Save the class attributes.
         self.topic_id = topic_id
@@ -47,23 +48,18 @@ class QVocabWindow(QWidget):
         vocab_text = ''
         is_first = True
         for word, sim in self.word_list:
-            # Check if this is the first element.
+            # # Check if this is the first element.
             if not is_first:
-                vocab_text += ', '
-            vocab_text += f"({word}, {round(sim, 5)})"
+                vocab_text += '\n\n'
+            vocab_text += f"""<p>({word}, {round(sim, 5)})</p>"""
             # Flag the rest of the elements.
             if is_first:
                 is_first = False
 
         # Create Labels, Widget & Areas.
         header_label = QLabel(header_text)
-        vocab_label = QLabel(vocab_text)
-        vocab_label.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextSelectableByMouse |
-            Qt.TextInteractionFlag.TextSelectableByKeyboard
-        )
-        vocab_scroll = QScrollArea()
-        vocab_scroll.setWidget(vocab_label)
+        vocab_read_only = QTextEdit(vocab_text)
+        vocab_read_only.setReadOnly(True)
         done_button = QPushButton('Done')
         # noinspection PyTypeChecker
         done_button.clicked.connect(self.close)
@@ -71,14 +67,14 @@ class QVocabWindow(QWidget):
         # Create the Main Layout.
         main_v_box = QVBoxLayout()
         main_v_box.addWidget(header_label)
-        main_v_box.addWidget(vocab_scroll)
+        main_v_box.addWidget(vocab_read_only)
         main_v_box.addWidget(done_button, 0, Qt.AlignmentFlag.AlignCenter)
         self.setLayout(main_v_box)
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    window = QVocabWindow(
+    window = QVocabDialog(
         topic_id='Topic_2',
         word_list=[
             ('rose', 0.233), ('flower', 0.333), ('mask', 0.232),
