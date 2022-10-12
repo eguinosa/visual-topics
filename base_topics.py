@@ -362,11 +362,22 @@ class BaseTopics(ABC):
         cur_topic_sizes.sort(key=lambda id_size: id_size[1], reverse=True)
         return cur_topic_sizes
 
-    def cur_topic_by_pwi(self, ):
+    def cur_topic_by_pwi(self, word_num=-1, pwi_type='exact'):
         """
         Create List of Tuples with the ID and PWI value for each of the current
         topics.
         """
+        # Get the Topics and Their PWI.
+        cur_topics_pwi = [
+            (cur_topic_id,
+             self.cur_topic_pwi(
+                 cur_topic_id=cur_topic_id, word_num=word_num, pwi_type=pwi_type
+             ))
+            for cur_topic_id in self.base_cur_topic_embeds.keys()
+        ]
+        # Sort the Current Topics by their PWI.
+        cur_topics_pwi.sort(key=lambda id_pwi: id_pwi[1], reverse=True)
+        return cur_topics_pwi
 
     def top_words_topic(self, topic_id: str, top_n=10, comparer='cos-sim'):
         """
