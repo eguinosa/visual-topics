@@ -58,7 +58,6 @@ class MainWindow(QMainWindow):
         topic_size = str(search_engine.topic_size)
         supported_sizes = [str(x) for x in search_engine.supported_model_sizes()]
         cur_size_index = supported_sizes.index(topic_size)
-        topics_info = search_engine.topics_info()
         # Topics Sorting Categories.
         sort_categories = ['Size', 'PWI-tf-idf', 'PWI-exact']
         cur_sort_cat = 'size'
@@ -71,17 +70,24 @@ class MainWindow(QMainWindow):
         self.topic_size = topic_size
         self.supported_sizes = supported_sizes
         self.cur_size_index = cur_size_index
-        self.topics_info = topics_info
         # Sorting Categories.
         self.sort_categories = sort_categories
         self.cur_sort_cat = cur_sort_cat
         self.cur_cat_index = cur_cat_index
 
-        # Windows Tabs Information.
+        # Topic Size - Combo Boxes
+        self.search_tab_size_combo = None
+        self.topics_tab_size_combo = None
+        self.docs_tab_size_combo = None
+        # Topics - Scrollable Areas
+        self.search_tab_topics_scroll = None
+        self.topics_tab_topics_scroll = None
+        self.docs_tab_topics_scroll = None
+        # Windows Tabs - Information.
         self.search_tab_index = 0
         self.topic_tab_index = 1
         self.doc_tab_index = 2
-        # Topics Tab.
+        # Topics Tab - Information.
         self.topics_tab_cur_topic = ''
         self.topics_tab_button_group = QButtonGroup()
         self.topics_tab_topics_scroll = None
@@ -208,8 +214,10 @@ class MainWindow(QMainWindow):
         top_topics_v_box.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         # Add items to Topics Layout.
         for topic_id, size, description in topics_info:
-            topic_info_container = self.topicInfoItem(topic_id=topic_id, cat_type='size', cat_value=size,
-                                                      description=description)
+            topic_info_container = self.topicInfoItem(
+                topic_id=topic_id, cat_type='size',
+                cat_value=size, description=description
+            )
             top_topics_v_box.addWidget(topic_info_container)
         # Create Scrollable Area with the topics.
         top_topics_container = QWidget()
@@ -306,37 +314,23 @@ class MainWindow(QMainWindow):
         sort_cats_combo.addItems(self.sort_categories)
         sort_cats_combo.setCurrentIndex(self.cur_cat_index)
         sort_cats_combo.activated.connect(
-            lambda index: self.changeTopicsSortCat(index, show_progress=show_progress)
+            lambda index: self.changeTopicSorting(index, show_progress=show_progress)
         )
         sort_cats_layout = QHBoxLayout()
         sort_cats_layout.addWidget(sort_cat_label)
         sort_cats_layout.addWidget(sort_cats_combo)
         sort_cats_layout.addStretch()
-        # Top Topics.
-        top_topics_v_box = QVBoxLayout()
-        top_topics_v_box.setSpacing(0)
-        top_topics_v_box.setContentsMargins(0, 0, 0, 0)
-        top_topics_v_box.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
-        # Add Items to Top Topics Layout using the Default Topics by Size.
-        is_first = True
-        for topic_id, size, description in self.topics_info:
-            topic_info_container = self.topicInfoItem(
-                topic_id=topic_id, cat_type='size', cat_value=size,
-                description=description, use_view_button=False,
-                checkable_type='radio-button', set_checked=is_first,
-            )
-            top_topics_v_box.addWidget(topic_info_container)
-            # Do not check the rest of the topics.
-            if is_first:
-                is_first = False
         # Create Scrollable Area with the Topics.
-        top_topics_container = QWidget()
-        top_topics_container.setLayout(top_topics_v_box)
         topics_scroll_area = QScrollArea()
         topics_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         topics_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        topics_scroll_area.setWidget(top_topics_container)
         topics_scroll_area.setWidgetResizable(True)
+        self.topics_tab_topics_scroll = topics_scroll_area
+        # Fill Scrollable with the Topics Information.
+        self.changeTopicSorting(
+            sort_cat_index=self.cur_cat_index, is_initialization=True,
+            show_progress=True
+        )
         # -- All the Topic Area Layout --
         topic_area_layout = QVBoxLayout()
         topic_area_layout.addLayout(size_layout)
@@ -355,7 +349,9 @@ class MainWindow(QMainWindow):
         docs_scroll_area.setWidgetResizable(True)
         self.topics_tab_docs_scroll = docs_scroll_area
         # Update Documents Label and Scrollable with the current topic.
-        self.newTopicSelected(checked=True, topic_id=self.topics_tab_cur_topic, show_progress=True)
+        self.newTopicSelected(
+            checked=True, topic_id=self.topics_tab_cur_topic, show_progress=True
+        )
         # - Top Docs Area Final Layout -
         docs_area_layout = QVBoxLayout()
         docs_area_layout.addWidget(self.topics_tab_docs_label)
@@ -407,9 +403,9 @@ class MainWindow(QMainWindow):
         if cat_type == 'similarity':
             topic_header += f" (Similarity: {round(cat_value, 3)})"
         elif cat_type == 'pwi-tf-idf':
-            topic_header += f" (PWI-tf-idf: {round(cat_value, 5)}"
+            topic_header += f" (PWI-tf-idf: {round(cat_value, 4)})"
         elif cat_type == 'pwi-exact':
-            topic_header += f" (PWI-exact: {round(cat_value, 5)}"
+            topic_header += f" (PWI-exact: {round(cat_value, 4)})"
         elif cat_type == 'size':
             topic_header += f" (Size: {cat_value} docs)"
 
@@ -424,7 +420,6 @@ class MainWindow(QMainWindow):
         elif checkable_type == 'radio-button':
             header_checkable = QRadioButton(topic_header)
             if set_checked:
-                self.topics_tab_cur_topic = topic_id
                 header_checkable.setChecked(True)
             self.topics_tab_button_group.addButton(header_checkable)
             header_checkable.toggled.connect(
@@ -535,11 +530,61 @@ class MainWindow(QMainWindow):
         """
         progress_msg("Change Size NOT IMPLEMENTED!!!")
 
-    def changeTopicsSortCat(self, sort_cat_index: int, show_progress=False):
+    def changeTopicSorting(
+            self, sort_cat_index: int, is_initialization=False, show_progress=False
+    ):
         """
         Change the sorting category use to rank the topics in the Topics Tab.
         """
-        progress_msg("Change Topics Sorting Category NOT IMPLEMENTED!!!")
+        # Check if we have a new sorting category.
+        if sort_cat_index == self.cur_cat_index and not is_initialization:
+            # Same Sorting Category.
+            if show_progress:
+                progress_msg(f"Same sorting category selected <{self.cur_sort_cat}>.")
+            return
+
+        # --- New Sorting Category Selected ---
+        new_sort_cat = self.sort_categories[sort_cat_index]
+        if show_progress:
+            progress_msg(
+                f"Updating the sorting category of the topics to <{new_sort_cat}>..."
+            )
+
+        # Update the Current Category Attributes.
+        self.cur_cat_index = sort_cat_index
+        self.cur_sort_cat = new_sort_cat
+
+        # Create Layout for the List of Topics.
+        top_topics_v_box = QVBoxLayout()
+        top_topics_v_box.setSpacing(0)
+        top_topics_v_box.setContentsMargins(0, 0, 0, 0)
+        top_topics_v_box.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        # Add Items to Top Topics Layout using the Default Topics by Size.
+        lower_sort_cat = new_sort_cat.lower()
+        topics_info = self.search_engine.topics_info(
+            sort_cat=lower_sort_cat, word_num=15
+        )
+        # Check the top topic.
+        is_first = True
+        for topic_id, cat_value, description in topics_info:
+            topic_info_container = self.topicInfoItem(
+                topic_id=topic_id, cat_type=lower_sort_cat, cat_value=cat_value,
+                description=description, use_view_button=False,
+                checkable_type='radio-button', set_checked=is_first,
+            )
+            top_topics_v_box.addWidget(topic_info_container)
+            # Do not check the rest of the topics.
+            if is_first:
+                self.topics_tab_cur_topic = topic_id
+                is_first = False
+        # Create Container for the List of Topics.
+        top_topics_container = QWidget()
+        top_topics_container.setLayout(top_topics_v_box)
+
+        # Topics Tab - Update Scrollable of Topics.
+        self.topics_tab_topics_scroll.setWidget(top_topics_container)
+        if show_progress:
+            progress_msg(f"Topics in the Topics Tab sorted by {new_sort_cat}!")
 
     def viewTopic(self, topic_id: str):
         """
