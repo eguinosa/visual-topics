@@ -4,7 +4,8 @@
 import sys
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QComboBox, QTabWidget, QLayout, QScrollArea, QLineEdit, QPushButton, QFrame
+    QComboBox, QTabWidget, QLayout, QScrollArea, QLineEdit, QPushButton, QFrame,
+    QButtonGroup, QCheckBox, QRadioButton
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction
@@ -53,9 +54,35 @@ class MainWindow(QMainWindow):
             progress_msg("Creating the IR system for the application...")
         search_engine = IRSystem(model_name=current_model, show_progress=show_progress)
 
+        # Gather Data Related with the Current Topic Model.
+        topic_size = str(search_engine.topic_size)
+        supported_sizes = [str(x) for x in search_engine.supported_model_sizes()]
+        cur_size_index = supported_sizes.index(topic_size)
+        topics_info = search_engine.topics_info()
+        # Topics Sorting Categories.
+        sort_categories = ['Size', 'PWI-tf-idf', 'PWI-exact']
+        cur_sort_cat = 'size'
+        cur_cat_index = 0
+
         # Save Class Attributes.
         self.current_model = current_model
         self.search_engine = search_engine
+        # Topic Attributes.
+        self.topic_size = topic_size
+        self.supported_sizes = supported_sizes
+        self.cur_size_index = cur_size_index
+        self.topics_info = topics_info
+        # Sorting Categories.
+        self.sort_categories = sort_categories
+        self.cur_sort_cat = cur_sort_cat
+        self.cur_cat_index = cur_cat_index
+
+        # Windows Information.
+        self.search_tab_index = 0
+        self.topic_tab_index = 1
+        self.doc_tab_index = 2
+        # Topics Tab.
+        self.topics_tab_button_group = QButtonGroup()
 
         # Menu Bar Actions.
         self.quit_act = None
@@ -103,6 +130,7 @@ class MainWindow(QMainWindow):
         tab_bar.addTab(search_tab, "Search")
         tab_bar.addTab(topics_tab, "Topics")
         tab_bar.addTab(docs_tab, "Document")
+        tab_bar.setCurrentIndex(self.topic_tab_index)
 
         # Topic Model - Layout.
         model_h_box = QHBoxLayout()
@@ -127,7 +155,10 @@ class MainWindow(QMainWindow):
         # Create actions for File menu.
         self.quit_act = QAction("&Quit")
         self.quit_act.setShortcut("Ctr+Q")
+        # noinspection PyTypeChecker
         self.quit_act.triggered.connect(self.close)
+        if show_progress:
+            progress_msg("Actions Created!")
 
     def createMenu(self, show_progress=False):
         """
@@ -137,6 +168,8 @@ class MainWindow(QMainWindow):
         # Create File Menu and actions.
         file_menu = self.menuBar().addMenu("File")
         file_menu.addAction(self.quit_act)
+        if show_progress:
+            progress_msg("Menu Created!")
 
     def createSearchTab(self, show_progress=False):
         """
@@ -154,7 +187,7 @@ class MainWindow(QMainWindow):
         size_combo.addItems(topic_sizes)
         size_combo.setCurrentIndex(index_size)
         size_combo.activated.connect(
-            lambda index: self.changeSize(index, show_progress=show_progress)
+            lambda index: self.changeTopicSize(index, show_progress=show_progress)
         )
         # Topic Size Container.
         size_h_box = QHBoxLayout()
@@ -171,9 +204,8 @@ class MainWindow(QMainWindow):
         top_topics_v_box.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         # Add items to Topics Layout.
         for topic_id, size, description in topics_info:
-            topic_info_container = self.topicInfoItem(
-                topic_id=topic_id, size=size, description=description
-            )
+            topic_info_container = self.topicInfoItem(topic_id=topic_id, cat_type='size', cat_value=size,
+                                                      description=description)
             top_topics_v_box.addWidget(topic_info_container)
         # Create Scrollable Area with the topics.
         top_topics_container = QWidget()
@@ -249,9 +281,109 @@ class MainWindow(QMainWindow):
         """
         Create the Widget with the layout in the Topics Tab.
         """
+        # --- Topic's Size Area ---
+        size_label = QLabel("Topic Size:")
+        size_combo = QComboBox()
+        size_combo.addItems(self.supported_sizes)
+        size_combo.setCurrentIndex(self.cur_size_index)
+        size_combo.activated.connect(
+            lambda index: self.changeTopicSize(index, show_progress=show_progress)
+        )
+        # Topic's Size Layout.
+        size_layout = QHBoxLayout()
+        size_layout.addWidget(size_label)
+        size_layout.addWidget(size_combo)
+        size_layout.addStretch()
+
+        # --- Top Topics Area ---
+        # Category used to sort the Topics.
+        sort_cat_label = QLabel("Topics by:")
+        sort_cats_combo = QComboBox()
+        sort_cats_combo.addItems(self.sort_categories)
+        sort_cats_combo.setCurrentIndex(self.cur_cat_index)
+        sort_cats_combo.activated.connect(
+            lambda index: self.changeTopicsSortCat(index, show_progress=show_progress)
+        )
+        sort_cats_layout = QHBoxLayout()
+        sort_cats_layout.addWidget(sort_cat_label)
+        sort_cats_layout.addWidget(sort_cats_combo)
+        sort_cats_layout.addStretch()
+        # Top Topics.
+        top_topics_v_box = QVBoxLayout()
+        top_topics_v_box.setSpacing(0)
+        top_topics_v_box.setContentsMargins(0, 0, 0, 0)
+        top_topics_v_box.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        # Add Items to Top Topics Layout using the Default Topics by Size.
+        is_first = True
+        for topic_id, size, description in self.topics_info:
+            topic_info_container = self.topicInfoItem(
+                topic_id=topic_id, cat_type='size', cat_value=size,
+                description=description, use_view_button=False,
+                checkable_type='radio-button', set_checked=is_first,
+            )
+            top_topics_v_box.addWidget(topic_info_container)
+            # Do not check the rest of the topics.
+            if is_first:
+                is_first = False
+        # Create Scrollable Area with the Topics.
+        top_topics_container = QWidget()
+        top_topics_container.setLayout(top_topics_v_box)
+        topics_scroll_area = QScrollArea()
+        topics_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        topics_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        topics_scroll_area.setWidget(top_topics_container)
+        topics_scroll_area.setWidgetResizable(True)
+
+        # --- All the Topic Area Layout ---
+        topic_area_layout = QVBoxLayout()
+        topic_area_layout.addLayout(size_layout)
+        topic_area_layout.addLayout(sort_cats_layout)
+        topic_area_layout.addWidget(topics_scroll_area)
+        topic_area_container = QWidget()
+        topic_area_container.setLayout(topic_area_layout)
+
+        # --- Top Docs Area ---
+        # Get the ID of the Top Topic and Extract its Documents Info.
+        first_topic_id, size, _ = self.topics_info[0]
+        docs_info = self.search_engine.topic_docs_info(topic_id=first_topic_id)
+        # Topic Documents Layout.
+        top_docs_label = QLabel(f"Documents from {first_topic_id} ({size} docs):")
+        top_docs_v_box = QVBoxLayout()
+        top_docs_v_box.setSpacing(0)
+        top_docs_v_box.setContentsMargins(0, 0, 0, 0)
+        top_docs_v_box.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        # Add items to Top Documents Layout.
+        for doc_id, similarity, title, abstract in docs_info:
+            red_abstract = abstract[:200] + '...'
+            doc_info_container = self.docInfoItem(
+                doc_id=doc_id, sim=similarity, title=title, abstract=red_abstract
+            )
+            top_docs_v_box.addWidget(doc_info_container)
+        # Create Scrollable Area with the Documents.
+        top_docs_container = QWidget()
+        top_docs_container.setLayout(top_docs_v_box)
+        docs_scroll_area = QScrollArea()
+        docs_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        docs_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        docs_scroll_area.setWidget(top_docs_container)
+        docs_scroll_area.setWidgetResizable(True)
+        # - Top Docs Area Final Layout -
+        docs_area_layout = QVBoxLayout()
+        docs_area_layout.addWidget(top_docs_label)
+        docs_area_layout.addWidget(docs_scroll_area)
+        docs_area_container = QWidget()
+        docs_area_container.setLayout(docs_area_layout)
+
+        # --- Topics Tab Layout ---
+        topics_tab_layout = QHBoxLayout()
+        topics_tab_layout.addWidget(topic_area_container)
+        topics_tab_layout.addWidget(docs_area_container)
+        topics_tab_container = QWidget()
+        topics_tab_container.setLayout(topics_tab_layout)
+        # The Topics Tab is Completely Built.
         if show_progress:
-            progress_msg("Creating Topics Tab...")
-        return QWidget()
+            progress_msg("Topics Tab Complete!")
+        return topics_tab_container
 
     def createDocsTab(self, show_progress=False):
         """
@@ -261,71 +393,82 @@ class MainWindow(QMainWindow):
             progress_msg("Creating Documents Tab...")
         return QWidget()
 
-    def switchModel(self, new_index, show_progress=False):
-        """
-        The ComboBox to manage the Topic Models has been activated, change the
-        current model.
-        """
-        # Check if we have a new model name.
-        new_model_name = self.supported_models[new_index]
-        if new_model_name != self.current_model:
-            if show_progress:
-                progress_msg("Changing Topic Model of the IR system...")
-            # Update the Topic Model of the IR System.
-            self.search_engine.update_model(
-                new_model=new_model_name, show_progress=show_progress
-            )
-            # Update the Name of the Current Topic Model.
-            self.current_model = new_model_name
-            if show_progress:
-                progress_msg("Topic Model Updated!")
-        elif show_progress:
-            progress_msg("No need to update the Model.")
-
-    def changeSize(self, new_size_index: int, show_progress=False):
-        """
-        Change the size of the Topic Model to the size in the 'new_size_index'.
-        """
-        progress_msg("Change Size NOT IMPLEMENTED!!!")
-
-    def topicInfoItem(self, topic_id: str, sim=0, size=-1, description=''):
+    def topicInfoItem(
+            self, topic_id: str, cat_type: str, cat_value, description='',
+            use_view_button=True, checkable_type='checkbox', set_checked=False
+    ):
         """
         Build a List Item for the given 'topic_id'. The Item built depends on
         the information provided, if description is empty, the use the search
         engine to load it.
+
+        The variable 'checkable_type' determines the type of check button will
+        be used for the topics, either QCheckboxes (checkbox) or QRadioButton
+        (radio-button).
         """
+        # Create Layout from Start.
+        topic_item_layout = QVBoxLayout()
+
         # Check we have a description.
         if not description:
             description = self.search_engine.topic_description(topic_id=topic_id)
         topic_descript = f"""<p>{description}</p>"""
         # Create the Topic Header String.
         topic_header = topic_id
-        if sim:
-            topic_header += f" (Similarity: {round(sim, 3)})"
-        elif size > 0:
-            topic_header += f" (Size: {size} docs)"
-        # Create Topic Item Layout.
-        header_label = QLabel(topic_header)
-        header_label.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextSelectableByMouse
-            | Qt.TextInteractionFlag.TextSelectableByKeyboard
-        )
-        view_button = QPushButton("View Topic")
+        if cat_type == 'similarity':
+            topic_header += f" (Similarity: {round(cat_value, 3)})"
+        elif cat_type == 'pwi-tf-idf':
+            topic_header += f" (PWI-tf-idf: {round(cat_value, 5)}"
+        elif cat_type == 'pwi-exact':
+            topic_header += f" (PWI-exact: {round(cat_value, 5)}"
+        elif cat_type == 'size':
+            topic_header += f" (Size: {cat_value} docs)"
+
+        # Create Header Checkbox or Radio Button.
+        if checkable_type == 'checkbox':
+            header_checkable = QCheckBox(topic_header)
+            if set_checked:
+                header_checkable.setChecked(True)
+            header_checkable.toggled.connect(
+                lambda checked, x=topic_id: self.updatedTopicCheckbox(checked, x)
+            )
+        elif checkable_type == 'radio-button':
+            header_checkable = QRadioButton(topic_header)
+            if set_checked:
+                header_checkable.setChecked(True)
+            self.topics_tab_button_group.addButton(header_checkable)
+            header_checkable.toggled.connect(
+                lambda checked, x=topic_id: self.newTopicSelection(checked, x)
+            )
+        else:
+            raise NameError(f"The Checkable Type <{checkable_type} is not supported.")
+        # Add Header to Layout.
+        topic_item_layout.addWidget(header_checkable)
+
+        # Create the View Button.
+        if use_view_button:
+            view_button = QPushButton("View Topic")
+            view_button.clicked.connect(
+                lambda x=topic_id: self.viewTopic(topic_id=x)
+            )
+            # Add View Button to Layout.
+            topic_item_layout.addWidget(view_button, 0, Qt.AlignmentFlag.AlignLeft)
+
+        # Create the Description Label.
         descript_label = QLabel(topic_descript)
         descript_label.setWordWrap(True)
         descript_label.setTextInteractionFlags(
             Qt.TextInteractionFlag.TextSelectableByMouse
             | Qt.TextInteractionFlag.TextSelectableByKeyboard
         )
-        topic_item_layout = QVBoxLayout()
-        topic_item_layout.addWidget(header_label)
-        topic_item_layout.addWidget(view_button, 0, Qt.AlignmentFlag.AlignLeft)
+        # Add Description Label to Layout.
         topic_item_layout.addWidget(descript_label)
+
+        # Surround the Layout with a Frame.
         topic_item_container = QFrame()
         topic_item_container.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Plain)
         topic_item_container.setLayout(topic_item_layout)
-
-        # The Item with Info about the Topic.
+        # Item with the Info about the Topic.
         return topic_item_container
 
     def docInfoItem(self, doc_id: str, title: str, abstract='', sim=0):
@@ -374,6 +517,68 @@ class MainWindow(QMainWindow):
         doc_item_container.setLayout(doc_item_layout)
         # The Item with the Doc Info.
         return doc_item_container
+
+    def switchModel(self, new_index, show_progress=False):
+        """
+        The ComboBox to manage the Topic Models has been activated, change the
+        current model.
+        """
+        # Check if we have a new model name.
+        new_model_name = self.supported_models[new_index]
+        if new_model_name != self.current_model:
+            if show_progress:
+                progress_msg("Changing Topic Model of the IR system...")
+            # Update the Topic Model of the IR System.
+            self.search_engine.update_model(
+                new_model=new_model_name, show_progress=show_progress
+            )
+            # Update the Name of the Current Topic Model.
+            self.current_model = new_model_name
+            if show_progress:
+                progress_msg("Topic Model Updated!")
+        elif show_progress:
+            progress_msg("No need to update the Model.")
+
+    def changeTopicSize(self, size_index: int, show_progress=False):
+        """
+        Change the size of the Topic Model to the size in the 'new_size_index'.
+        """
+        progress_msg("Change Size NOT IMPLEMENTED!!!")
+
+    def changeTopicsSortCat(self, sort_cat_index: int, show_progress=False):
+        """
+        Change the sorting category use to rank the topics in the Topics Tab.
+        """
+        progress_msg("Change Topics Sorting Category NOT IMPLEMENTED!!!")
+
+    def viewTopic(self, topic_id: str):
+        """
+        Open the Topics Tab to view the Topic 'topic_id'.
+        """
+        progress_msg("View Topic is NOT YET IMPLEMENTED!!!")
+
+    def updatedTopicCheckbox(self, checked: bool, topic_id: str):
+        """
+        Update the Number of Topics selected for the search of documents either
+        in the Search Tab or the Documents Tab.
+        """
+        if checked:
+            progress_msg(f"The {topic_id} was selected.")
+        elif not checked:
+            progress_msg(f"The {topic_id} was deselected.")
+        else:
+            progress_msg(f"The {topic_id} is partially checked or another not "
+                         f"supported action.")
+
+    def newTopicSelection(self, checked: bool, topic_id: str):
+        """
+        Update the Information being displayed in the Topics Tab, using the new
+        Topic selected.
+        """
+        if checked:
+            progress_msg(f"The {topic_id} was selected.")
+        else:
+            progress_msg(f"The {topic_id} was deselected.")
 
 
 # Run Application.
