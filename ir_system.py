@@ -246,27 +246,46 @@ class IRSystem:
         # Saved Topic Sizes.
         return saved_sizes
 
-    def topics_info(self, word_num=10):
+    def topics_info(self, sort_cat='size', word_num=10):
         """
         Create a list of tuples with the information about the current topics
         in the Topic Model, including:
          - Topic ID
-         - Size
-         - Description (top words that best describe them)
+         - Value for the given Sorting Category.
+         - Description (top words that best describe them).
+
+        The Topics can be sorted by 3 types of categories their Size, PWI-tf-idf
+        or PWI-exact. The value of the second element in the tuple of each topic
+        will depend on the selected category.
+
+        The PWI value of the Topics will depend on the words of the topics
+        returned, if 5 words were requested, those 5 words will be used for the
+        descriptive value of their topic.
 
         Args:
             word_num: Int with the number of words in the description of the
                 Topic.
+            sort_cat: String with the category of the parameters to rank the
+                topics in the list.
         Returns:
-            List[Tuple(ID, Size, Description)] with the info of the topics.
+            List[Tuple(ID, Category_Value, Description)] with the info of the topics.
         """
         # Get the Current Topics.
-        topics_sizes = self.topic_model.cur_topic_by_size()
+        if sort_cat == 'size':
+            topics_cat_values = self.topic_model.cur_topic_by_size()
+        elif sort_cat in {'pwi-tf-idf', 'pwi-exact'}:
+            pwi_type = sort_cat[4:]
+            topics_cat_values = self.topic_model.cur_topic_by_pwi(
+                word_num=word_num, pwi_type=pwi_type
+            )
+        else:
+            raise NameError("The Topic Model does not support the sorting "
+                            f"category <{sort_cat}>.")
         # Add the Descriptions of the Topics to the List.
         topics_info = [
-            (topic_id, size,
+            (topic_id, cat_value,
              self.topic_description(topic_id=topic_id, word_num=word_num))
-            for topic_id, size in topics_sizes
+            for topic_id, cat_value in topics_cat_values
         ]
         # List with the Topics Info: (ID, Size, Description)
         return topics_info
