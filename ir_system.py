@@ -228,6 +228,14 @@ class IRSystem:
         # Most Relevant Topics and Documents with their similarity.
         return top_topics_sims, top_docs_sims
 
+    def topic_vocab(self, topic_id: str):
+        """
+        Get the list of words that best describe the topic and their similarity
+        to the topic.
+        """
+        words_sims_list = self.topic_model.topic_words[topic_id]
+        return words_sims_list
+
     def supported_model_sizes(self):
         """
         Create a list with the sizes of the saved Reduced Topic Models (usually
