@@ -11,6 +11,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction
 
 from ir_system import IRSystem
+from qvocab_dialog import QVocabDialog
 from extra_funcs import progress_msg
 
 
@@ -96,6 +97,9 @@ class MainWindow(QMainWindow):
 
         # Menu Bar Actions.
         self.quit_act = None
+
+        # Dialog Windows.
+        self.vocab_window = None
 
         # Create App UI.
         self.initializeUI(show_progress=show_progress)
@@ -380,7 +384,7 @@ class MainWindow(QMainWindow):
 
     def topicInfoItem(
             self, topic_id: str, cat_type: str, cat_value, description='',
-            use_view_button=True, checkable_type='checkbox', set_checked=False
+            view_type='topic', checkable_type='checkbox', set_checked=False
     ):
         """
         Build a List Item for the given 'topic_id'. The Item built depends on
@@ -431,13 +435,20 @@ class MainWindow(QMainWindow):
         topic_item_layout.addWidget(header_checkable)
 
         # Create the View Button.
-        if use_view_button:
+        if view_type == 'topic':
             view_button = QPushButton("View Topic")
             view_button.clicked.connect(
-                lambda x=topic_id: self.viewTopic(topic_id=x)
+                lambda checked, x=topic_id: self.viewTopic(topic_id=x)
             )
-            # Add View Button to Layout.
-            topic_item_layout.addWidget(view_button, 0, Qt.AlignmentFlag.AlignLeft)
+        elif view_type == 'vocabulary':
+            view_button = QPushButton("Full Vocabulary")
+            view_button.clicked.connect(
+                lambda checked, x=topic_id: self.viewVocabulary(topic_id=x)
+            )
+        else:
+            raise NameError(f"The View Type <{view_type}> is not supported.")
+        # Add View Button to Layout.
+        topic_item_layout.addWidget(view_button, 0, Qt.AlignmentFlag.AlignLeft)
 
         # Create the Description Label.
         descript_label = QLabel(topic_descript)
@@ -569,7 +580,7 @@ class MainWindow(QMainWindow):
         for topic_id, cat_value, description in topics_info:
             topic_info_container = self.topicInfoItem(
                 topic_id=topic_id, cat_type=lower_sort_cat, cat_value=cat_value,
-                description=description, use_view_button=False,
+                description=description, view_type='vocabulary',
                 checkable_type='radio-button', set_checked=is_first,
             )
             top_topics_v_box.addWidget(topic_info_container)
@@ -591,6 +602,15 @@ class MainWindow(QMainWindow):
         Open the Topics Tab to view the Topic 'topic_id'.
         """
         progress_msg("View Topic is NOT YET IMPLEMENTED!!!")
+
+    def viewVocabulary(self, topic_id: str):
+        """
+        Show a new Dialog with the Vocabulary of the given Topic 'topic_id'.
+        """
+        progress_msg("Opening Vocabulary...")
+        word_list = self.search_engine.topic_vocab(topic_id)
+        self.vocab_window = QVocabDialog(topic_id, word_list)
+        self.vocab_window.show()
 
     def updatedTopicCheckbox(self, checked: bool, topic_id: str):
         """
