@@ -1,6 +1,9 @@
 # Gelin Eguinosa Rosique
 # 2022
 
+from random import choice
+from numpy import ndarray
+
 from mono_topics import MonoTopics
 from mix_topics import MixTopics
 from corpora_manager import CorporaManager
@@ -176,7 +179,7 @@ class IRSystem:
         # Text Model Attributes.
         self.text_model = text_model
 
-    def user_query(self, query: str, topic_num=10, doc_num=10, show_progress=True):
+    def user_query(self, query: str, topic_num=10, doc_num=10, show_progress=False):
         """
         Given a user's 'query' get the top 'doc_num' of relevant documents and
         the top 'topic_num' of relevant topics for the query. The top documents
@@ -198,28 +201,45 @@ class IRSystem:
                 of the most relevant documents and their similarity from the most
                 relevant topic.
         """
-        # Get the topic embeds from the vocabulary vector space.
-        topic_embeds = self.topic_model.current_word_space_topic_embeds
-
         # Get the Embedding of the Query.
         if show_progress:
-            progress_msg("Finding the most relevant topics...")
+            progress_msg("Encoding the text of the Query...")
         query_embed = self.text_model.doc_embed(doc=query)
+        # Use the 'embed_query' method.
+        top_topics_sims, top_docs_sims = self.embed_query(
+            embed=query_embed, topic_num=topic_num, doc_num=doc_num,
+            show_progress=show_progress
+        )
+        # Most Relevant Topics and Documents with their similarity.
+        return top_topics_sims, top_docs_sims
+
+    def embed_query(
+            self, embed: ndarray, topic_num=10, doc_num=10, show_progress=False
+    ):
+        """
+        Given an Embedding 'embed' find the closest topics and documents to the
+        embedding using the Topic Model. Similar to 'self.user_query()'
+        """
+        # Find The Top Topics For the Embedding.
+        if show_progress:
+            progress_msg("Finding the most relevant topics...")
+        # Get the topic embeds from the vocabulary vector space.
+        topic_embeds = self.topic_model.current_word_space_topic_embeds
         topics_sims = [
-            (topic_id, cosine_sim(query_embed, topic_embed))
+            (topic_id, cosine_sim(embed, topic_embed))
             for topic_id, topic_embed in topic_embeds.items()
         ]
         # Get the Most Relevant Topics.
         top_topics_sims = find_top_n(id_values=topics_sims, n=topic_num)
         top_topic_id, _ = top_topics_sims[0]
 
-        # Get the Embeddings of the Documents in the top topic.
+        # Get the Embeddings of the Documents from the Top Topic.
         if show_progress:
             progress_msg("Finding most relevant docs in the top topic...")
         docs_ids = self.topic_model.base_topic_docs[top_topic_id]
         doc_embeds = self.topic_model.word_space_doc_embeds
         docs_sims = [
-            (doc_id, cosine_sim(query_embed, doc_embeds[doc_id]))
+            (doc_id, cosine_sim(embed, doc_embeds[doc_id]))
             for doc_id, _ in docs_ids
         ]
         # Get the Most Relevant Documents.
@@ -343,6 +363,37 @@ class IRSystem:
             descript_text += ', ' + word
         # Text with the description of the Topic.
         return descript_text
+
+    def random_doc_and_embed(self):
+        """
+        Select a Random Document from the Corpus of the Topic Model and return
+        a Tuple with its ID and Embedding.
+        """
+        rand_doc_id = choice(list(self.topic_model.doc_embeds.keys()))
+        rand_doc_embed = self.topic_model.doc_embeds[rand_doc_id]
+        return rand_doc_id, rand_doc_embed
+
+    def doc_title(self, doc_id: str):
+        """
+        Get the Title of the Document 'doc_id'.
+        """
+        title = self.corpus.doc_title(doc_id)
+        return title
+
+    def doc_abstract(self, doc_id: str):
+        """
+        Get the Abstract of the Document 'doc_id'.
+        """
+        abstract = self.corpus.doc_abstract(doc_id)
+        return abstract
+
+    def doc_full_content(self, doc_id: str):
+        """
+        Get the Full Content of the Document 'doc_id'. If the Document has no
+        content it returns the empty string ('').
+        """
+        full_content = self.corpus.doc_body_text(doc_id)
+        return full_content
 
     def doc_content(self, doc_id: str, len_limit=-1):
         """
