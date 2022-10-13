@@ -5,7 +5,7 @@ import sys
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QComboBox, QTabWidget, QLayout, QScrollArea, QLineEdit, QPushButton, QFrame,
-    QButtonGroup, QCheckBox, QRadioButton
+    QButtonGroup, QCheckBox, QRadioButton, QTextEdit,
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction
@@ -73,6 +73,30 @@ class MainWindow(QMainWindow):
         top_topic, _, _ = cur_cat_topics_info[0]
         topics_tab_cur_topic = top_topic
 
+        # Document Tab - Number of Top Topics and Documents.
+        docs_tab_topics_num = 10
+        docs_tab_docs_num = 10
+        docs_tab_word_num = 10
+        # Gather Data from Random Doc for the Documents Tab.
+        cur_doc_id, cur_doc_embed = search_engine.random_doc_and_embed()
+        cur_doc_full_content = search_engine.doc_full_content(cur_doc_id)
+        top_topics_sims, top_docs_sims = search_engine.embed_query(
+            embed=cur_doc_embed, topic_num=docs_tab_topics_num,
+            doc_num=(docs_tab_docs_num + 1), show_progress=False
+        )
+        # Remove the Doc Himself from the List.
+        top_docs_sims = top_docs_sims[1:]
+        docs_tab_topics_info = [
+            (topic_id, topic_sim,
+             search_engine.topic_description(topic_id, word_num=docs_tab_word_num))
+            for topic_id, topic_sim in top_topics_sims
+        ]
+        docs_tab_docs_info = [
+            (doc_id, doc_sim,
+             search_engine.doc_title(doc_id), search_engine.doc_abstract(doc_id))
+            for doc_id, doc_sim in top_docs_sims
+        ]
+
         # Save Class Attributes.
         self.current_model = current_model
         self.search_engine = search_engine
@@ -86,14 +110,12 @@ class MainWindow(QMainWindow):
         self.cur_cat_index = cur_cat_index
         self.cur_cat_topics_info = cur_cat_topics_info
 
-        # Windows Tabs - Information.
-        self.search_tab_index = 0
-        self.topic_tab_index = 1
-        self.doc_tab_index = 2
         # Search Tab - Information
+        self.search_tab_index = 0
         self.search_tab_size_combo = None
         self.search_tab_topics_scroll = None
         # Topics Tab - Information
+        self.topics_tab_index = 1
         self.topics_tab_cur_topic = topics_tab_cur_topic
         self.topics_tab_word_num = topics_tab_word_num
         self.topics_tab_button_group = QButtonGroup()
@@ -102,11 +124,21 @@ class MainWindow(QMainWindow):
         self.topics_tab_docs_label = None
         self.topics_tab_docs_scroll = None
         # Documents Tab - Information
+        self.docs_tab_index = 2
+        self.docs_tab_topics_num = docs_tab_topics_num
+        self.docs_tab_docs_num = docs_tab_docs_num
+        self.docs_tab_word_num = docs_tab_word_num
+        self.docs_tab_cur_doc = cur_doc_id
+        self.docs_tab_doc_content = cur_doc_full_content
+        self.docs_tab_topics_info = docs_tab_topics_info
+        self.docs_tab_docs_info = docs_tab_docs_info
         self.docs_tab_size_combo = None
         self.docs_tab_topics_scroll = None
         self.docs_tab_content_label = None
         self.docs_tab_text_widget = None
         self.docs_tab_docs_scroll = None
+        # Main Window - Information
+        self.default_tab_index = self.docs_tab_index
 
         # Menu Bar Actions.
         self.quit_act = None
@@ -122,7 +154,7 @@ class MainWindow(QMainWindow):
         Set up the Application's GUI
         """
         # Create Window Size and Name.
-        self.setMinimumSize(1000, 800)
+        self.setMinimumSize(1100, 800)
         # self.setGeometry(100, 80, 1300, 900)
         self.setWindowTitle("Scientific Search")
 
@@ -157,7 +189,7 @@ class MainWindow(QMainWindow):
         tab_bar.addTab(search_tab, "Search")
         tab_bar.addTab(topics_tab, "Topics")
         tab_bar.addTab(docs_tab, "Documents")
-        tab_bar.setCurrentIndex(self.topic_tab_index)
+        tab_bar.setCurrentIndex(self.default_tab_index)
 
         # Topic Model - Layout.
         model_h_box = QHBoxLayout()
@@ -404,7 +436,7 @@ class MainWindow(QMainWindow):
         Create the Widget with the layout in the Documents Tab.
         """
         # --- Topic Area ---
-        # - Topic Size Area -
+        # Topic Size Area
         size_label = QLabel("Topic Size:")
         size_combo = QComboBox()
         self.docs_tab_size_combo = size_combo
@@ -413,13 +445,14 @@ class MainWindow(QMainWindow):
         size_combo.activated.connect(
             lambda index: self.changeTopicSize(index, show_progress=show_progress)
         )
-        # Topic's Size Layout.
+        # - Topic's Size Layout -
         size_layout = QHBoxLayout()
         size_layout.addWidget(size_label)
         size_layout.addWidget(size_combo)
         size_layout.addStretch()
         # - Top Topics Area -
-        closest_label = QLabel("Closest Topics:")
+        top_topics_num = self.docs_tab_topics_num
+        close_topics_label = QLabel(f"Top {top_topics_num} Closest Topics:")
         topics_scroll_area = QScrollArea()
         self.docs_tab_topics_scroll = topics_scroll_area
         topics_scroll_area.setHorizontalScrollBarPolicy(
@@ -429,9 +462,94 @@ class MainWindow(QMainWindow):
             Qt.ScrollBarPolicy.ScrollBarAsNeeded
         )
         topics_scroll_area.setWidgetResizable(True)
+        # Update Content of Scrollable.
+        self.updateDocsTabTopicsScroll()
+        # -- Save the Topic Area Layout --
+        topic_area_layout = QVBoxLayout()
+        topic_area_layout.addLayout(size_layout)
+        topic_area_layout.addWidget(close_topics_label, 0, Qt.AlignmentFlag.AlignLeft)
+        topic_area_layout.addWidget(topics_scroll_area)
+        topic_area_container = QWidget()
+        topic_area_container.setLayout(topic_area_layout)
+
+        # --- Doc Content Area ---
+        doc_id = self.docs_tab_cur_doc
+        has_full_content = self.docs_tab_doc_content != ''
+        header_text = f"""
+            <p align='left'><font face='Times New Roman' size='+1'>
+            Content of Document &lt;{str(doc_id)}&gt;
+            </font></p>
+        """
+        # Header Area.
+        name_label = QLabel(header_text)
+        full_content_button = QPushButton("Full Content")
+        full_content_button.setEnabled(has_full_content)
+        full_content_button.clicked.connect(
+            lambda checked, x=doc_id: self.viewFullContent(doc_id=x)
+        )
+        # - Header Area Layout -
+        header_layout = QHBoxLayout()
+        header_layout.addWidget(name_label, 0, Qt.AlignmentFlag.AlignLeft)
+        header_layout.addWidget(full_content_button, 0, Qt.AlignmentFlag.AlignLeft)
+        # Content Text Area.
+        text_read_only = QLabel()
+        self.docs_tab_text_widget = text_read_only
+        text_read_only.setWordWrap(True)
+        text_read_only.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse |
+            Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
+        text_read_layout = QVBoxLayout()
+        text_read_layout.addWidget(text_read_only)
+        text_read_layout.addStretch()
+        text_read_container = QFrame()
+        text_read_container.setFrameStyle(
+            QFrame.Shape.Box | QFrame.Shadow.Sunken
+        )
+        text_read_container.setLayout(text_read_layout)
+        text_read_scroll = QScrollArea()
+        text_read_scroll.setWidget(text_read_container)
+        text_read_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        text_read_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        text_read_scroll.setWidgetResizable(True)
+        self.updateDocTextWidget()
+        # -- Doc Content Area Layout --
+        doc_content_layout = QVBoxLayout()
+        doc_content_layout.addLayout(header_layout)
+        doc_content_layout.addWidget(text_read_scroll)
+        doc_content_container = QWidget()
+        doc_content_container.setLayout(doc_content_layout)
+
+        # --- Close Docs Area ---
+        top_docs_num = self.docs_tab_docs_num
+        close_docs_label = QLabel(f"Top {top_docs_num} Close Documents:")
+        docs_scroll_area = QScrollArea()
+        self.docs_tab_docs_scroll = docs_scroll_area
+        docs_scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        docs_scroll_area.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        docs_scroll_area.setWidgetResizable(True)
+        # Update content of Scrollable.
+        self.updateDocsTabDocsScroll()
+        # -- Close Docs Area Layout --
+        close_docs_layout = QVBoxLayout()
+        close_docs_layout.addWidget(close_docs_label)
+        close_docs_layout.addWidget(docs_scroll_area)
+        close_docs_container = QWidget()
+        close_docs_container.setLayout(close_docs_layout)
 
         # --- Documents Tab Layout ---
         docs_tab_layout = QHBoxLayout()
+        docs_tab_layout.addWidget(topic_area_container, 27)
+        docs_tab_layout.addWidget(doc_content_container, 46)
+        docs_tab_layout.addWidget(close_docs_container, 27)
         docs_tab_container = QWidget()
         docs_tab_container.setLayout(docs_tab_layout)
         # The Documents Tab is complete.
@@ -441,7 +559,7 @@ class MainWindow(QMainWindow):
 
     def topicInfoItem(
             self, topic_id: str, cat_type: str, cat_value, description='',
-            view_type='topic', checkable_type='checkbox', set_checked=False
+            view_type='topic', checkable_type='search-checkbox', set_checked=False
     ):
         """
         Build a List Item for the given 'topic_id'. The Item built depends on
@@ -449,8 +567,8 @@ class MainWindow(QMainWindow):
         engine to load it.
 
         The variable 'checkable_type' determines the type of check button will
-        be used for the topics, either QCheckboxes (checkbox) or QRadioButton
-        (radio-button).
+        be used for the topics, either QCheckboxes (search-checkbox,
+        doc-checkbox) or QRadioButton (radio-button).
         """
         # Create Layout from Start.
         topic_item_layout = QVBoxLayout()
@@ -471,13 +589,23 @@ class MainWindow(QMainWindow):
             topic_header += f" (Size: {cat_value} docs)"
 
         # Create Header Checkbox or Radio Button.
-        if checkable_type == 'checkbox':
+        if checkable_type in {'search-checkbox', 'doc-checkbox'}:
             header_checkable = QCheckBox(topic_header)
             if set_checked:
                 header_checkable.setChecked(True)
-            header_checkable.toggled.connect(
-                lambda checked, x=topic_id: self.updatedTopicCheckbox(checked, x)
-            )
+            # Set method called when we check the button.
+            if checkable_type == 'search-checkbox':
+                header_checkable.toggled.connect(
+                    lambda checked, x=topic_id:
+                    self.newSearchTabTopicSelection(checked, topic_id=x)
+                )
+            elif checkable_type == 'doc-checkbox':
+                header_checkable.toggled.connect(
+                    lambda checked, x=topic_id:
+                    self.newDocTabTopicSelection(checked, topic_id=x)
+                )
+            else:
+                raise NameError(f"Non-supported Checkable: {checkable_type}")
         elif checkable_type == 'radio-button':
             header_checkable = QRadioButton(topic_header)
             if set_checked:
@@ -555,6 +683,9 @@ class MainWindow(QMainWindow):
             | Qt.TextInteractionFlag.TextSelectableByKeyboard
         )
         view_button = QPushButton("View Document")
+        view_button.clicked.connect(
+            lambda checked, x=doc_id: self.viewDocument(doc_id=x)
+        )
         content_label = QLabel(doc_content)
         content_label.setTextInteractionFlags(
             Qt.TextInteractionFlag.TextSelectableByMouse
@@ -597,6 +728,25 @@ class MainWindow(QMainWindow):
         Change the size of the Topic Model to the size in the 'new_size_index'.
         """
         progress_msg("Change Size NOT IMPLEMENTED!!!")
+
+    def newSearchTabTopicSelection(self, checked: bool, topic_id: str):
+        """
+        Update the Number of Topics selected for the search of documents either
+        in the Search Tab or the Documents Tab.
+        """
+        if checked:
+            progress_msg(f"The {topic_id} was selected.")
+        elif not checked:
+            progress_msg(f"The {topic_id} was deselected.")
+        else:
+            progress_msg(f"The {topic_id} is partially checked or another not "
+                         f"supported action.")
+
+    def viewTopic(self, topic_id: str):
+        """
+        Open the Topics Tab to view the Topic 'topic_id'.
+        """
+        progress_msg("View Topic is NOT YET IMPLEMENTED!!!")
 
     def changeTopicSorting(self, sort_cat_index: int, show_progress=False):
         """
@@ -690,7 +840,8 @@ class MainWindow(QMainWindow):
 
     def updateTopicsTabDocScroll(self):
         """
-        Create & Update the Content of the Topics Scrollable in the Topics Tab.
+        Create & Update the Content of the Documents Scrollable in the Topics
+        Tab.
         """
         # Get the Topic to display its documents.
         topic_id = self.topics_tab_cur_topic
@@ -721,12 +872,6 @@ class MainWindow(QMainWindow):
         )
         self.topics_tab_docs_scroll.setWidget(top_docs_container)
 
-    def viewTopic(self, topic_id: str):
-        """
-        Open the Topics Tab to view the Topic 'topic_id'.
-        """
-        progress_msg("View Topic is NOT YET IMPLEMENTED!!!")
-
     def viewVocabulary(self, topic_id: str):
         """
         Show a new Dialog with the Vocabulary of the given Topic 'topic_id'.
@@ -736,18 +881,103 @@ class MainWindow(QMainWindow):
         self.vocab_window = QVocabDialog(topic_id, word_list)
         self.vocab_window.show()
 
-    def updatedTopicCheckbox(self, checked: bool, topic_id: str):
+    def viewDocument(self, doc_id: str):
         """
-        Update the Number of Topics selected for the search of documents either
-        in the Search Tab or the Documents Tab.
+        Show a Document in the Document Tab.
         """
-        if checked:
-            progress_msg(f"The {topic_id} was selected.")
-        elif not checked:
-            progress_msg(f"The {topic_id} was deselected.")
-        else:
-            progress_msg(f"The {topic_id} is partially checked or another not "
-                         f"supported action.")
+        progress_msg("View Document is NOT IMPLEMENTED!!!")
+
+    def updateDocTextWidget(self):
+        """
+        Create or Update the Content of the Text Widget with the current
+        Document in the Documents Tab.
+        """
+        # Get the Title and Abstract.
+        doc_id = self.docs_tab_cur_doc
+        title = self.search_engine.doc_title(doc_id)
+        abstract = self.search_engine.doc_abstract(doc_id)
+        # Create Content.
+        content = f"""
+            <p align='justify'><font face='Times New Roman' size='+2'><u>
+            {title}
+            </u></font></p>
+            <p align='justify'><font size='+1'>{abstract}</font></p>
+        """
+        # Set the Content inside the TextEdit Widget.
+        self.docs_tab_text_widget.setText(content)
+
+    def updateDocsTabTopicsScroll(self):
+        """
+        Create or Update the Content of the Topics being displayed in the Topics
+        Scrollable in the Documents Tab.
+        """
+        # Create Layout for the List of Topics.
+        top_topics_v_box = QVBoxLayout()
+        top_topics_v_box.setSpacing(0)
+        top_topics_v_box.setContentsMargins(0, 0, 0, 0)
+        top_topics_v_box.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+
+        # Create the Topics Info Items & Add them to the Layout.
+        topics_info = self.docs_tab_topics_info
+        # Mark the first Topic of the List.
+        is_first = True
+        for topic_id, similarity, description in topics_info:
+            topic_info_container = self.topicInfoItem(
+                topic_id=topic_id, cat_type='similarity', cat_value=similarity,
+                description=description, view_type='topic',
+                checkable_type='doc-checkbox', set_checked=is_first
+            )
+            # Add to Layout.
+            top_topics_v_box.addWidget(topic_info_container)
+            # Do Not Check the rest of the topics.
+            if is_first:
+                is_first = False
+        # Create Container for the List of Items.
+        top_topics_container = QWidget()
+        top_topics_container.setLayout(top_topics_v_box)
+
+        # Doc Tab - Update Scrollable of Topics.
+        self.docs_tab_topics_scroll.setWidget(top_topics_container)
+
+    def updateDocsTabDocsScroll(self):
+        """
+        Create or Update the Content for the Documents Scrollable in the
+        Documents Tab.
+        """
+        # Get the Info we are going to show.
+        docs_info = self.docs_tab_docs_info
+
+        # Create the Documents Layout.
+        docs_v_box = QVBoxLayout()
+        docs_v_box.setSpacing(0)
+        docs_v_box.setContentsMargins(0, 0, 0, 0)
+        docs_v_box.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        # Add Doc items to the Layout.
+        for doc_id, similarity, title, abstract in docs_info:
+            red_abstract = abstract[:200] + '...'
+            doc_info_item = self.docInfoItem(
+                doc_id=doc_id, sim=similarity, title=title, abstract=red_abstract
+            )
+            docs_v_box.addWidget(doc_info_item)
+        # Create Container for the Item List.
+        docs_container = QWidget()
+        docs_container.setLayout(docs_v_box)
+
+        # Update the Document Scrollable inside the Documents Tab.
+        self.docs_tab_docs_scroll.setWidget(docs_container)
+
+    def newDocTabTopicSelection(self, checked: bool, topic_id: str):
+        """
+        Update the Topics Selected for the list of Close Documents in regard to
+        the current document we are viewing.
+        """
+        progress_msg("New Topic Selection NOT IMPLEMENTED!!!")
+
+    def viewFullContent(self, doc_id: str):
+        """
+        Open a new Dialog to see the content of the Document 'doc_id'.
+        """
+        progress_msg("Viewing the Full Content NOT IMPLEMENTED!!!")
 
 
 # Run Application.
