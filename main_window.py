@@ -63,6 +63,15 @@ class MainWindow(QMainWindow):
         sort_categories = ['Size', 'PWI-tf-idf', 'PWI-exact']
         cur_sort_cat = 'size'
         cur_cat_index = 0
+        # Number of Words to describe topics in the Topics Tab.
+        topics_tab_word_num = 15
+        # Sorting Category Topics Information.
+        cur_cat_topics_info = search_engine.topics_info(
+            sort_cat=cur_sort_cat, word_num=topics_tab_word_num
+        )
+        # Current Topic in the Topics Tab.
+        top_topic, _, _ = cur_cat_topics_info[0]
+        topics_tab_cur_topic = top_topic
 
         # Save Class Attributes.
         self.current_model = current_model
@@ -75,25 +84,29 @@ class MainWindow(QMainWindow):
         self.sort_categories = sort_categories
         self.cur_sort_cat = cur_sort_cat
         self.cur_cat_index = cur_cat_index
+        self.cur_cat_topics_info = cur_cat_topics_info
 
-        # Topic Size - Combo Boxes
-        self.search_tab_size_combo = None
-        self.topics_tab_size_combo = None
-        self.docs_tab_size_combo = None
-        # Topics - Scrollable Areas
-        self.search_tab_topics_scroll = None
-        self.topics_tab_topics_scroll = None
-        self.docs_tab_topics_scroll = None
         # Windows Tabs - Information.
         self.search_tab_index = 0
         self.topic_tab_index = 1
         self.doc_tab_index = 2
-        # Topics Tab - Information.
-        self.topics_tab_cur_topic = ''
+        # Search Tab - Information
+        self.search_tab_size_combo = None
+        self.search_tab_topics_scroll = None
+        # Topics Tab - Information
+        self.topics_tab_cur_topic = topics_tab_cur_topic
+        self.topics_tab_word_num = topics_tab_word_num
         self.topics_tab_button_group = QButtonGroup()
+        self.topics_tab_size_combo = None
         self.topics_tab_topics_scroll = None
         self.topics_tab_docs_label = None
         self.topics_tab_docs_scroll = None
+        # Documents Tab - Information
+        self.docs_tab_size_combo = None
+        self.docs_tab_topics_scroll = None
+        self.docs_tab_content_label = None
+        self.docs_tab_text_widget = None
+        self.docs_tab_docs_scroll = None
 
         # Menu Bar Actions.
         self.quit_act = None
@@ -227,15 +240,19 @@ class MainWindow(QMainWindow):
         top_topics_container = QWidget()
         top_topics_container.setLayout(top_topics_v_box)
         topics_scroll_area = QScrollArea()
-        topics_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        topics_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        topics_scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        topics_scroll_area.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
         topics_scroll_area.setWidget(top_topics_container)
         topics_scroll_area.setWidgetResizable(True)
         # -- Topics Final Layout --
         topics_layout = QVBoxLayout()
         topics_layout.addWidget(size_container)
         topics_layout.addWidget(top_topics_label)
-        topics_layout.addWidget(topics_scroll_area)  # , 0, Qt.AlignmentFlag.AlignHCenter)
+        topics_layout.addWidget(topics_scroll_area)
         topics_container = QWidget()
         topics_container.setLayout(topics_layout)
 
@@ -270,8 +287,12 @@ class MainWindow(QMainWindow):
         top_docs_container = QWidget()
         top_docs_container.setLayout(top_docs_v_box)
         docs_scroll_area = QScrollArea()
-        docs_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        docs_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        docs_scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        docs_scroll_area.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
         docs_scroll_area.setWidget(top_docs_container)
         docs_scroll_area.setWidgetResizable(True)
         # -- Search & Docs Final Layout --
@@ -301,6 +322,7 @@ class MainWindow(QMainWindow):
         # - Topic's Size Area -
         size_label = QLabel("Topic Size:")
         size_combo = QComboBox()
+        self.topics_tab_size_combo = size_combo
         size_combo.addItems(self.supported_sizes)
         size_combo.setCurrentIndex(self.cur_size_index)
         size_combo.activated.connect(
@@ -326,15 +348,16 @@ class MainWindow(QMainWindow):
         sort_cats_layout.addStretch()
         # Create Scrollable Area with the Topics.
         topics_scroll_area = QScrollArea()
-        topics_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        topics_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        topics_scroll_area.setWidgetResizable(True)
         self.topics_tab_topics_scroll = topics_scroll_area
-        # Fill Scrollable with the Topics Information.
-        self.changeTopicSorting(
-            sort_cat_index=self.cur_cat_index, is_initialization=True,
-            show_progress=True
+        topics_scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
+        topics_scroll_area.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        topics_scroll_area.setWidgetResizable(True)
+        # Update content of Scrollable.
+        self.updateTopicsTabTopicScroll()
         # -- All the Topic Area Layout --
         topic_area_layout = QVBoxLayout()
         topic_area_layout.addLayout(size_layout)
@@ -348,14 +371,16 @@ class MainWindow(QMainWindow):
         self.topics_tab_docs_label = QLabel()
         # Create Scrollable Area for the Documents.
         docs_scroll_area = QScrollArea()
-        docs_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        docs_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        docs_scroll_area.setWidgetResizable(True)
         self.topics_tab_docs_scroll = docs_scroll_area
-        # Update Documents Label and Scrollable with the current topic.
-        self.newTopicSelected(
-            checked=True, topic_id=self.topics_tab_cur_topic, show_progress=True
+        docs_scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
+        docs_scroll_area.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        docs_scroll_area.setWidgetResizable(True)
+        # Update content of Scrollable.
+        self.updateTopicsTabDocScroll()
         # - Top Docs Area Final Layout -
         docs_area_layout = QVBoxLayout()
         docs_area_layout.addWidget(self.topics_tab_docs_label)
@@ -378,9 +403,41 @@ class MainWindow(QMainWindow):
         """
         Create the Widget with the layout in the Documents Tab.
         """
+        # --- Topic Area ---
+        # - Topic Size Area -
+        size_label = QLabel("Topic Size:")
+        size_combo = QComboBox()
+        self.docs_tab_size_combo = size_combo
+        size_combo.addItems(self.supported_sizes)
+        size_combo.setCurrentIndex(self.cur_size_index)
+        size_combo.activated.connect(
+            lambda index: self.changeTopicSize(index, show_progress=show_progress)
+        )
+        # Topic's Size Layout.
+        size_layout = QHBoxLayout()
+        size_layout.addWidget(size_label)
+        size_layout.addWidget(size_combo)
+        size_layout.addStretch()
+        # - Top Topics Area -
+        closest_label = QLabel("Closest Topics:")
+        topics_scroll_area = QScrollArea()
+        self.docs_tab_topics_scroll = topics_scroll_area
+        topics_scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        topics_scroll_area.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        topics_scroll_area.setWidgetResizable(True)
+
+        # --- Documents Tab Layout ---
+        docs_tab_layout = QHBoxLayout()
+        docs_tab_container = QWidget()
+        docs_tab_container.setLayout(docs_tab_layout)
+        # The Documents Tab is complete.
         if show_progress:
-            progress_msg("Creating Documents Tab...")
-        return QWidget()
+            progress_msg("Documents Tab Complete!")
+        return docs_tab_container
 
     def topicInfoItem(
             self, topic_id: str, cat_type: str, cat_value, description='',
@@ -541,14 +598,12 @@ class MainWindow(QMainWindow):
         """
         progress_msg("Change Size NOT IMPLEMENTED!!!")
 
-    def changeTopicSorting(
-            self, sort_cat_index: int, is_initialization=False, show_progress=False
-    ):
+    def changeTopicSorting(self, sort_cat_index: int, show_progress=False):
         """
         Change the sorting category use to rank the topics in the Topics Tab.
         """
         # Check if we have a new sorting category.
-        if sort_cat_index == self.cur_cat_index and not is_initialization:
+        if sort_cat_index == self.cur_cat_index:
             # Same Sorting Category.
             if show_progress:
                 progress_msg(f"Same sorting category selected <{self.cur_sort_cat}>.")
@@ -560,22 +615,43 @@ class MainWindow(QMainWindow):
             progress_msg(
                 f"Updating the sorting category of the topics to <{new_sort_cat}>..."
             )
+        # Save Old Top Topic to see if it changes.
+        old_top_topic = self.topics_tab_cur_topic
 
         # Update the Current Category Attributes.
         self.cur_cat_index = sort_cat_index
         self.cur_sort_cat = new_sort_cat
+        self.cur_cat_topics_info = self.search_engine.topics_info(
+            sort_cat=self.cur_sort_cat.lower(), word_num=self.topics_tab_word_num
+        )
+        # Topics Tab - Get the Top Topic of the new Category.
+        top_topic, _, _ = self.cur_cat_topics_info[0]
+        self.topics_tab_cur_topic = top_topic
 
+        # Topics Tab - Update Scrollable of Topics.
+        self.updateTopicsTabTopicScroll()
+        # Topics Tab - Update Scrollable of Documents if the Top Topic Changed.
+        if self.topics_tab_cur_topic != old_top_topic:
+            self.updateTopicsTabDocScroll()
+        # Done.
+        if show_progress:
+            progress_msg(f"Topics in the Topics Tab sorted by {new_sort_cat}!")
+
+    def updateTopicsTabTopicScroll(self):
+        """
+        Create or Update the Content of the Topics being displayed in the
+        Topics Scrollable in the Topics Tab.
+        """
         # Create Layout for the List of Topics.
         top_topics_v_box = QVBoxLayout()
         top_topics_v_box.setSpacing(0)
         top_topics_v_box.setContentsMargins(0, 0, 0, 0)
         top_topics_v_box.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
-        # Add Items to Top Topics Layout using the Default Topics by Size.
-        lower_sort_cat = new_sort_cat.lower()
-        topics_info = self.search_engine.topics_info(
-            sort_cat=lower_sort_cat, word_num=15
-        )
-        # Check the top topic.
+
+        # Get the Sorting Category and the Topics Info.
+        lower_sort_cat = self.cur_sort_cat.lower()
+        topics_info = self.cur_cat_topics_info
+        # Mark the first Topic of the List.
         is_first = True
         for topic_id, cat_value, description in topics_info:
             topic_info_container = self.topicInfoItem(
@@ -586,7 +662,6 @@ class MainWindow(QMainWindow):
             top_topics_v_box.addWidget(topic_info_container)
             # Do not check the rest of the topics.
             if is_first:
-                self.topics_tab_cur_topic = topic_id
                 is_first = False
         # Create Container for the List of Topics.
         top_topics_container = QWidget()
@@ -594,8 +669,57 @@ class MainWindow(QMainWindow):
 
         # Topics Tab - Update Scrollable of Topics.
         self.topics_tab_topics_scroll.setWidget(top_topics_container)
+
+    def newTopicSelected(self, checked: bool, topic_id: str, show_progress=False):
+        """
+        Update the Information being displayed in the Topics Tab, using the new
+        Topic selected.
+        """
+        # Check if this the new enabled Topic.
+        if not checked:
+            # No need to do any changes to the UI.
+            return
+
+        # Update the Current Topic in the Topics Tab.
+        self.topics_tab_cur_topic = topic_id
+        # Update the Displayed Documents.
+        self.updateTopicsTabDocScroll()
+        # Done.
         if show_progress:
-            progress_msg(f"Topics in the Topics Tab sorted by {new_sort_cat}!")
+            progress_msg(f"Documents from <{topic_id}> ready!")
+
+    def updateTopicsTabDocScroll(self):
+        """
+        Create & Update the Content of the Topics Scrollable in the Topics Tab.
+        """
+        # Get the Topic to display its documents.
+        topic_id = self.topics_tab_cur_topic
+
+        # Get the Info about the Documents.
+        topic_docs_info = self.search_engine.topic_docs_info(topic_id=topic_id)
+        docs_size = len(topic_docs_info)
+
+        # Topic Documents Layout.
+        top_docs_v_box = QVBoxLayout()
+        top_docs_v_box.setSpacing(0)
+        top_docs_v_box.setContentsMargins(0, 0, 0, 0)
+        top_docs_v_box.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        # Add items to Top Documents Layout.
+        for doc_id, similarity, title, abstract in topic_docs_info:
+            red_abstract = abstract[:200] + '...'
+            doc_info_container = self.docInfoItem(
+                doc_id=doc_id, sim=similarity, title=title, abstract=red_abstract
+            )
+            top_docs_v_box.addWidget(doc_info_container)
+        # Create Container for the Documents Layout.
+        top_docs_container = QWidget()
+        top_docs_container.setLayout(top_docs_v_box)
+
+        # Update the Label and Scrollable of the Documents.
+        self.topics_tab_docs_label.setText(
+            f"Documents from {topic_id} ({docs_size} docs):"
+        )
+        self.topics_tab_docs_scroll.setWidget(top_docs_container)
 
     def viewTopic(self, topic_id: str):
         """
@@ -624,48 +748,6 @@ class MainWindow(QMainWindow):
         else:
             progress_msg(f"The {topic_id} is partially checked or another not "
                          f"supported action.")
-
-    def newTopicSelected(self, checked: bool, topic_id: str, show_progress=False):
-        """
-        Update the Information being displayed in the Topics Tab, using the new
-        Topic selected.
-        """
-        # Check if this the new enabled Topic.
-        if not checked:
-            # No need to do any changes to the UI.
-            return
-
-        # --- Display the Documents of the New Topic ---
-        if show_progress:
-            progress_msg(f"Creating Layout for the Documents from <{topic_id}>...")
-        # Get the Info about the Documents.
-        topic_docs_info = self.search_engine.topic_docs_info(topic_id=topic_id)
-        docs_size = len(topic_docs_info)
-
-        # Topic Documents Layout.
-        top_docs_v_box = QVBoxLayout()
-        top_docs_v_box.setSpacing(0)
-        top_docs_v_box.setContentsMargins(0, 0, 0, 0)
-        top_docs_v_box.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
-        # Add items to Top Documents Layout.
-        for doc_id, similarity, title, abstract in topic_docs_info:
-            red_abstract = abstract[:200] + '...'
-            doc_info_container = self.docInfoItem(
-                doc_id=doc_id, sim=similarity, title=title, abstract=red_abstract
-            )
-            top_docs_v_box.addWidget(doc_info_container)
-        # Create Container for the Documents Layout.
-        top_docs_container = QWidget()
-        top_docs_container.setLayout(top_docs_v_box)
-
-        # Update the Label and Scrollable of the Documents.
-        self.topics_tab_docs_label.setText(
-            f"Documents from {topic_id} ({docs_size} docs):"
-        )
-        self.topics_tab_docs_scroll.setWidget(top_docs_container)
-        # Done.
-        if show_progress:
-            progress_msg(f"Documents from <{topic_id}> ready!")
 
 
 # Run Application.
