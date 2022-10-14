@@ -80,13 +80,12 @@ class MainWindow(QMainWindow):
         # Gather Data from Random Doc for the Documents Tab.
         # Doc Num (+1) in case the search returns the document itself.
         cur_doc_id, cur_doc_embed = search_engine.random_doc_and_embed()
-        cur_doc_full_content = search_engine.doc_full_content(cur_doc_id)
+        docs_tab_doc_content = search_engine.doc_full_content(cur_doc_id)
         top_topics_sims, top_docs_sims = search_engine.embed_query(
             embed=cur_doc_embed, topic_num=docs_tab_topics_num,
             doc_num=(docs_tab_docs_num + 1), vector_space='documents',
             show_progress=False
         )
-        # Remove the Doc Himself from the List.
         docs_tab_topics_info = [
             (topic_id, topic_sim,
              search_engine.topic_description(topic_id, word_num=docs_tab_word_num))
@@ -139,21 +138,23 @@ class MainWindow(QMainWindow):
         self.docs_tab_word_num = docs_tab_word_num
         self.docs_tab_cur_doc = cur_doc_id
         self.docs_tab_doc_embed = cur_doc_embed
-        self.docs_tab_doc_content = cur_doc_full_content
+        self.docs_tab_doc_content = docs_tab_doc_content
         self.docs_tab_all_topics = docs_tab_all_topics
         self.docs_tab_selected_topics = docs_tab_selected_topics
         self.docs_tab_top_topic = docs_tab_top_topic
-        self.docs_tab_all_checkbox = None
         self.docs_tab_topic_checkboxes = {}
         self.docs_tab_topics_info = docs_tab_topics_info
         self.docs_tab_docs_info = docs_tab_docs_info
+        self.docs_tab_all_checkbox = None
         self.docs_tab_size_combo = None
         self.docs_tab_topics_scroll = None
+        self.docs_tab_name_label = None
         self.docs_tab_content_label = None
         self.docs_tab_text_widget = None
         self.docs_tab_docs_scroll = None
         # Main Window - Information
-        self.default_tab_index = self.docs_tab_index
+        self.current_tab_index = self.docs_tab_index
+        self.main_tab_bar = None
 
         # Menu Bar Actions.
         self.quit_act = None
@@ -207,10 +208,14 @@ class MainWindow(QMainWindow):
         docs_tab = self.createDocsTab(show_progress=show_progress)
         # Create Tab.
         tab_bar = QTabWidget()
+        self.main_tab_bar = tab_bar
         tab_bar.addTab(search_tab, "Search")
         tab_bar.addTab(topics_tab, "Topics")
         tab_bar.addTab(docs_tab, "Documents")
-        tab_bar.setCurrentIndex(self.default_tab_index)
+        tab_bar.setCurrentIndex(self.current_tab_index)
+        tab_bar.currentChanged.connect(
+            lambda index: self.newTabActivated(new_index=index)
+        )
 
         # Topic Model - Layout.
         model_h_box = QHBoxLayout()
@@ -504,13 +509,9 @@ class MainWindow(QMainWindow):
         # --- Doc Content Area ---
         doc_id = self.docs_tab_cur_doc
         has_full_content = self.docs_tab_doc_content != ''
-        header_text = f"""
-            <p align='left'><font face='Times New Roman' size='+1'>
-            Content of Document &lt;{str(doc_id)}&gt;
-            </font></p>
-        """
         # Header Area.
-        name_label = QLabel(header_text)
+        name_label = QLabel()
+        self.docs_tab_name_label = name_label
         name_label.setTextInteractionFlags(
             Qt.TextInteractionFlag.TextSelectableByMouse |
             Qt.TextInteractionFlag.TextSelectableByKeyboard
@@ -549,7 +550,8 @@ class MainWindow(QMainWindow):
             Qt.ScrollBarPolicy.ScrollBarAsNeeded
         )
         text_read_scroll.setWidgetResizable(True)
-        self.updateDocTextWidget()
+        # Update the Info in the Content Area.
+        self.updateDocsTabContentArea()
         # -- Doc Content Area Layout --
         doc_content_layout = QVBoxLayout()
         doc_content_layout.addLayout(header_layout)
@@ -736,6 +738,13 @@ class MainWindow(QMainWindow):
         # The Item with the Doc Info.
         return doc_item_container
 
+    def newTabActivated(self, new_index: int):
+        """
+        A New Tab in the Window has been activated, so update the value of the
+        current Tab.
+        """
+        self.current_tab_index = new_index
+
     def switchModel(self, new_index, show_progress=False):
         """
         The ComboBox to manage the Topic Models has been activated, change the
@@ -919,15 +928,75 @@ class MainWindow(QMainWindow):
         """
         Show a Document in the Document Tab.
         """
-        progress_msg("View Document is NOT IMPLEMENTED!!!")
+        # Signal that we are Working the Documents Tab.
+        self.docs_tab_working = True
+        # Get the Embedding of the Document.
+        cur_doc_id = doc_id
+        cur_doc_embed = self.search_engine.doc_embed(cur_doc_id)
+        docs_tab_doc_content = self.search_engine.doc_full_content(cur_doc_id)
 
-    def updateDocTextWidget(self):
+        # Get the Top Topics and Close Documents Information.
+        # Doc Num (+1) in case the search returns the document itself.
+        top_topics_sims, top_docs_sims = self.search_engine.embed_query(
+            embed=cur_doc_embed, topic_num=self.docs_tab_topics_num,
+            doc_num=(self.docs_tab_docs_num + 1), vector_space='documents',
+            show_progress=False
+        )
+        docs_tab_topics_info = [
+            (topic_id, topic_sim,
+             self.search_engine.topic_description(
+                 topic_id=topic_id, word_num=self.docs_tab_word_num
+             ))
+            for topic_id, topic_sim in top_topics_sims
+        ]
+        docs_tab_docs_info = [
+            (doc_id, doc_sim,
+             self.search_engine.doc_title(doc_id),
+             self.search_engine.doc_abstract(doc_id))
+            for doc_id, doc_sim in top_docs_sims
+            if doc_id != cur_doc_id
+        ]
+        # Make sure we have the right amount of docs.
+        docs_tab_docs_info = docs_tab_docs_info[:self.docs_tab_docs_num]
+        # Get the Top Topic.
+        docs_tab_top_topic, _ = top_topics_sims[0]
+        # Save the Generated Info.
+        self.docs_tab_cur_doc = cur_doc_id
+        self.docs_tab_doc_embed = cur_doc_embed
+        self.docs_tab_doc_content = docs_tab_doc_content
+        self.docs_tab_all_topics = False
+        self.docs_tab_selected_topics = {docs_tab_top_topic}
+        self.docs_tab_top_topic = docs_tab_top_topic
+        self.docs_tab_topic_checkboxes = {}
+        self.docs_tab_topics_info = docs_tab_topics_info
+        self.docs_tab_docs_info = docs_tab_docs_info
+
+        # Update Content & Scrollable.
+        self.updateDocsTabTopicsScroll()
+        self.updateDocsTabContentArea()
+        self.updateDocsTabDocsScroll()
+        # Done Working on the Documents Tab.
+        self.docs_tab_working = False
+
+        # Go to the Documents Tab if we are not there.
+        if self.current_tab_index != self.docs_tab_index:
+            self.current_tab_index = self.docs_tab_index
+            self.main_tab_bar.setCurrentIndex(self.current_tab_index)
+
+    def updateDocsTabContentArea(self):
         """
         Create or Update the Content of the Text Widget with the current
         Document in the Documents Tab.
         """
-        # Get the Title and Abstract.
+        # Get Current Doc ID.
         doc_id = self.docs_tab_cur_doc
+        # Create Text for the Name Label.
+        header_text = f"""
+            <p align='left'><font face='Times New Roman' size='+1'>
+            Content of Document &lt;{doc_id}&gt;
+            </font></p>
+        """
+        # Get the Title and Abstract.
         title = self.search_engine.doc_title(doc_id)
         abstract = self.search_engine.doc_abstract(doc_id)
         # Create Content.
@@ -937,6 +1006,8 @@ class MainWindow(QMainWindow):
             </u></font></p>
             <p align='justify'><font size='+1'>{abstract}</font></p>
         """
+        # Set the Text for the Name Label.
+        self.docs_tab_name_label.setText(header_text)
         # Set the Content inside the TextEdit Widget.
         self.docs_tab_text_widget.setText(content)
 
