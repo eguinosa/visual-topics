@@ -1,9 +1,11 @@
 # Gelin Eguinosa Rosique
 # 2022
+
 import json
 import sys
 from os import mkdir
 from os.path import isdir, isfile, join
+
 from PyQt6.QtWidgets import (
     QApplication, QDialog, QLabel, QTextEdit, QPushButton, QVBoxLayout,
     QCheckBox,
