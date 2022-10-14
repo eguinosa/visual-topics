@@ -78,14 +78,15 @@ class MainWindow(QMainWindow):
         docs_tab_docs_num = 10
         docs_tab_word_num = 10
         # Gather Data from Random Doc for the Documents Tab.
+        # Doc Num (+1) in case the search returns the document itself.
         cur_doc_id, cur_doc_embed = search_engine.random_doc_and_embed()
         cur_doc_full_content = search_engine.doc_full_content(cur_doc_id)
         top_topics_sims, top_docs_sims = search_engine.embed_query(
             embed=cur_doc_embed, topic_num=docs_tab_topics_num,
-            doc_num=(docs_tab_docs_num + 1), show_progress=False
+            doc_num=(docs_tab_docs_num + 1), vector_space='documents',
+            show_progress=False
         )
         # Remove the Doc Himself from the List.
-        top_docs_sims = top_docs_sims[1:]
         docs_tab_topics_info = [
             (topic_id, topic_sim,
              search_engine.topic_description(topic_id, word_num=docs_tab_word_num))
@@ -95,7 +96,14 @@ class MainWindow(QMainWindow):
             (doc_id, doc_sim,
              search_engine.doc_title(doc_id), search_engine.doc_abstract(doc_id))
             for doc_id, doc_sim in top_docs_sims
+            if doc_id != cur_doc_id
         ]
+        # Make sure we have the right amount of docs.
+        docs_tab_docs_info = docs_tab_docs_info[:docs_tab_docs_num]
+        # Topics Selected for the Documents Scrollable.
+        docs_tab_top_topic, _ = top_topics_sims[0]
+        docs_tab_all_topics = False
+        docs_tab_selected_topics = {docs_tab_top_topic}
 
         # Save Class Attributes.
         self.current_model = current_model
@@ -125,11 +133,18 @@ class MainWindow(QMainWindow):
         self.topics_tab_docs_scroll = None
         # Documents Tab - Information
         self.docs_tab_index = 2
+        self.docs_tab_working = False
         self.docs_tab_topics_num = docs_tab_topics_num
         self.docs_tab_docs_num = docs_tab_docs_num
         self.docs_tab_word_num = docs_tab_word_num
         self.docs_tab_cur_doc = cur_doc_id
+        self.docs_tab_doc_embed = cur_doc_embed
         self.docs_tab_doc_content = cur_doc_full_content
+        self.docs_tab_all_topics = docs_tab_all_topics
+        self.docs_tab_selected_topics = docs_tab_selected_topics
+        self.docs_tab_top_topic = docs_tab_top_topic
+        self.docs_tab_all_checkbox = None
+        self.docs_tab_topic_checkboxes = {}
         self.docs_tab_topics_info = docs_tab_topics_info
         self.docs_tab_docs_info = docs_tab_docs_info
         self.docs_tab_size_combo = None
@@ -155,13 +170,19 @@ class MainWindow(QMainWindow):
         """
         # Create Window Size and Name.
         self.setMinimumSize(1100, 800)
-        # self.setGeometry(100, 80, 1300, 900)
+        # self.setGeometry(50, 10, 1100, 800)
         self.setWindowTitle("Scientific Search")
+        # Change the Location of the Window.
+        self.move(10, 80)
+        # self.resize(1280, 800)
 
         # Organize Layout.
         self.setUpMainWindow(show_progress=show_progress)
         self.createActions(show_progress=show_progress)
         self.createMenu(show_progress=show_progress)
+        # # Check Window Size Pre-Showing.
+        # progress_msg(f"Self -> Window Width: {self.width()}")
+        # progress_msg(f"Self -> Window Height: {self.height()}")
 
     def setUpMainWindow(self, show_progress=False):
         """
@@ -450,6 +471,13 @@ class MainWindow(QMainWindow):
         size_layout.addWidget(size_label)
         size_layout.addWidget(size_combo)
         size_layout.addStretch()
+        # - All Topics Checkbox -
+        all_topics_checkbox = QCheckBox("Use All Topics")
+        self.docs_tab_all_checkbox = all_topics_checkbox
+        all_topics_checkbox.toggled.connect(
+            lambda checked:
+            self.newDocsTabAllTopics(checked=checked, show_progress=show_progress)
+        )
         # - Top Topics Area -
         top_topics_num = self.docs_tab_topics_num
         close_topics_label = QLabel(f"Top {top_topics_num} Closest Topics:")
@@ -467,6 +495,7 @@ class MainWindow(QMainWindow):
         # -- Save the Topic Area Layout --
         topic_area_layout = QVBoxLayout()
         topic_area_layout.addLayout(size_layout)
+        topic_area_layout.addWidget(all_topics_checkbox, 0, Qt.AlignmentFlag.AlignLeft)
         topic_area_layout.addWidget(close_topics_label, 0, Qt.AlignmentFlag.AlignLeft)
         topic_area_layout.addWidget(topics_scroll_area)
         topic_area_container = QWidget()
@@ -482,6 +511,10 @@ class MainWindow(QMainWindow):
         """
         # Header Area.
         name_label = QLabel(header_text)
+        name_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse |
+            Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
         full_content_button = QPushButton("Full Content")
         full_content_button.setEnabled(has_full_content)
         full_content_button.clicked.connect(
@@ -490,7 +523,7 @@ class MainWindow(QMainWindow):
         # - Header Area Layout -
         header_layout = QHBoxLayout()
         header_layout.addWidget(name_label, 0, Qt.AlignmentFlag.AlignLeft)
-        header_layout.addWidget(full_content_button, 0, Qt.AlignmentFlag.AlignLeft)
+        header_layout.addWidget(full_content_button, 0, Qt.AlignmentFlag.AlignRight)
         # Content Text Area.
         text_read_only = QLabel()
         self.docs_tab_text_widget = text_read_only
@@ -600,9 +633,10 @@ class MainWindow(QMainWindow):
                     self.newSearchTabTopicSelection(checked, topic_id=x)
                 )
             elif checkable_type == 'doc-checkbox':
+                self.docs_tab_topic_checkboxes[topic_id] = header_checkable
                 header_checkable.toggled.connect(
                     lambda checked, x=topic_id:
-                    self.newDocTabTopicSelection(checked, topic_id=x)
+                    self.newDocsTabTopicSelection(checked, topic_id=x)
                 )
             else:
                 raise NameError(f"Non-supported Checkable: {checkable_type}")
@@ -920,24 +954,167 @@ class MainWindow(QMainWindow):
         # Create the Topics Info Items & Add them to the Layout.
         topics_info = self.docs_tab_topics_info
         # Mark the first Topic of the List.
-        is_first = True
         for topic_id, similarity, description in topics_info:
+            is_checked = topic_id in self.docs_tab_selected_topics
             topic_info_container = self.topicInfoItem(
                 topic_id=topic_id, cat_type='similarity', cat_value=similarity,
                 description=description, view_type='topic',
-                checkable_type='doc-checkbox', set_checked=is_first
+                checkable_type='doc-checkbox', set_checked=is_checked
             )
             # Add to Layout.
             top_topics_v_box.addWidget(topic_info_container)
-            # Do Not Check the rest of the topics.
-            if is_first:
-                is_first = False
         # Create Container for the List of Items.
         top_topics_container = QWidget()
         top_topics_container.setLayout(top_topics_v_box)
 
         # Doc Tab - Update Scrollable of Topics.
         self.docs_tab_topics_scroll.setWidget(top_topics_container)
+
+    def newDocsTabAllTopics(self, checked: bool, show_progress=False):
+        """
+        The 'Use All Topics' checkbox has been toggled. Depending on the value
+        of 'checked' either show the Top Documents using all the corpus or the
+        documents from the top topic for the document.
+        """
+        # Do not Respond to the Signal if the Documents Tab is Busy.
+        if self.docs_tab_working:
+            return
+        # Signal that we are Working the Documents Tab.
+        self.docs_tab_working = True
+
+        # Get the Current Doc Info.
+        cur_doc_id = self.docs_tab_cur_doc
+        cur_doc_embed = self.docs_tab_doc_embed
+
+        # Check if the Checkbox was checked or deselected.
+        if checked:
+            # --- All Topics Selected ---
+            if show_progress:
+                progress_msg("All Topics Selected in the Documents Tab.")
+            self.docs_tab_all_topics = True
+            # Deselected all the currently selected topics.
+            for topic_id in self.docs_tab_selected_topics:
+                topic_checkbox = self.docs_tab_topic_checkboxes[topic_id]
+                topic_checkbox.setChecked(False)
+            # Clean the Selected Topics Set.
+            self.docs_tab_selected_topics = None
+            # Use the Default List of All the Documents to find the Top Docs.
+            doc_ids = None
+        else:
+            # --- All Topics Deselected ---
+            if show_progress:
+                progress_msg("All Topics De-selected in the Documents Tab.")
+            self.docs_tab_all_topics = False
+            # Select the Document's Topic (Top Topic).
+            top_topic_id = self.docs_tab_top_topic
+            self.docs_tab_selected_topics = {top_topic_id}
+            top_topic_checkbox = self.docs_tab_topic_checkboxes[top_topic_id]
+            top_topic_checkbox.setChecked(True)
+            # Use the Documents of the Top Topic to find the Top Documents.
+            doc_ids = self.search_engine.topic_doc_ids(top_topic_id)
+
+        # Find the Top Docs using the documents in the Top Topic.
+        # Doc Num (+1) in case the search returns the document itself.
+        top_docs_sims = self.search_engine.embed_query_top_docs(
+            embed=cur_doc_embed, doc_ids=doc_ids,
+            doc_num=(self.docs_tab_docs_num + 1),
+            vector_space='documents', show_progress=show_progress
+        )
+        docs_tab_docs_info = [
+            (doc_id, doc_sim,
+             self.search_engine.doc_title(doc_id),
+             self.search_engine.doc_abstract(doc_id))
+            for doc_id, doc_sim in top_docs_sims
+            if doc_id != cur_doc_id
+        ]
+        # Make sure we have the right amount of docs.
+        docs_tab_docs_info = docs_tab_docs_info[:self.docs_tab_docs_num]
+        # Save the Documents Info.
+        self.docs_tab_docs_info = docs_tab_docs_info
+        # Update the Documents Scrollable.
+        self.updateDocsTabDocsScroll()
+        # Done Working on the Documents Tab.
+        self.docs_tab_working = False
+
+    def newDocsTabTopicSelection(
+            self, checked: bool, topic_id: str, show_progress=False
+    ):
+        """
+        Update the Topics Selected for the list of Close Documents in regard to
+        the current document we are viewing.
+        """
+        # Do not Respond to the Signal if the Documents Tab is Busy.
+        if self.docs_tab_working:
+            return
+        # Signal that we are Working the Documents Tab.
+        self.docs_tab_working = True
+
+        # Get the Current Doc Info.
+        cur_doc_id = self.docs_tab_cur_doc
+        cur_doc_embed = self.docs_tab_doc_embed
+
+        # Check if the Checkbox was checked or deselected.
+        if checked:
+            # --- New Topic Selected for the Search ---
+            if show_progress:
+                progress_msg(f"New Topic Selected: {topic_id}.")
+            if self.docs_tab_all_topics:
+                # - This is the Only Topic -
+                self.docs_tab_all_topics = False
+                self.docs_tab_all_checkbox.setChecked(False)
+                self.docs_tab_selected_topics = {topic_id}
+                # Use the Topic Docs to find the Top Documents.
+                doc_ids = self.search_engine.topic_doc_ids(topic_id)
+            else:
+                # - They Are Other Selected Topics -
+                self.docs_tab_selected_topics.add(topic_id)
+                # Use the Topic Docs from the Selected Documents.
+                doc_ids = []
+                for sel_topic_id in self.docs_tab_selected_topics:
+                    new_doc_ids = self.search_engine.topic_doc_ids(sel_topic_id)
+                    doc_ids += new_doc_ids
+        else:
+            # --- Remove the Topic from the Search ---
+            if show_progress:
+                progress_msg(f"Topic Removed: {topic_id}")
+            if len(self.docs_tab_selected_topics) == 1:
+                # - This was the Only Topic (Now Use All Topics) -
+                self.docs_tab_all_topics = True
+                self.docs_tab_all_checkbox.setChecked(True)
+                self.docs_tab_selected_topics = None
+                # Use te Default List of Docs IDs (All from the Topic Model)
+                doc_ids = None
+            else:
+                # - They are still more Topics Selected -
+                self.docs_tab_selected_topics.remove(topic_id)
+                # Use the Topic Docs from the Selected Documents.
+                doc_ids = []
+                for sel_topic_id in self.docs_tab_selected_topics:
+                    new_doc_ids = self.search_engine.topic_doc_ids(sel_topic_id)
+                    doc_ids += new_doc_ids
+
+        # Find the Top Docs using the documents in the Top Topic.
+        # Doc Num (+1) in case the search returns the document itself.
+        top_docs_sims = self.search_engine.embed_query_top_docs(
+            embed=cur_doc_embed, doc_ids=doc_ids,
+            doc_num=(self.docs_tab_docs_num + 1),
+            vector_space='documents', show_progress=show_progress
+        )
+        docs_tab_docs_info = [
+            (doc_id, doc_sim,
+             self.search_engine.doc_title(doc_id),
+             self.search_engine.doc_abstract(doc_id))
+            for doc_id, doc_sim in top_docs_sims
+            if doc_id != cur_doc_id
+        ]
+        # Make sure we have the right amount of docs.
+        docs_tab_docs_info = docs_tab_docs_info[:self.docs_tab_docs_num]
+        # Save the Documents Info.
+        self.docs_tab_docs_info = docs_tab_docs_info
+        # Update the Documents Scrollable.
+        self.updateDocsTabDocsScroll()
+        # Done Working on the Documents Tab.
+        self.docs_tab_working = False
 
     def updateDocsTabDocsScroll(self):
         """
@@ -966,13 +1143,6 @@ class MainWindow(QMainWindow):
         # Update the Document Scrollable inside the Documents Tab.
         self.docs_tab_docs_scroll.setWidget(docs_container)
 
-    def newDocTabTopicSelection(self, checked: bool, topic_id: str):
-        """
-        Update the Topics Selected for the list of Close Documents in regard to
-        the current document we are viewing.
-        """
-        progress_msg("New Topic Selection NOT IMPLEMENTED!!!")
-
     def viewFullContent(self, doc_id: str):
         """
         Open a new Dialog to see the content of the Document 'doc_id'.
@@ -985,4 +1155,7 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     window = MainWindow(show_progress=True)
     window.show()
+    # # Show Window Size after Showing.
+    # print(f"Window Width: {window.width()}")
+    # print(f"Window Height: {window.height()}")
     sys.exit(app.exec())
