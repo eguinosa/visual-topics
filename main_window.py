@@ -12,6 +12,7 @@ from PyQt6.QtGui import QAction
 
 from ir_system import IRSystem
 from qvocab_dialog import QVocabDialog
+from qfull_content import QFullContent
 from extra_funcs import progress_msg
 
 
@@ -163,6 +164,7 @@ class MainWindow(QMainWindow):
 
         # Dialog Windows.
         self.vocab_window = None
+        self.content_window = None
 
         # Create App UI.
         self.initializeUI(show_progress=show_progress)
@@ -1247,7 +1249,10 @@ class MainWindow(QMainWindow):
         """
         Open a new Dialog to see the content of the Document 'doc_id'.
         """
-        progress_msg("Viewing the Full Content NOT IMPLEMENTED!!!")
+        progress_msg("Opening Full Content...")
+        full_content = self.docs_tab_doc_content
+        self.content_window = QFullContent(doc_id, full_content)
+        self.content_window.show()
 
 
 # Run Application.
