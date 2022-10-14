@@ -5,7 +5,7 @@ import sys
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QComboBox, QTabWidget, QLayout, QScrollArea, QLineEdit, QPushButton, QFrame,
-    QButtonGroup, QCheckBox, QRadioButton, QTextEdit,
+    QButtonGroup, QCheckBox, QRadioButton,
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction
@@ -123,9 +123,11 @@ class MainWindow(QMainWindow):
         self.search_tab_topics_scroll = None
         # Topics Tab - Information
         self.topics_tab_index = 1
-        self.topics_tab_cur_topic = topics_tab_cur_topic
         self.topics_tab_word_num = topics_tab_word_num
+        self.topics_tab_cur_topic = topics_tab_cur_topic
         self.topics_tab_button_group = QButtonGroup()
+        self.topics_tab_topics_radios = {}
+        self.topics_tab_topics_widgets = {}
         self.topics_tab_size_combo = None
         self.topics_tab_topics_scroll = None
         self.topics_tab_docs_label = None
@@ -170,11 +172,11 @@ class MainWindow(QMainWindow):
         Set up the Application's GUI
         """
         # Create Window Size and Name.
-        self.setMinimumSize(1100, 800)
-        # self.setGeometry(50, 10, 1100, 800)
+        self.setMinimumSize(1000, 800)
+        self.setGeometry(10, 80, 1280, 800)
         self.setWindowTitle("Scientific Search")
         # Change the Location of the Window.
-        self.move(10, 80)
+        # self.move(10, 80)
         # self.resize(1280, 800)
 
         # Organize Layout.
@@ -644,9 +646,10 @@ class MainWindow(QMainWindow):
                 raise NameError(f"Non-supported Checkable: {checkable_type}")
         elif checkable_type == 'radio-button':
             header_checkable = QRadioButton(topic_header)
+            self.topics_tab_button_group.addButton(header_checkable)
+            self.topics_tab_topics_radios[topic_id] = header_checkable
             if set_checked:
                 header_checkable.setChecked(True)
-            self.topics_tab_button_group.addButton(header_checkable)
             header_checkable.toggled.connect(
                 lambda checked, x=topic_id: self.newTopicSelected(checked, x)
             )
@@ -685,6 +688,9 @@ class MainWindow(QMainWindow):
         topic_item_container = QFrame()
         topic_item_container.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Plain)
         topic_item_container.setLayout(topic_item_layout)
+        # Topics Tab - Save the Container of the Topic.
+        if checkable_type == 'radio-button':
+            self.topics_tab_topics_widgets[topic_id] = topic_item_container
         # Item with the Info about the Topic.
         return topic_item_container
 
@@ -785,12 +791,6 @@ class MainWindow(QMainWindow):
             progress_msg(f"The {topic_id} is partially checked or another not "
                          f"supported action.")
 
-    def viewTopic(self, topic_id: str):
-        """
-        Open the Topics Tab to view the Topic 'topic_id'.
-        """
-        progress_msg("View Topic is NOT YET IMPLEMENTED!!!")
-
     def changeTopicSorting(self, sort_cat_index: int, show_progress=False):
         """
         Change the sorting category use to rank the topics in the Topics Tab.
@@ -803,23 +803,27 @@ class MainWindow(QMainWindow):
             return
 
         # --- New Sorting Category Selected ---
-        new_sort_cat = self.sort_categories[sort_cat_index]
+        cur_cat_index = sort_cat_index
+        cur_sort_cat = self.sort_categories[cur_cat_index]
         if show_progress:
             progress_msg(
-                f"Updating the sorting category of the topics to <{new_sort_cat}>..."
+                f"Updating the sorting category of the topics to <{cur_sort_cat}>..."
             )
         # Save Old Top Topic to see if it changes.
         old_top_topic = self.topics_tab_cur_topic
 
-        # Update the Current Category Attributes.
-        self.cur_cat_index = sort_cat_index
-        self.cur_sort_cat = new_sort_cat
-        self.cur_cat_topics_info = self.search_engine.topics_info(
-            sort_cat=self.cur_sort_cat.lower(), word_num=self.topics_tab_word_num
+        # Get the Information for the New Topics.
+        cur_cat_topics_info = self.search_engine.topics_info(
+            sort_cat=cur_sort_cat.lower(), word_num=self.topics_tab_word_num
         )
         # Topics Tab - Get the Top Topic of the new Category.
-        top_topic, _, _ = self.cur_cat_topics_info[0]
+        top_topic, _, _ = cur_cat_topics_info[0]
+
+        # Update the Current Category Attributes.
         self.topics_tab_cur_topic = top_topic
+        self.topics_tab_topics_radios = {}
+        self.topics_tab_button_group = QButtonGroup()
+        self.topics_tab_topics_widgets = {}
 
         # Topics Tab - Update Scrollable of Topics.
         self.updateTopicsTabTopicScroll()
@@ -828,7 +832,7 @@ class MainWindow(QMainWindow):
             self.updateTopicsTabDocScroll()
         # Done.
         if show_progress:
-            progress_msg(f"Topics in the Topics Tab sorted by {new_sort_cat}!")
+            progress_msg(f"Topics in the Topics Tab sorted by {cur_sort_cat}!")
 
     def updateTopicsTabTopicScroll(self):
         """
@@ -863,6 +867,22 @@ class MainWindow(QMainWindow):
         # Topics Tab - Update Scrollable of Topics.
         self.topics_tab_topics_scroll.setWidget(top_topics_container)
 
+    def viewTopic(self, topic_id: str):
+        """
+        Open the Topics Tab to view the Topic 'topic_id'.
+        """
+        # Go to the Topics Tab if we are not there.
+        if self.current_tab_index != self.topics_tab_index:
+            self.current_tab_index = self.topics_tab_index
+            self.main_tab_bar.setCurrentIndex(self.current_tab_index)
+        # Get the Topic RadioButton and Container in Scrollable.
+        topic_radio_button = self.topics_tab_topics_radios[topic_id]
+        topic_container = self.topics_tab_topics_widgets[topic_id]
+        # Make Visible the Topic in the Topics Scrollable.
+        self.topics_tab_topics_scroll.ensureWidgetVisible(topic_container)
+        # Select the Given Topic in Scrollable.
+        topic_radio_button.setChecked(True)
+
     def newTopicSelected(self, checked: bool, topic_id: str, show_progress=False):
         """
         Update the Information being displayed in the Topics Tab, using the new
@@ -872,7 +892,6 @@ class MainWindow(QMainWindow):
         if not checked:
             # No need to do any changes to the UI.
             return
-
         # Update the Current Topic in the Topics Tab.
         self.topics_tab_cur_topic = topic_id
         # Update the Displayed Documents.
@@ -928,6 +947,16 @@ class MainWindow(QMainWindow):
         """
         Show a Document in the Document Tab.
         """
+        # Check if it is the same document.
+        if doc_id == self.docs_tab_cur_doc:
+            # Only check if we are on the Documents Tab.
+            # Go to the Documents Tab if we are not there.
+            if self.current_tab_index != self.docs_tab_index:
+                self.current_tab_index = self.docs_tab_index
+                self.main_tab_bar.setCurrentIndex(self.current_tab_index)
+            # Done.
+            return
+
         # Signal that we are Working the Documents Tab.
         self.docs_tab_working = True
         # Get the Embedding of the Document.
