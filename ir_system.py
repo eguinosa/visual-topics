@@ -426,6 +426,13 @@ class IRSystem:
         rand_doc_embed = self.topic_model.doc_embeds[rand_doc_id]
         return rand_doc_id, rand_doc_embed
 
+    def doc_embed(self, doc_id: str):
+        """
+        Get the Embedding of the Document 'doc_id'.
+        """
+        doc_embed = self.topic_model.doc_embeds[doc_id]
+        return doc_embed
+
     def doc_title(self, doc_id: str):
         """
         Get the Title of the Document 'doc_id'.
