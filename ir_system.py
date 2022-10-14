@@ -100,6 +100,13 @@ class IRSystem:
         """
         return self.topic_model.cur_topic_size
 
+    @property
+    def system_doc_ids(self):
+        """
+        IDs of the documents in the Topic Model of the System.
+        """
+        return self.corpus.doc_ids
+
     def update_model(self, new_model: str, show_progress=False):
         """
         Update the Topic Model used by the IR system.
