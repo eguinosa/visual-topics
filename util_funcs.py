@@ -123,7 +123,7 @@ def closest_vector(embedding, vectors_dict: dict):
     return closest_vector_id, max_similarity
 
 
-def find_top_n(id_values: iter, n=50, top_max=True, show_progress=False):
+def find_top_n(id_values: iter, n=50, top_max=True, iter_len=-1, show_progress=False):
     """
     Given a list of tuples (IDs, Values) find the top 'n' tuples in the list
     using their values.
@@ -134,6 +134,8 @@ def find_top_n(id_values: iter, n=50, top_max=True, show_progress=False):
         n: Int with the amount of Top IDs we are going to return.
         top_max: Bool indicating the Maximum value is the Top value when 'True',
             and the Minimum value is the Top value when 'False'.
+        iter_len: Int with the length of the iterable sequence to be able to
+            show the progress of the function.
         show_progress: Bool representing whether we show the progress of
             the method or not.
     Returns:
@@ -143,9 +145,18 @@ def find_top_n(id_values: iter, n=50, top_max=True, show_progress=False):
     top_ids_values = []
     sort_values = []
 
+    # Check the value of iter_len.
+    if iter_len == -1 and show_progress:
+        # If the 'id_values' has a length attributes no problems.
+        if hasattr(id_values, '__len__'):
+            iter_len = len(id_values)
+        else:
+            # We can't show the progress.
+            show_progress = False
+
     # Iterate though the elements of the dictionary to get the top n.
     count = 0
-    total = len(id_values)
+    total = iter_len
     for item_id, value in id_values:
         # Check if we want the top maximum values, if that's the case multiply
         # by -1 so the max values are now the minimum values.
@@ -169,6 +180,9 @@ def find_top_n(id_values: iter, n=50, top_max=True, show_progress=False):
             sort_values.insert(index, sort_value)
         # Progress of the search.
         if show_progress:
+            # Check the length is correct:
+            if count > total:
+                raise IndexError(f"More than {iter_len} items found.")
             count += 1
             progress_bar(count, total)
 
