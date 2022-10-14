@@ -5,7 +5,7 @@ import sys
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QComboBox, QTabWidget, QLayout, QScrollArea, QLineEdit, QPushButton, QFrame,
-    QButtonGroup, QCheckBox, QRadioButton,
+    QButtonGroup, QCheckBox, QRadioButton, QDialog,
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction
@@ -13,6 +13,7 @@ from PyQt6.QtGui import QAction
 from ir_system import IRSystem
 from qvocab_dialog import QVocabDialog
 from qfull_content import QFullContent
+from qopen_document import QOpenDocument
 from extra_funcs import progress_msg
 
 
@@ -161,6 +162,7 @@ class MainWindow(QMainWindow):
 
         # Menu Bar Actions.
         self.quit_act = None
+        self.open_doc = None
 
         # Dialog Windows.
         self.vocab_window = None
@@ -243,9 +245,14 @@ class MainWindow(QMainWindow):
         """
         # Create actions for File menu.
         self.quit_act = QAction("&Quit")
-        self.quit_act.setShortcut("Ctr+Q")
+        self.quit_act.setShortcut("Ctrl+Q")
         # noinspection PyTypeChecker
         self.quit_act.triggered.connect(self.close)
+        # Create Actions for Documents Tab.
+        self.open_doc = QAction("Open Document")
+        self.open_doc.setShortcut("Ctrl+O")
+        self.open_doc.triggered.connect(self.getDocID)
+
         if show_progress:
             progress_msg("Actions Created!")
 
@@ -257,6 +264,9 @@ class MainWindow(QMainWindow):
         # Create File Menu and actions.
         file_menu = self.menuBar().addMenu("File")
         file_menu.addAction(self.quit_act)
+        # Create Documents Tab Menu.
+        doc_menu = self.menuBar().addMenu("Docs")
+        doc_menu.addAction(self.open_doc)
         if show_progress:
             progress_msg("Menu Created!")
 
@@ -944,6 +954,17 @@ class MainWindow(QMainWindow):
         word_list = self.search_engine.topic_vocab(topic_id)
         self.vocab_window = QVocabDialog(topic_id, word_list)
         self.vocab_window.show()
+
+    def getDocID(self):
+        """
+        Open a Dialog to get the ID to open a new Document.
+        """
+        progress_msg("Opening Dialog to get Doc ID...")
+        doc_ids = self.search_engine.system_doc_ids
+        id_window = QOpenDocument(all_doc_ids=doc_ids)
+        if id_window.exec() == QDialog.DialogCode.Accepted:
+            doc_id = id_window.doc_id
+            self.viewDocument(doc_id=doc_id)
 
     def viewDocument(self, doc_id: str):
         """
