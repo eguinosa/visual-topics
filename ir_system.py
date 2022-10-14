@@ -214,17 +214,24 @@ class IRSystem:
         return top_topics_sims, top_docs_sims
 
     def embed_query(
-            self, embed: ndarray, topic_num=10, doc_num=10, show_progress=False
+            self, embed: ndarray, topic_num=10, doc_num=10,
+            vector_space='words', show_progress=False
     ):
         """
-        Given an Embedding 'embed' find the closest topics and documents to the
+        Given an Embedding 'embed', find the closest topics and documents to the
         embedding using the Topic Model. Similar to 'self.user_query()'
         """
         # Find The Top Topics For the Embedding.
         if show_progress:
             progress_msg("Finding the most relevant topics...")
-        # Get the topic embeds from the vocabulary vector space.
-        topic_embeds = self.topic_model.current_word_space_topic_embeds
+        # Get the Embeddings of the Topics.
+        if vector_space == 'words':
+            topic_embeds = self.topic_model.current_word_space_topic_embeds
+        elif vector_space == 'documents':
+            topic_embeds = self.topic_model.current_doc_space_topic_embeds
+        else:
+            raise NameError(f"The Vector Space <{vector_space}> is not supported.")
+        # Calculate the distance of the topics to the embeds.
         topics_sims = [
             (topic_id, cosine_sim(embed, topic_embed))
             for topic_id, topic_embed in topic_embeds.items()
@@ -233,28 +240,56 @@ class IRSystem:
         top_topics_sims = find_top_n(id_values=topics_sims, n=topic_num)
         top_topic_id, _ = top_topics_sims[0]
 
-        # Get the Embeddings of the Documents from the Top Topic.
-        if show_progress:
-            progress_msg("Finding most relevant docs in the top topic...")
-        docs_ids = self.topic_model.base_topic_docs[top_topic_id]
-        doc_embeds = self.topic_model.word_space_doc_embeds
-        docs_sims = [
-            (doc_id, cosine_sim(embed, doc_embeds[doc_id]))
-            for doc_id, _ in docs_ids
-        ]
+        # Get the IDs of the Documents in the Top Topic.
+        doc_ids = self.topic_doc_ids(top_topic_id)
         # Get the Most Relevant Documents.
-        top_docs_sims = find_top_n(id_values=docs_sims, n=doc_num)
+        top_docs_sims = self.embed_query_top_docs(
+            embed=embed, doc_ids=doc_ids, doc_num=doc_num,
+            vector_space=vector_space, show_progress=show_progress
+        )
 
         # Most Relevant Topics and Documents with their similarity.
         return top_topics_sims, top_docs_sims
 
-    def topic_vocab(self, topic_id: str):
+    def embed_query_top_docs(
+            self, embed: ndarray, doc_ids=None, doc_num=10,
+            vector_space='words', show_progress=False
+    ):
         """
-        Get the list of words that best describe the topic and their similarity
-        to the topic.
+        Given an Embedding 'embed', find the closest documents in the provided
+        list 'doc_ids' to the given embed. If 'doc_ids' is empty, the use all
+        the documents in the Topic Model.
         """
-        words_sims_list = self.topic_model.topic_words[topic_id]
-        return words_sims_list
+        if show_progress:
+            progress_msg("Finding the most relevant docs...")
+
+        # Check the List of Document IDs is not empty.
+        if not doc_ids:
+            doc_ids = list(self.topic_model.doc_space_doc_embeds.keys())
+
+        # Get the Doc Embeddings.
+        if vector_space == 'words':
+            doc_embeds = self.topic_model.word_space_doc_embeds
+        elif vector_space == 'documents':
+            doc_embeds = self.topic_model.doc_space_doc_embeds
+        else:
+            raise NameError(f"The Vector Space <{vector_space}> is not supported.")
+
+        # Calculate the Distance of the Documents to the Embedding.
+        docs_sims = iter(
+            (doc_id, cosine_sim(embed, doc_embeds[doc_id]))
+            for doc_id in doc_ids
+        )
+        # Get the Most Relevant Documents.
+        doc_count = len(doc_ids)
+        find_progress = doc_count >= 10_000
+        top_docs_sims = find_top_n(
+            id_values=docs_sims, n=doc_num, iter_len=doc_count,
+            show_progress=find_progress
+        )
+
+        # Most Relevant Documents for the given 'embed'.
+        return top_docs_sims
 
     def supported_model_sizes(self):
         """
@@ -273,6 +308,24 @@ class IRSystem:
             saved_sizes = [self.topic_model.topic_size]
         # Saved Topic Sizes.
         return saved_sizes
+
+    def topic_vocab(self, topic_id: str):
+        """
+        Get the list of words that best describe the topic and their similarity
+        to the topic.
+        """
+        words_sims_list = self.topic_model.topic_words[topic_id]
+        return words_sims_list
+
+    def topic_doc_ids(self, topic_id: str):
+        """
+        Get the Document IDs of the Topic 'topic_id'.
+        """
+        doc_ids = [
+            doc_id
+            for doc_id, _ in self.topic_model.base_topic_docs[topic_id]
+        ]
+        return doc_ids
 
     def topics_info(self, sort_cat='size', word_num=10):
         """
