@@ -137,6 +137,7 @@ class MainWindow(QMainWindow):
         self.docs_tab_all_checkbox = None
         self.docs_tab_topics_scroll = None
         self.docs_tab_name_label = None
+        self.docs_tab_content_button = None
         self.docs_tab_text_widget = None
         self.docs_tab_docs_scroll = None
 
@@ -147,6 +148,7 @@ class MainWindow(QMainWindow):
         # Menu Bar Actions.
         self.quit_act = None
         self.open_doc = None
+        self.random_doc = None
 
         # Dialog Windows.
         self.vocab_window = None
@@ -243,6 +245,9 @@ class MainWindow(QMainWindow):
         self.open_doc = QAction("Open Document")
         self.open_doc.setShortcut("Ctrl+O")
         self.open_doc.triggered.connect(self.getDocID)
+        self.random_doc = QAction("Random Document")
+        self.random_doc.setShortcut("Ctrl+R")
+        self.random_doc.triggered.connect(self.openRandomDoc)
 
         if show_progress:
             progress_msg("Actions Created!")
@@ -258,6 +263,7 @@ class MainWindow(QMainWindow):
         # Create Documents Tab Menu.
         doc_menu = self.menuBar().addMenu("Docs")
         doc_menu.addAction(self.open_doc)
+        doc_menu.addAction(self.random_doc)
         if show_progress:
             progress_msg("Menu Created!")
 
@@ -270,6 +276,9 @@ class MainWindow(QMainWindow):
         search_line_edit = QLineEdit()
         self.search_tab_line_edit = search_line_edit
         search_line_edit.setPlaceholderText(f" {self.search_tab_query_text}")
+        search_line_edit.returnPressed.connect(
+            lambda: self.searchRequested()
+        )
         search_button = QPushButton("Search")
         search_button.clicked.connect(
             lambda checked: self.searchRequested()
@@ -502,6 +511,7 @@ class MainWindow(QMainWindow):
             Qt.TextInteractionFlag.TextSelectableByKeyboard
         )
         full_content_button = QPushButton("Full Content")
+        self.docs_tab_content_button = full_content_button
         full_content_button.setEnabled(has_full_content)
         full_content_button.clicked.connect(
             lambda checked, x=doc_id: self.viewFullContent(doc_id=x)
@@ -1076,6 +1086,13 @@ class MainWindow(QMainWindow):
             doc_id = id_window.doc_id
             self.viewDocument(doc_id=doc_id)
 
+    def openRandomDoc(self):
+        """
+        Open a Random Document.
+        """
+        random_doc_id = self.search_engine.random_doc_id()
+        self.viewDocument(doc_id=random_doc_id)
+
     def viewDocument(self, doc_id: str):
         """
         Show a Document in the Document Tab.
@@ -1179,6 +1196,10 @@ class MainWindow(QMainWindow):
             </u></font></p>
             <p align='justify'><font size='+1'>{abstract}</font></p>
         """
+
+        # Update the Full Content Button.
+        has_full_content = self.docs_tab_doc_content != ''
+        self.docs_tab_content_button.setEnabled(has_full_content)
         # Set the Text for the Name Label.
         self.docs_tab_name_label.setText(header_text)
         # Set the Content inside the TextEdit Widget.
