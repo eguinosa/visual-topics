@@ -186,6 +186,37 @@ class IRSystem:
         # Text Model Attributes.
         self.text_model = text_model
 
+    def update_topic_size(self, new_size: str, show_progress=False):
+        """
+        Update the Topic Model Size to one of the Supported Sizes of the Model.
+        """
+        # Transform the String to Int.
+        new_topic_size = int(new_size)
+        # Reduce the Size of the Topic Model.
+        self.topic_model.reduce_topics(
+            new_size=new_topic_size, parallelism=True, show_progress=show_progress
+        )
+        if show_progress:
+            progress_msg(f"The IR System has a new Topic Size <{new_topic_size}>.")
+
+    def supported_model_sizes(self):
+        """
+        Create a list with the sizes of the saved Reduced Topic Models (usually
+        the main sizes).
+
+        Returns: List[int] with the saved reduced sizes.
+        """
+        # Check if the model has reduced sizes.
+        if self.topic_model.reduced_topics_saved():
+            saved_sizes = list(self.topic_model.main_sizes(self.topic_model.topic_size))
+            saved_sizes.sort()
+            saved_sizes.append(self.topic_model.topic_size)
+        else:
+            # Only the Original Size of the Model.
+            saved_sizes = [self.topic_model.topic_size]
+        # Saved Topic Sizes.
+        return saved_sizes
+
     def user_query(self, query: str, topic_num=10, doc_num=10, show_progress=False):
         """
         Given a user's 'query' get the top 'doc_num' of relevant documents and
@@ -220,13 +251,13 @@ class IRSystem:
         # Most Relevant Topics and Documents with their similarity.
         return top_topics_sims, top_docs_sims
 
-    def query_embed(self, query_text: str):
+    def text_embed(self, text: str):
         """
         Given the text of a query, create the embedding of the query using the
         Text Model of the Topic Model. This vector representation would be in
         the vector space that contains words, topics and documents.
         """
-        query_embed = self.text_model.doc_embed(doc=query_text)
+        query_embed = self.text_model.doc_embed(doc=text)
         return query_embed
 
     def embed_query(
@@ -307,30 +338,12 @@ class IRSystem:
         # Most Relevant Documents for the given 'embed'.
         return top_docs_sims
 
-    def supported_model_sizes(self):
-        """
-        Create a list with the sizes of the saved Reduced Topic Models (usually
-        the main sizes).
-
-        Returns: List[int] with the saved reduced sizes.
-        """
-        # Check if the model has reduced sizes.
-        if self.topic_model.has_reduced_topics:
-            saved_sizes = list(self.topic_model.main_sizes(self.topic_model.topic_size))
-            saved_sizes.sort()
-            saved_sizes.append(self.topic_model.topic_size)
-        else:
-            # Only the Original Size of the Model.
-            saved_sizes = [self.topic_model.topic_size]
-        # Saved Topic Sizes.
-        return saved_sizes
-
     def topic_vocab(self, topic_id: str):
         """
         Get the list of words that best describe the topic and their similarity
         to the topic.
         """
-        words_sims_list = self.topic_model.topic_words[topic_id]
+        words_sims_list = self.topic_model.base_cur_topic_words[topic_id]
         return words_sims_list
 
     def topic_doc_ids(self, topic_id: str):
@@ -339,7 +352,7 @@ class IRSystem:
         """
         doc_ids = [
             doc_id
-            for doc_id, _ in self.topic_model.base_topic_docs[topic_id]
+            for doc_id, _ in self.topic_model.base_cur_topic_docs[topic_id]
         ]
         return doc_ids
 
@@ -402,7 +415,7 @@ class IRSystem:
             List[Tuple(ID, Sim, Title, Abstract)] with the info of the documents
                 in the topic.
         """
-        topic_docs = self.topic_model.topic_docs[topic_id]
+        topic_docs = self.topic_model.base_cur_topic_docs[topic_id]
         docs_info = [
             (doc_id, similarity,
              self.corpus.doc_title(doc_id), self.corpus.doc_abstract(doc_id))
@@ -438,14 +451,19 @@ class IRSystem:
         Select a Random Document from the Corpus of the Topic Model and return
         its ID.
         """
-        rand_doc_id = choice(list(self.topic_model.doc_embeds.keys()))
+        rand_doc_id = choice(list(self.topic_model.base_doc_embeds.keys()))
         return rand_doc_id
 
-    def doc_embed(self, doc_id: str):
+    def doc_embed(self, doc_id: str, space='documents'):
         """
         Get the Embedding of the Document 'doc_id'.
         """
-        doc_embed = self.topic_model.doc_embeds[doc_id]
+        if space == 'documents':
+            doc_embed = self.topic_model.doc_space_doc_embeds[doc_id]
+        elif space == 'words':
+            doc_embed = self.topic_model.word_space_doc_embeds[doc_id]
+        else:
+            raise NameError(f"The Vector Space <{space}> is not supported.")
         return doc_embed
 
     def doc_title(self, doc_id: str):
