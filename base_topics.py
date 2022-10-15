@@ -324,8 +324,10 @@ class BaseTopics(ABC):
         """
         Bool indicating if the Model has Reduced Topics.
         """
-        # Check if we have loaded some reduced topics.
-        if self.base_cur_topic_embeds:
+        if not self.base_cur_topic_embeds:
+            return False
+        # Check if the Current Embeds has fewer Topics than the Original.
+        if len(self.base_cur_topic_embeds) < len(self.base_topic_embeds):
             return True
         else:
             return False
