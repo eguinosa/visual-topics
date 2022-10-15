@@ -74,13 +74,32 @@ class MainWindow(QMainWindow):
 
         # Search Tab - Fixed Values
         self.search_tab_index = 0
+        self.search_tab_docs_num = 15
+        self.search_tab_topics_num = 10
+        self.search_tab_word_num = 10
+        self.search_tab_preview_size = 300
+        self.search_tab_init_query = 'covid-19 pandemic'
+        # Search Tab - Variables.
+        self.search_tab_working = False
+        self.search_tab_query_text = ''
+        self.search_tab_search_embed = None
+        self.search_tab_top_topic = ''
+        self.search_tab_all_topics = False
+        self.search_tab_selected_topics = None
+        self.search_tab_topics_info = None
+        self.search_tab_docs_info = None
+        self.search_tab_topic_checkboxes = None
         # Search Tab - Info Widgets
         self.search_tab_size_combo = None
+        self.search_tab_all_checkbox = None
+        self.search_tab_line_edit = None
+        self.search_tab_docs_scroll = None
         self.search_tab_topics_scroll = None
 
         # Topics Tab - Fixed Values
         self.topics_tab_index = 1
         self.topics_tab_word_num = 15
+        self.topics_tab_preview_size = 200
         self.topics_tab_sort_cats = ['Size', 'PWI-tf-idf', 'PWI-exact']
         # Topics Tab - Variables
         self.topics_tab_cur_cat = ''
@@ -101,6 +120,7 @@ class MainWindow(QMainWindow):
         self.docs_tab_topics_num = 10
         self.docs_tab_docs_num = 10
         self.docs_tab_word_num = 10
+        self.docs_tab_preview_size = 200
         # Documents Tab - Variables
         self.docs_tab_working = False
         self.docs_tab_cur_doc = ''
@@ -121,7 +141,7 @@ class MainWindow(QMainWindow):
         self.docs_tab_docs_scroll = None
 
         # Main Window - Information Values & Widgets
-        self.current_tab_index = self.docs_tab_index
+        self.current_tab_index = self.search_tab_index
         self.main_tab_bar = None
 
         # Menu Bar Actions.
@@ -132,6 +152,8 @@ class MainWindow(QMainWindow):
         self.vocab_window = None
         self.content_window = None
 
+        # Create the Values for the Search Tab.
+        self.updateSearchTabVariables(query_text=self.search_tab_init_query)
         # Create the Values for the Topics Tab.
         self.updateTopicsTabVariables(cur_cat_index=0)
         # Create the Values for the Documents Tab.
@@ -243,111 +265,91 @@ class MainWindow(QMainWindow):
         """
         Create the Widget with the layout in the Search Tab.
         """
-        # --- Topic Area ---
-        # Get Topic Information
-        topic_sizes = [str(x) for x in self.search_engine.supported_model_sizes()]
-        topics_info = self.search_engine.topics_info()
-        current_size = str(self.search_engine.topic_size)
-        index_size = topic_sizes.index(current_size)
-        # Topic Size Area.
-        size_label = QLabel("Topic Size:")
-        size_combo = QComboBox()
-        size_combo.addItems(topic_sizes)
-        size_combo.setCurrentIndex(index_size)
-        size_combo.activated.connect(
-            lambda index: self.changeTopicSize(index, show_progress=show_progress)
-        )
-        # Topic Size Container.
-        size_h_box = QHBoxLayout()
-        size_h_box.addWidget(size_label)
-        size_h_box.addWidget(size_combo)
-        size_h_box.addStretch()
-        size_container = QWidget()
-        size_container.setLayout(size_h_box)
-        # Top Topics Area.
-        top_topics_label = QLabel("Top Topics:")
-        top_topics_v_box = QVBoxLayout()
-        top_topics_v_box.setSpacing(0)
-        top_topics_v_box.setContentsMargins(0, 0, 0, 0)
-        top_topics_v_box.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
-        # Add items to Topics Layout.
-        for topic_id, size, description in topics_info:
-            topic_info_container = self.topicInfoItem(
-                topic_id=topic_id, cat_type='size',
-                cat_value=size, description=description
-            )
-            top_topics_v_box.addWidget(topic_info_container)
-        # Create Scrollable Area with the topics.
-        top_topics_container = QWidget()
-        top_topics_container.setLayout(top_topics_v_box)
-        topics_scroll_area = QScrollArea()
-        topics_scroll_area.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
-        topics_scroll_area.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAsNeeded
-        )
-        topics_scroll_area.setWidget(top_topics_container)
-        topics_scroll_area.setWidgetResizable(True)
-        # -- Topics Final Layout --
-        topics_layout = QVBoxLayout()
-        topics_layout.addWidget(size_container)
-        topics_layout.addWidget(top_topics_label)
-        topics_layout.addWidget(topics_scroll_area)
-        topics_container = QWidget()
-        topics_container.setLayout(topics_layout)
-
         # --- Search & Documents Area ---
-        # Get Documents Information from the biggest topic in the corpus.
-        first_topic_id, _, _ = topics_info[0]
-        doc_num = 20
-        docs_info = self.search_engine.topic_docs_info(topic_id=first_topic_id)
-        # Docs Info - Crop the number of documents we are displaying.
-        docs_info = docs_info[:doc_num]
-        # Search Layout.
-        search_edit = QLineEdit()
+        # - Search Section -
+        search_line_edit = QLineEdit()
+        self.search_tab_line_edit = search_line_edit
+        search_line_edit.setPlaceholderText(f" {self.search_tab_query_text}")
         search_button = QPushButton("Search")
+        search_button.clicked.connect(
+            lambda checked: self.searchRequested()
+        )
+        # Search Layout
         search_layout = QHBoxLayout()
-        search_layout.addWidget(search_edit)
-        search_layout.addWidget(search_button)
-        search_container = QWidget()
-        search_container.setLayout(search_layout)
-        # Top Documents Layout.
-        top_docs_label = QLabel("Top Documents:")
-        top_docs_v_box = QVBoxLayout()
-        top_docs_v_box.setSpacing(0)
-        top_docs_v_box.setContentsMargins(0, 0, 0, 0)
-        top_docs_v_box.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
-        # Add items to Top Documents layout.
-        for doc_id, similarity, title, abstract in docs_info:
-            doc_info_container = self.docInfoItem(
-                doc_id=doc_id, sim=similarity, title=title, abstract=abstract
-            )
-            top_docs_v_box.addWidget(doc_info_container)
-        # Create Scrollable Area with the Documents.
-        top_docs_container = QWidget()
-        top_docs_container.setLayout(top_docs_v_box)
+        search_layout.addWidget(search_line_edit)
+        search_layout.addWidget(search_button, 0, Qt.AlignmentFlag.AlignRight)
+        # - Top Documents Section -
+        top_docs_num = self.search_tab_docs_num
+        top_docs_label = QLabel(f"Top {top_docs_num} Documents:")
         docs_scroll_area = QScrollArea()
+        self.search_tab_docs_scroll = docs_scroll_area
         docs_scroll_area.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
         docs_scroll_area.setVerticalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAsNeeded
         )
-        docs_scroll_area.setWidget(top_docs_container)
         docs_scroll_area.setWidgetResizable(True)
-        # -- Search & Docs Final Layout --
+        # Update Content in the Scrollable.
+        self.updateSearchTabDocsScroll()
+        # -- Search & Documents Layout --
         search_docs_layout = QVBoxLayout()
-        search_docs_layout.addWidget(search_container)
-        search_docs_layout.addWidget(top_docs_label)
+        search_docs_layout.addLayout(search_layout)
+        search_docs_layout.addWidget(top_docs_label, 0, Qt.AlignmentFlag.AlignLeft)
         search_docs_layout.addWidget(docs_scroll_area)
         search_docs_container = QWidget()
         search_docs_container.setLayout(search_docs_layout)
 
+        # --- Topic Area ---
+        # - Topic Size Section -
+        size_label = QLabel("Topic Size:")
+        size_combo = QComboBox()
+        self.search_tab_size_combo = size_combo
+        size_combo.addItems(self.supported_sizes)
+        size_combo.setCurrentIndex(self.cur_size_index)
+        size_combo.activated.connect(
+            lambda index: self.changeTopicSize(index, show_progress=show_progress)
+        )
+        # Size Layout.
+        size_layout = QHBoxLayout()
+        size_layout.addWidget(size_label)
+        size_layout.addWidget(size_combo)
+        size_layout.addStretch()
+        size_container = QWidget()
+        size_container.setLayout(size_layout)
+        # - All Topics Checkbox -
+        all_topics_checkbox = QCheckBox("Use All Topics")
+        self.search_tab_all_checkbox = all_topics_checkbox
+        all_topics_checkbox.toggled.connect(
+            lambda checked: self.newSearchTabAllTopics(checked=checked)
+        )
+        # - Top Topics Area -
+        top_topics_num = self.search_tab_topics_num
+        top_topics_label = QLabel(f"Top {top_topics_num} Topics:")
+        topics_scroll_area = QScrollArea()
+        self.search_tab_topics_scroll = topics_scroll_area
+        topics_scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        topics_scroll_area.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        topics_scroll_area.setWidgetResizable(True)
+        # Update Content of the Topics Scrollable.
+        self.updateSearchTabTopicsScroll()
+        # -- Topics Layout --
+        topic_area_layout = QVBoxLayout()
+        topic_area_layout.addWidget(size_container, 0, Qt.AlignmentFlag.AlignRight)
+        topic_area_layout.addWidget(all_topics_checkbox, 0, Qt.AlignmentFlag.AlignLeft)
+        topic_area_layout.addWidget(top_topics_label, 0, Qt.AlignmentFlag.AlignLeft)
+        topic_area_layout.addWidget(topics_scroll_area)
+        topic_area_container = QWidget()
+        topic_area_container.setLayout(topic_area_layout)
+
         # --- Search Tab Layout ---
         search_tab_layout = QHBoxLayout()
         search_tab_layout.addWidget(search_docs_container, 2)
-        search_tab_layout.addWidget(topics_container, 1)
+        search_tab_layout.addWidget(topic_area_container, 1)
         search_tab_container = QWidget()
         search_tab_container.setLayout(search_tab_layout)
         # The Search Tab Completely Built.
@@ -575,7 +577,7 @@ class MainWindow(QMainWindow):
             progress_msg("Documents Tab Complete!")
         return docs_tab_container
 
-    def topicInfoItem(
+    def createTopicItem(
             self, topic_id: str, cat_type: str, cat_value, description='',
             view_type='topic', checkable_type='search-checkbox', set_checked=False
     ):
@@ -675,7 +677,7 @@ class MainWindow(QMainWindow):
         # Item with the Info about the Topic.
         return topic_item_container
 
-    def docInfoItem(self, doc_id: str, title: str, abstract='', sim=0):
+    def createDocItem(self, doc_id: str, title: str, abstract='', sim=0):
         """
         Build a List Item for the given 'doc_id'. The Returned Document Item
         will depend upon the provided Information, the empty fields will be
@@ -759,6 +761,102 @@ class MainWindow(QMainWindow):
         """
         progress_msg("Change Size NOT IMPLEMENTED!!!")
 
+    def searchRequested(self):
+        """
+        The Search Button was touched, if we have a new query term, make a
+        search.
+        """
+        # old_query_text = self.search_tab_query_text
+        # new_query_text = self.search_tab_line_edit.text()
+        progress_msg("Making a Search NOT IMPLEMENTED!!!")
+
+    def updateSearchTabVariables(self, query_text: str, show_progress=False):
+        """
+        Update the Value of the Variables used in the Search Tab given the text
+        of a new query made by the user.
+        """
+        # Get the Embedding of the Query.
+        query_embed = self.search_engine.query_embed(query_text)
+
+        # Get the Top Topics and Top Documents (for the top topics).
+        topic_num = self.search_tab_topics_num
+        doc_num = self.search_tab_docs_num
+        top_topics_sims, top_docs_sims = self.search_engine.embed_query(
+            embed=query_embed, topic_num=topic_num, doc_num=doc_num,
+            vector_space='words', show_progress=show_progress
+        )
+        # Get Information of the Top Topics.
+        topic_word_num = self.search_tab_topics_num
+        search_tab_topics_info = [
+            (topic_id, topic_sim,
+             self.search_engine.topic_description(topic_id, topic_word_num))
+            for topic_id, topic_sim in top_topics_sims
+        ]
+        # Get Information of the Top Documents.
+        search_tab_docs_info = [
+            (doc_id, doc_sim,
+             self.search_engine.doc_title(doc_id),
+             self.search_engine.doc_abstract(doc_id))
+            for doc_id, doc_sim in top_docs_sims
+        ]
+        # Save the Top Topic ID.
+        search_tab_top_topic, _ = top_topics_sims[0]
+
+        # Update Search Tab - Variables
+        self.search_tab_working = False
+        self.search_tab_query_text = query_text
+        self.search_tab_search_embed = query_embed
+        self.search_tab_top_topic = search_tab_top_topic
+        self.search_tab_all_topics = False
+        self.search_tab_selected_topics = {search_tab_top_topic}
+        self.search_tab_topics_info = search_tab_topics_info
+        self.search_tab_docs_info = search_tab_docs_info
+        self.search_tab_topic_checkboxes = {}
+
+    def updateSearchTabTopicsScroll(self):
+        """
+        Update the Topics being displayed in the Topics Scrollable in the Search
+        Tab.
+        """
+        # Disable the 'All Topics' Checkbox if it's Enabled.
+        self.search_tab_working = True
+        if self.search_tab_all_checkbox and self.search_tab_all_checkbox.isChecked():
+            self.search_tab_all_checkbox.setChecked(False)
+        self.search_tab_working = False
+
+        # Get the Info of the Topics we are going to Show.
+        topics_info = self.search_tab_topics_info
+
+        # Create Layout for the List of Topics.
+        top_topics_v_box = QVBoxLayout()
+        top_topics_v_box.setSpacing(0)
+        top_topics_v_box.setContentsMargins(0, 0, 0, 0)
+        top_topics_v_box.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        # Add the Topic Items to the Layout.
+        for topic_id, similarity, description in topics_info:
+            is_checked = topic_id in self.search_tab_selected_topics
+            topic_info_container = self.createTopicItem(
+                topic_id=topic_id, cat_type='similarity', cat_value=similarity,
+                description=description, view_type='topic',
+                checkable_type='search-checkbox', set_checked=is_checked
+            )
+            # Add to Layout.
+            top_topics_v_box.addWidget(topic_info_container)
+        # Create Container for the List of Items.
+        top_topics_container = QWidget()
+        top_topics_container.setLayout(top_topics_v_box)
+
+        # Search Tab - Update the Topics Scrollable of Topics.
+        self.search_tab_topics_scroll.setWidget(top_topics_container)
+
+    def newSearchTabAllTopics(self, checked: bool):
+        """
+        The 'Use All Topics' checkbox has been toggled. Depending on the value
+        of 'checked' either show the Top Documents using all the corpus or the
+        documents from the top topic for the search query.
+        """
+        progress_msg("Use All Topics NOT IMPLEMENTED!!!")
+
     def newSearchTabTopicSelection(self, checked: bool, topic_id: str):
         """
         Update the Number of Topics selected for the search of documents either
@@ -771,6 +869,34 @@ class MainWindow(QMainWindow):
         else:
             progress_msg(f"The {topic_id} is partially checked or another not "
                          f"supported action.")
+
+    def updateSearchTabDocsScroll(self):
+        """
+        Update the Documents being displayed in the Documents Scrollable in the
+        Search Tab.
+        """
+        # Get the Info of the Documents we are going to show.
+        docs_info = self.search_tab_docs_info
+
+        # Create the Layout for the List of Documents.
+        docs_v_box = QVBoxLayout()
+        docs_v_box.setSpacing(0)
+        docs_v_box.setContentsMargins(0, 0, 0, 0)
+        docs_v_box.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        # Add the Documents Items to the Layout.
+        for doc_id, similarity, title, abstract in docs_info:
+            text_len = self.search_tab_preview_size
+            red_abstract = abstract[:text_len] + '...'
+            doc_info_item = self.createDocItem(
+                doc_id=doc_id, title=title, abstract=red_abstract, sim=similarity
+            )
+            docs_v_box.addWidget(doc_info_item)
+        # Create Container for the Item List.
+        docs_container = QWidget()
+        docs_container.setLayout(docs_v_box)
+
+        # Update the Documents Scrollable in the Search Tab.
+        self.search_tab_docs_scroll.setWidget(docs_container)
 
     def updateTopicsTabVariables(self, cur_cat_index: int):
         """
@@ -846,10 +972,10 @@ class MainWindow(QMainWindow):
         # Mark the first Topic of the List.
         is_first = True
         for topic_id, cat_value, description in topics_info:
-            topic_info_container = self.topicInfoItem(
+            topic_info_container = self.createTopicItem(
                 topic_id=topic_id, cat_type=lower_sort_cat, cat_value=cat_value,
                 description=description, view_type='vocabulary',
-                checkable_type='radio-button', set_checked=is_first,
+                checkable_type='radio-button', set_checked=is_first
             )
             top_topics_v_box.addWidget(topic_info_container)
             # Do not check the rest of the topics.
@@ -914,9 +1040,10 @@ class MainWindow(QMainWindow):
         top_docs_v_box.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         # Add items to Top Documents Layout.
         for doc_id, similarity, title, abstract in topic_docs_info:
-            red_abstract = abstract[:200] + '...'
-            doc_info_container = self.docInfoItem(
-                doc_id=doc_id, sim=similarity, title=title, abstract=red_abstract
+            text_len = self.topics_tab_preview_size
+            red_abstract = abstract[:text_len] + '...'
+            doc_info_container = self.createDocItem(
+                doc_id=doc_id, title=title, abstract=red_abstract, sim=similarity
             )
             top_docs_v_box.addWidget(doc_info_container)
         # Create Container for the Documents Layout.
@@ -1079,7 +1206,7 @@ class MainWindow(QMainWindow):
         # Mark the first Topic of the List.
         for topic_id, similarity, description in topics_info:
             is_checked = topic_id in self.docs_tab_selected_topics
-            topic_info_container = self.topicInfoItem(
+            topic_info_container = self.createTopicItem(
                 topic_id=topic_id, cat_type='similarity', cat_value=similarity,
                 description=description, view_type='topic',
                 checkable_type='doc-checkbox', set_checked=is_checked
@@ -1254,9 +1381,10 @@ class MainWindow(QMainWindow):
         docs_v_box.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         # Add Doc items to the Layout.
         for doc_id, similarity, title, abstract in docs_info:
-            red_abstract = abstract[:200] + '...'
-            doc_info_item = self.docInfoItem(
-                doc_id=doc_id, sim=similarity, title=title, abstract=red_abstract
+            text_len = self.docs_tab_preview_size
+            red_abstract = abstract[:text_len] + '...'
+            doc_info_item = self.createDocItem(
+                doc_id=doc_id, title=title, abstract=red_abstract, sim=similarity
             )
             docs_v_box.addWidget(doc_info_item)
         # Create Container for the Item List.
