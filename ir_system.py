@@ -220,6 +220,15 @@ class IRSystem:
         # Most Relevant Topics and Documents with their similarity.
         return top_topics_sims, top_docs_sims
 
+    def query_embed(self, query_text: str):
+        """
+        Given the text of a query, create the embedding of the query using the
+        Text Model of the Topic Model. This vector representation would be in
+        the vector space that contains words, topics and documents.
+        """
+        query_embed = self.text_model.doc_embed(doc=query_text)
+        return query_embed
+
     def embed_query(
             self, embed: ndarray, topic_num=10, doc_num=10,
             vector_space='words', show_progress=False
