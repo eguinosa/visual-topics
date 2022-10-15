@@ -424,14 +424,13 @@ class IRSystem:
         # Text with the description of the Topic.
         return descript_text
 
-    def random_doc_and_embed(self):
+    def random_doc_id(self):
         """
         Select a Random Document from the Corpus of the Topic Model and return
-        a Tuple with its ID and Embedding.
+        its ID.
         """
         rand_doc_id = choice(list(self.topic_model.doc_embeds.keys()))
-        rand_doc_embed = self.topic_model.doc_embeds[rand_doc_id]
-        return rand_doc_id, rand_doc_embed
+        return rand_doc_id
 
     def doc_embed(self, doc_id: str):
         """
