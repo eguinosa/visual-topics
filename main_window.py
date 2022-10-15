@@ -23,10 +23,8 @@ class MainWindow(QMainWindow):
     """
     # Supported Topic Models.
     supported_models = [
-        'sbert_fast_500_docs_7_topics',
-        'specter_sbert_fast_1_000_docs_9_topics',
-        'sbert_fast_5_000_docs_55_topics',
         'specter_sbert_fast_5_000_docs_25_topics',
+        'sbert_fast_5_000_docs_55_topics',
     ]
 
     def __init__(self, default_model='', show_progress=False):
@@ -67,7 +65,7 @@ class MainWindow(QMainWindow):
         # Save Class Attributes.
         self.current_model = current_model
         self.search_engine = search_engine
-        # Topic Attributes.
+        # Topic Size Attributes.
         self.topic_size = topic_size
         self.supported_sizes = supported_sizes
         self.cur_size_index = cur_size_index
@@ -144,6 +142,7 @@ class MainWindow(QMainWindow):
         # Main Window - Information Values & Widgets
         self.current_tab_index = self.search_tab_index
         self.main_tab_bar = None
+        self.size_combo_working = False
 
         # Menu Bar Actions.
         self.quit_act = None
@@ -761,16 +760,120 @@ class MainWindow(QMainWindow):
             )
             # Update the Name of the Current Topic Model.
             self.current_model = new_model_name
+            # Update the Supported Sizes on the App.
+            self.updateSupportedSizes()
+
+            # Update Documents & Topics in the Search Tab.
+            current_query = self.search_tab_query_text
+            self.updateSearchTabVariables(
+                query_text=current_query, show_progress=show_progress
+            )
+            self.updateSearchTabTopicsScroll()
+            self.updateSearchTabDocsScroll()
+            # Update Topics & Documents in the Topics Tab.
+            self.updateTopicsTabVariables()
+            self.updateTopicsTabTopicScroll()
+            self.updateTopicsTabDocScroll()
+            # Update Doc Content, Topics & Documents in the Documents Tab.
+            cur_doc_id = self.search_engine.random_doc_id()
+            self.updateDocsTabVariables(
+                cur_doc_id=cur_doc_id, show_progress=show_progress
+            )
+            self.updateDocsTabContentArea()
+            self.updateDocsTabTopicsScroll()
+            self.updateDocsTabDocsScroll()
+
             if show_progress:
                 progress_msg("Topic Model Updated!")
+        # Report that this is the same Model.
         elif show_progress:
             progress_msg("No need to update the Model.")
 
-    def changeTopicSize(self, size_index: int, show_progress=False):
+    def updateSupportedSizes(self):
+        """
+        Update the Supported Sizes on the App by updating the class attributes
+        and the Size ComboBoxes.
+        """
+        # Save the number of items in the old sizes.
+        old_sizes_len = len(self.supported_sizes)
+        # Get the Topic Model Sizes Again.
+        topic_size = str(self.search_engine.topic_size)
+        supported_sizes = [str(x) for x in self.search_engine.supported_model_sizes()]
+        cur_size_index = supported_sizes.index(topic_size)
+        # Update Class Attributes.
+        self.topic_size = topic_size
+        self.supported_sizes = supported_sizes
+        self.cur_size_index = cur_size_index
+
+        # Signal that we are going to work on the Size ComboBoxes.
+        self.size_combo_working = True
+        # Remove the Previous Sizes.
+        for _ in range(old_sizes_len):
+            self.search_tab_size_combo.removeItem(0)
+            self.topics_tab_size_combo.removeItem(0)
+            self.docs_tab_size_combo.removeItem(0)
+        # Add the New Sizes.
+        self.search_tab_size_combo.addItems(self.supported_sizes)
+        self.search_tab_size_combo.setCurrentIndex(self.cur_size_index)
+        self.topics_tab_size_combo.addItems(self.supported_sizes)
+        self.topics_tab_size_combo.setCurrentIndex(self.cur_size_index)
+        self.docs_tab_size_combo.addItems(self.supported_sizes)
+        self.docs_tab_size_combo.setCurrentIndex(self.cur_size_index)
+        # We are done working on the Size ComboBoxes.
+        self.size_combo_working = False
+
+    def changeTopicSize(self, new_size_index: int, show_progress=False):
         """
         Change the size of the Topic Model to the size in the 'new_size_index'.
         """
-        progress_msg("Change Size NOT IMPLEMENTED!!!")
+        # Check if we are not working on the Size Combos.
+        if self.size_combo_working:
+            return
+        # Signal that we are working on the Size Combos.
+        self.size_combo_working = True
+
+        # Check if we have a new Size Index.
+        if new_size_index != self.cur_size_index:
+            # Update the Size Combo to the New Size.
+            if new_size_index != self.search_tab_size_combo.currentIndex():
+                self.search_tab_size_combo.setCurrentIndex(new_size_index)
+            if new_size_index != self.topics_tab_size_combo.currentIndex():
+                self.topics_tab_size_combo.setCurrentIndex(new_size_index)
+            if new_size_index != self.docs_tab_size_combo.currentIndex():
+                self.docs_tab_size_combo.setCurrentIndex(new_size_index)
+
+            # Get the New Size.
+            new_topic_size = self.supported_sizes[new_size_index]
+            # Change the Size of the Topic Model.
+            self.search_engine.update_topic_size(
+                new_size=new_topic_size, show_progress=show_progress
+            )
+
+            # Update Documents & Topics in the Search Tab.
+            self.updateSearchTabVariables(show_progress=show_progress)
+            self.updateSearchTabTopicsScroll()
+            self.updateSearchTabDocsScroll()
+            # Update Topics & Documents in the Topics Tab.
+            self.updateTopicsTabVariables()
+            self.updateTopicsTabTopicScroll()
+            self.updateTopicsTabDocScroll()
+            # Update Doc Content, Topics & Documents in the Documents Tab.
+            self.updateDocsTabVariables(show_progress=show_progress)
+            self.updateDocsTabContentArea()
+            self.updateDocsTabTopicsScroll()
+            self.updateDocsTabDocsScroll()
+
+            # Update the Topic Size Attributes.
+            self.topic_size = new_topic_size
+            self.cur_size_index = new_size_index
+            if show_progress:
+                progress_msg(f"Topic Model size updated to {new_topic_size}")
+
+        # Report that this is the same Topic Size.
+        elif show_progress:
+            progress_msg("No need to update the size of the Topic Model.")
+        # We are Done.
+        self.size_combo_working = False
 
     def searchRequested(self):
         """
@@ -799,13 +902,18 @@ class MainWindow(QMainWindow):
             self.current_tab_index = self.search_tab_index
             self.main_tab_bar.setCurrentIndex(self.current_tab_index)
 
-    def updateSearchTabVariables(self, query_text: str, show_progress=False):
+    def updateSearchTabVariables(self, query_text='', show_progress=False):
         """
         Update the Value of the Variables used in the Search Tab given the text
         of a new query made by the user.
         """
-        # Get the Embedding of the Query.
-        query_embed = self.search_engine.query_embed(query_text)
+        # Check if we have a new query_text.
+        if query_text:
+            # Get the Embedding of the Query.
+            query_embed = self.search_engine.text_embed(query_text)
+        else:
+            query_text = self.search_tab_query_text
+            query_embed = self.search_tab_query_embed
 
         # Get the Top Topics and Top Documents (for the top topics).
         topic_num = self.search_tab_topics_num
@@ -1036,12 +1144,17 @@ class MainWindow(QMainWindow):
         # Update the Documents Scrollable in the Search Tab.
         self.search_tab_docs_scroll.setWidget(docs_container)
 
-    def updateTopicsTabVariables(self, cur_cat_index: int):
+    def updateTopicsTabVariables(self, cur_cat_index=-1):
         """
         Update the values of the Variables used in the Topics Tab.
         """
-        # Get Index of the Sorting Category.
-        cur_sort_cat = self.topics_tab_sort_cats[cur_cat_index]
+        # Check if we have to update the Variables with a new Category.
+        if cur_cat_index != -1:
+            # Get Index of the Sorting Category.
+            cur_sort_cat = self.topics_tab_sort_cats[cur_cat_index]
+        else:
+            cur_sort_cat = self.topics_tab_cur_cat
+            cur_cat_index = self.topics_tab_cat_index
 
         # Get the Topics Information with the current Sorting Category.
         lower_sort_cat = cur_sort_cat.lower()
@@ -1244,14 +1357,21 @@ class MainWindow(QMainWindow):
             self.current_tab_index = self.docs_tab_index
             self.main_tab_bar.setCurrentIndex(self.current_tab_index)
 
-    def updateDocsTabVariables(self, cur_doc_id: str, show_progress=False):
+    def updateDocsTabVariables(self, cur_doc_id='', show_progress=False):
         """
         Update the Values of the Variables used to display information on the
         Documents Tab based on the New Document 'doc_id'.
         """
-        # Get the Embedding & Full Content of the Document.
-        cur_doc_embed = self.search_engine.doc_embed(cur_doc_id)
-        doc_full_content = self.search_engine.doc_full_content(cur_doc_id)
+        # Check if we have to update the Current Document.
+        if cur_doc_id:
+            # Get the Embedding & Full Content of the Document.
+            cur_doc_embed = self.search_engine.doc_embed(cur_doc_id, space='documents')
+            doc_full_content = self.search_engine.doc_full_content(cur_doc_id)
+        else:
+            # Using the Same Document.
+            cur_doc_id = self.docs_tab_cur_doc
+            cur_doc_embed = self.docs_tab_doc_embed
+            doc_full_content = self.docs_tab_doc_content
 
         # Get the Top Topics and Close Documents Information.
         # Doc Num (+1) in case the search returns the document itself.
