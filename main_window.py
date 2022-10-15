@@ -82,7 +82,7 @@ class MainWindow(QMainWindow):
         # Search Tab - Variables.
         self.search_tab_working = False
         self.search_tab_query_text = ''
-        self.search_tab_search_embed = None
+        self.search_tab_query_embed = None
         self.search_tab_top_topic = ''
         self.search_tab_all_topics = False
         self.search_tab_selected_topics = None
@@ -625,6 +625,7 @@ class MainWindow(QMainWindow):
                 header_checkable.setChecked(True)
             # Set method called when we check the button.
             if checkable_type == 'search-checkbox':
+                self.search_tab_topic_checkboxes[topic_id] = header_checkable
                 header_checkable.toggled.connect(
                     lambda checked, x=topic_id:
                     self.newSearchTabTopicSelection(checked, topic_id=x)
@@ -776,9 +777,27 @@ class MainWindow(QMainWindow):
         The Search Button was touched, if we have a new query term, make a
         search.
         """
-        # old_query_text = self.search_tab_query_text
-        # new_query_text = self.search_tab_line_edit.text()
-        progress_msg("Making a Search NOT IMPLEMENTED!!!")
+        # Check if we have a new Query.
+        old_query_text = self.search_tab_query_text
+        new_query_text = self.search_tab_line_edit.text()
+        if new_query_text != old_query_text:
+            # --- We have a New Query ---
+            # Signal that we are Working on the Search Tab.
+            self.search_tab_working = True
+            # Update the Variables of the Search Tab.
+            self.updateSearchTabVariables(query_text=new_query_text)
+            # Update Content in Widgets & Scrollable.
+            self.updateSearchTabDocsScroll()
+            self.updateSearchTabTopicsScroll()
+            # Done Working on the Search Tab.
+            self.search_tab_working = False
+        # Update the Placeholder Text with the new Query:
+        if self.search_tab_line_edit.placeholderText():
+            self.search_tab_line_edit.setPlaceholderText(f" {new_query_text}")
+        # Go to the Search Tab if we are not there.
+        if self.current_tab_index != self.search_tab_index:
+            self.current_tab_index = self.search_tab_index
+            self.main_tab_bar.setCurrentIndex(self.current_tab_index)
 
     def updateSearchTabVariables(self, query_text: str, show_progress=False):
         """
@@ -815,7 +834,7 @@ class MainWindow(QMainWindow):
         # Update Search Tab - Variables
         self.search_tab_working = False
         self.search_tab_query_text = query_text
-        self.search_tab_search_embed = query_embed
+        self.search_tab_query_embed = query_embed
         self.search_tab_top_topic = search_tab_top_topic
         self.search_tab_all_topics = False
         self.search_tab_selected_topics = {search_tab_top_topic}
@@ -859,26 +878,135 @@ class MainWindow(QMainWindow):
         # Search Tab - Update the Topics Scrollable of Topics.
         self.search_tab_topics_scroll.setWidget(top_topics_container)
 
-    def newSearchTabAllTopics(self, checked: bool):
+    def newSearchTabAllTopics(self, checked: bool, show_progress=False):
         """
         The 'Use All Topics' checkbox has been toggled. Depending on the value
         of 'checked' either show the Top Documents using all the corpus or the
         documents from the top topic for the search query.
         """
-        progress_msg("Use All Topics NOT IMPLEMENTED!!!")
+        # Do not Respond to the Signal if the Search Tab is Working.
+        if self.search_tab_working:
+            return
+        # Signal that we are working on the Search Tab.
+        self.search_tab_working = True
+        # Get the Current Query Embedding.
+        cur_query_embed = self.search_tab_query_embed
+
+        # Check if the Checkbox has been selected or deselected.
+        if checked:
+            # --- All Topics Selected ---
+            if show_progress:
+                progress_msg("All Topics Selected in the Search Tab.")
+            self.search_tab_all_topics = True
+            # Deselect all the currently selected topics.
+            for topic_id in self.search_tab_selected_topics:
+                topic_checkbox = self.search_tab_topic_checkboxes[topic_id]
+                topic_checkbox.setChecked(False)
+            # Clean the Selected Topics Set.
+            self.search_tab_selected_topics = None
+            # Use the Default List of All the Documents to find the Top Docs.
+            doc_ids = None
+        else:
+            # --- All Topics Checkbox Deselected ---
+            if show_progress:
+                progress_msg("All Topics Deselected in the Search Tab.")
+            self.search_tab_all_topics = False
+            # Select the Documents from Top topic.
+            top_topic_id = self.search_tab_top_topic
+            self.search_tab_selected_topics = {top_topic_id}
+            top_topic_checkbox = self.search_tab_topic_checkboxes[top_topic_id]
+            top_topic_checkbox.setChecked(True)
+            # Use the Documents from Top Topic to find the Top Documents.
+            doc_ids = self.search_engine.topic_doc_ids(top_topic_id)
+
+        # Find the Top Documents using the Collected Doc IDs.
+        doc_num = self.search_tab_docs_num
+        top_docs_sims = self.search_engine.embed_query_top_docs(
+            embed=cur_query_embed, doc_ids=doc_ids, doc_num=doc_num,
+            vector_space='words', show_progress=show_progress
+        )
+        # Get the Info about the Top Documents.
+        search_tab_docs_info = [
+            (doc_id, doc_sim,
+             self.search_engine.doc_title(doc_id),
+             self.search_engine.doc_abstract(doc_id))
+            for doc_id, doc_sim in top_docs_sims
+        ]
+        # Save the Documents Info.
+        self.search_tab_docs_info = search_tab_docs_info
+        # Update the Documents Scrollable.
+        self.updateSearchTabDocsScroll()
+        # Done Working on the Search Tab.
+        self.search_tab_working = False
 
     def newSearchTabTopicSelection(self, checked: bool, topic_id: str):
         """
         Update the Number of Topics selected for the search of documents either
         in the Search Tab or the Documents Tab.
         """
+        # Do Not make updates if the Search Tab is Working.
+        if self.search_tab_working:
+            return
+        # Signal that we are working on the Search Tab.
+        self.search_tab_working = True
+        # Get the Current Query Embedding.
+        cur_query_embed = self.search_tab_query_embed
+
+        # Check if this 'topic_id' was selected or deselected.
         if checked:
-            progress_msg(f"The {topic_id} was selected.")
-        elif not checked:
-            progress_msg(f"The {topic_id} was deselected.")
+            # --- New Topic Selected for the Search ---
+            if self.search_tab_all_topics:
+                # - This is the Only Topic -
+                self.search_tab_all_topics = False
+                self.search_tab_all_checkbox.setChecked(False)
+                self.search_tab_selected_topics = {topic_id}
+                # Use the Documents from this Topic.
+                doc_ids = self.search_engine.topic_doc_ids(topic_id)
+            else:
+                # - There are other Selected Topics -
+                self.search_tab_selected_topics.add(topic_id)
+                # Use the Topics Docs from the Selected Documents.
+                doc_ids = []
+                for sel_topic_id in self.search_tab_selected_topics:
+                    new_doc_ids = self.search_engine.topic_doc_ids(sel_topic_id)
+                    doc_ids += new_doc_ids
         else:
-            progress_msg(f"The {topic_id} is partially checked or another not "
-                         f"supported action.")
+            # --- Remove the Current Topic from the Search ---
+            if len(self.search_tab_selected_topics) == 1:
+                # - This was the only Topic Selected -
+                self.search_tab_all_topics = True
+                self.search_tab_all_checkbox.setChecked(True)
+                self.search_tab_selected_topics = None
+                # Use the Default Lists of All Doc IDs in the Topic Model.
+                doc_ids = None
+            else:
+                # - There are still more Topics Selected -
+                self.search_tab_selected_topics.remove(topic_id)
+                # Use the Topics Docs from the still Selected Documents.
+                doc_ids = []
+                for sel_topic_id in self.search_tab_selected_topics:
+                    new_doc_ids = self.search_engine.topic_doc_ids(sel_topic_id)
+                    doc_ids += new_doc_ids
+
+        # Find the Top Documents using the Collected Doc IDs.
+        doc_num = self.search_tab_docs_num
+        top_docs_sims = self.search_engine.embed_query_top_docs(
+            embed=cur_query_embed, doc_ids=doc_ids,
+            doc_num=doc_num, vector_space='words'
+        )
+        # Get the Info about the Top Documents.
+        search_tab_docs_info = [
+            (doc_id, doc_sim,
+             self.search_engine.doc_title(doc_id),
+             self.search_engine.doc_abstract(doc_id))
+            for doc_id, doc_sim in top_docs_sims
+        ]
+        # Save the Documents Info.
+        self.search_tab_docs_info = search_tab_docs_info
+        # Update the Documents Scrollable.
+        self.updateSearchTabDocsScroll()
+        # Done Working on the Search Tab.
+        self.search_tab_working = False
 
     def updateSearchTabDocsScroll(self):
         """
@@ -1098,28 +1226,18 @@ class MainWindow(QMainWindow):
         Show a Document in the Document Tab.
         """
         # Check if it is the same document.
-        if doc_id == self.docs_tab_cur_doc:
-            # Only check if we are on the Documents Tab.
-            # Go to the Documents Tab if we are not there.
-            if self.current_tab_index != self.docs_tab_index:
-                self.current_tab_index = self.docs_tab_index
-                self.main_tab_bar.setCurrentIndex(self.current_tab_index)
-            # Done.
-            return
-
-        # Signal that we are Working the Documents Tab.
-        self.docs_tab_working = True
-
-        # Update the Variables of the Documents Tab.
-        self.updateDocsTabVariables(cur_doc_id=doc_id)
-
-        # Update Content in Widgets & Scrollable.
-        self.updateDocsTabTopicsScroll()
-        self.updateDocsTabContentArea()
-        self.updateDocsTabDocsScroll()
-
-        # Done Working on the Documents Tab.
-        self.docs_tab_working = False
+        if doc_id != self.docs_tab_cur_doc:
+            # --- Open the New Document --
+            # Signal that we are Working the Documents Tab.
+            self.docs_tab_working = True
+            # Update the Variables of the Documents Tab.
+            self.updateDocsTabVariables(cur_doc_id=doc_id)
+            # Update Content in Widgets & Scrollable.
+            self.updateDocsTabTopicsScroll()
+            self.updateDocsTabContentArea()
+            self.updateDocsTabDocsScroll()
+            # Done Working on the Documents Tab.
+            self.docs_tab_working = False
 
         # Go to the Documents Tab if we are not there.
         if self.current_tab_index != self.docs_tab_index:
