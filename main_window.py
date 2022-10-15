@@ -42,6 +42,7 @@ class MainWindow(QMainWindow):
         # Initialize Base Class.
         super().__init__()
 
+        # -- Load the Topic Model --
         # Check the default model used to start the app.
         if default_model:
             # Check we support the given model.
@@ -52,59 +53,16 @@ class MainWindow(QMainWindow):
         else:
             # Use the first of the supported models.
             current_model = self.supported_models[0]
-        # Create the IR system.
+
+        # -- Create IR System with Topic Model --
         if show_progress:
             progress_msg("Creating the IR system for the application...")
         search_engine = IRSystem(model_name=current_model, show_progress=show_progress)
 
-        # Gather Data Related with the Current Topic Model.
+        # Save the Data Related with the Current Topic Model.
         topic_size = str(search_engine.topic_size)
         supported_sizes = [str(x) for x in search_engine.supported_model_sizes()]
         cur_size_index = supported_sizes.index(topic_size)
-        # Topics Sorting Categories.
-        sort_categories = ['Size', 'PWI-tf-idf', 'PWI-exact']
-        cur_sort_cat = 'size'
-        cur_cat_index = 0
-        # Number of Words to describe topics in the Topics Tab.
-        topics_tab_word_num = 15
-        # Sorting Category Topics Information.
-        cur_cat_topics_info = search_engine.topics_info(
-            sort_cat=cur_sort_cat, word_num=topics_tab_word_num
-        )
-        # Current Topic in the Topics Tab.
-        top_topic, _, _ = cur_cat_topics_info[0]
-        topics_tab_cur_topic = top_topic
-
-        # Document Tab - Number of Top Topics and Documents.
-        docs_tab_topics_num = 10
-        docs_tab_docs_num = 10
-        docs_tab_word_num = 10
-        # Gather Data from Random Doc for the Documents Tab.
-        # Doc Num (+1) in case the search returns the document itself.
-        cur_doc_id, cur_doc_embed = search_engine.random_doc_and_embed()
-        docs_tab_doc_content = search_engine.doc_full_content(cur_doc_id)
-        top_topics_sims, top_docs_sims = search_engine.embed_query(
-            embed=cur_doc_embed, topic_num=docs_tab_topics_num,
-            doc_num=(docs_tab_docs_num + 1), vector_space='documents',
-            show_progress=False
-        )
-        docs_tab_topics_info = [
-            (topic_id, topic_sim,
-             search_engine.topic_description(topic_id, word_num=docs_tab_word_num))
-            for topic_id, topic_sim in top_topics_sims
-        ]
-        docs_tab_docs_info = [
-            (doc_id, doc_sim,
-             search_engine.doc_title(doc_id), search_engine.doc_abstract(doc_id))
-            for doc_id, doc_sim in top_docs_sims
-            if doc_id != cur_doc_id
-        ]
-        # Make sure we have the right amount of docs.
-        docs_tab_docs_info = docs_tab_docs_info[:docs_tab_docs_num]
-        # Topics Selected for the Documents Scrollable.
-        docs_tab_top_topic, _ = top_topics_sims[0]
-        docs_tab_all_topics = False
-        docs_tab_selected_topics = {docs_tab_top_topic}
 
         # Save Class Attributes.
         self.current_model = current_model
@@ -113,50 +71,56 @@ class MainWindow(QMainWindow):
         self.topic_size = topic_size
         self.supported_sizes = supported_sizes
         self.cur_size_index = cur_size_index
-        # Sorting Categories.
-        self.sort_categories = sort_categories
-        self.cur_sort_cat = cur_sort_cat
-        self.cur_cat_index = cur_cat_index
-        self.cur_cat_topics_info = cur_cat_topics_info
 
-        # Search Tab - Information
+        # Search Tab - Fixed Values
         self.search_tab_index = 0
+        # Search Tab - Info Widgets
         self.search_tab_size_combo = None
         self.search_tab_topics_scroll = None
-        # Topics Tab - Information
+
+        # Topics Tab - Fixed Values
         self.topics_tab_index = 1
-        self.topics_tab_word_num = topics_tab_word_num
-        self.topics_tab_cur_topic = topics_tab_cur_topic
+        self.topics_tab_word_num = 15
+        self.topics_tab_sort_cats = ['Size', 'PWI-tf-idf', 'PWI-exact']
+        # Topics Tab - Variables
+        self.topics_tab_cur_cat = ''
+        self.topics_tab_cat_index = 0
+        self.topics_tab_topics_info = None
+        self.topics_tab_top_topic = ''
         self.topics_tab_button_group = QButtonGroup()
         self.topics_tab_topics_radios = {}
         self.topics_tab_topics_widgets = {}
+        # Topics Tab - Info Widgets
         self.topics_tab_size_combo = None
         self.topics_tab_topics_scroll = None
         self.topics_tab_docs_label = None
         self.topics_tab_docs_scroll = None
-        # Documents Tab - Information
+
+        # Documents Tab - Fixed Values
         self.docs_tab_index = 2
+        self.docs_tab_topics_num = 10
+        self.docs_tab_docs_num = 10
+        self.docs_tab_word_num = 10
+        # Documents Tab - Variables
         self.docs_tab_working = False
-        self.docs_tab_topics_num = docs_tab_topics_num
-        self.docs_tab_docs_num = docs_tab_docs_num
-        self.docs_tab_word_num = docs_tab_word_num
-        self.docs_tab_cur_doc = cur_doc_id
-        self.docs_tab_doc_embed = cur_doc_embed
-        self.docs_tab_doc_content = docs_tab_doc_content
-        self.docs_tab_all_topics = docs_tab_all_topics
-        self.docs_tab_selected_topics = docs_tab_selected_topics
-        self.docs_tab_top_topic = docs_tab_top_topic
-        self.docs_tab_topic_checkboxes = {}
-        self.docs_tab_topics_info = docs_tab_topics_info
-        self.docs_tab_docs_info = docs_tab_docs_info
-        self.docs_tab_all_checkbox = None
+        self.docs_tab_cur_doc = ''
+        self.docs_tab_doc_embed = None
+        self.docs_tab_doc_content = ''
+        self.docs_tab_top_topic = ''
+        self.docs_tab_all_topics = False
+        self.docs_tab_selected_topics = None
+        self.docs_tab_topics_info = None
+        self.docs_tab_docs_info = None
+        self.docs_tab_topic_checkboxes = None
+        # Documents Tab - Info Widgets
         self.docs_tab_size_combo = None
+        self.docs_tab_all_checkbox = None
         self.docs_tab_topics_scroll = None
         self.docs_tab_name_label = None
-        self.docs_tab_content_label = None
         self.docs_tab_text_widget = None
         self.docs_tab_docs_scroll = None
-        # Main Window - Information
+
+        # Main Window - Information Values & Widgets
         self.current_tab_index = self.docs_tab_index
         self.main_tab_bar = None
 
@@ -168,6 +132,11 @@ class MainWindow(QMainWindow):
         self.vocab_window = None
         self.content_window = None
 
+        # Create the Values for the Topics Tab.
+        self.updateTopicsTabVariables(cur_cat_index=0)
+        # Create the Values for the Documents Tab.
+        cur_doc_id = search_engine.random_doc_id()
+        self.updateDocsTabVariables(cur_doc_id=cur_doc_id)
         # Create App UI.
         self.initializeUI(show_progress=show_progress)
 
@@ -409,8 +378,8 @@ class MainWindow(QMainWindow):
         # Category used to sort the Topics.
         sort_cat_label = QLabel("Topics by:")
         sort_cats_combo = QComboBox()
-        sort_cats_combo.addItems(self.sort_categories)
-        sort_cats_combo.setCurrentIndex(self.cur_cat_index)
+        sort_cats_combo.addItems(self.topics_tab_sort_cats)
+        sort_cats_combo.setCurrentIndex(self.topics_tab_cat_index)
         sort_cats_combo.activated.connect(
             lambda index: self.changeTopicSorting(index, show_progress=show_progress)
         )
@@ -803,48 +772,62 @@ class MainWindow(QMainWindow):
             progress_msg(f"The {topic_id} is partially checked or another not "
                          f"supported action.")
 
+    def updateTopicsTabVariables(self, cur_cat_index: int):
+        """
+        Update the values of the Variables used in the Topics Tab.
+        """
+        # Get Index of the Sorting Category.
+        cur_sort_cat = self.topics_tab_sort_cats[cur_cat_index]
+
+        # Get the Topics Information with the current Sorting Category.
+        lower_sort_cat = cur_sort_cat.lower()
+        topics_word_num = self.topics_tab_word_num
+        cur_cat_topics_info = self.search_engine.topics_info(
+            sort_cat=lower_sort_cat, word_num=topics_word_num
+        )
+        # Get the Top Topic for the Category.
+        topics_tab_top_topic, _, _ = cur_cat_topics_info[0]
+
+        # Update Topics Tab - Variables
+        self.topics_tab_cur_cat = cur_sort_cat
+        self.topics_tab_cat_index = cur_cat_index
+        self.topics_tab_topics_info = cur_cat_topics_info
+        self.topics_tab_top_topic = topics_tab_top_topic
+        self.topics_tab_button_group = QButtonGroup()
+        self.topics_tab_topics_radios = {}
+        self.topics_tab_topics_widgets = {}
+
     def changeTopicSorting(self, sort_cat_index: int, show_progress=False):
         """
         Change the sorting category use to rank the topics in the Topics Tab.
         """
         # Check if we have a new sorting category.
-        if sort_cat_index == self.cur_cat_index:
+        if sort_cat_index == self.topics_tab_cat_index:
             # Same Sorting Category.
             if show_progress:
-                progress_msg(f"Same sorting category selected <{self.cur_sort_cat}>.")
+                progress_msg(f"Same sorting category selected <{self.topics_tab_cur_cat}>.")
             return
+        # Save Old Top Topic to see if it changes.
+        old_top_topic = self.topics_tab_top_topic
 
         # --- New Sorting Category Selected ---
-        cur_cat_index = sort_cat_index
-        cur_sort_cat = self.sort_categories[cur_cat_index]
+        cur_sort_cat = self.topics_tab_sort_cats[sort_cat_index]
         if show_progress:
             progress_msg(
                 f"Updating the sorting category of the topics to <{cur_sort_cat}>..."
             )
-        # Save Old Top Topic to see if it changes.
-        old_top_topic = self.topics_tab_cur_topic
-
-        # Get the Information for the New Topics.
-        cur_cat_topics_info = self.search_engine.topics_info(
-            sort_cat=cur_sort_cat.lower(), word_num=self.topics_tab_word_num
-        )
-        # Topics Tab - Get the Top Topic of the new Category.
-        top_topic, _, _ = cur_cat_topics_info[0]
-
-        # Update the Current Category Attributes.
-        self.topics_tab_cur_topic = top_topic
-        self.topics_tab_topics_radios = {}
-        self.topics_tab_button_group = QButtonGroup()
-        self.topics_tab_topics_widgets = {}
+        self.updateTopicsTabVariables(cur_cat_index=sort_cat_index)
 
         # Topics Tab - Update Scrollable of Topics.
         self.updateTopicsTabTopicScroll()
         # Topics Tab - Update Scrollable of Documents if the Top Topic Changed.
-        if self.topics_tab_cur_topic != old_top_topic:
+        if self.topics_tab_top_topic != old_top_topic:
             self.updateTopicsTabDocScroll()
         # Done.
         if show_progress:
-            progress_msg(f"Topics in the Topics Tab sorted by {cur_sort_cat}!")
+            progress_msg(
+                f"Topics in the Topics Tab sorted by {self.topics_tab_cur_cat}!"
+            )
 
     def updateTopicsTabTopicScroll(self):
         """
@@ -858,8 +841,8 @@ class MainWindow(QMainWindow):
         top_topics_v_box.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
 
         # Get the Sorting Category and the Topics Info.
-        lower_sort_cat = self.cur_sort_cat.lower()
-        topics_info = self.cur_cat_topics_info
+        lower_sort_cat = self.topics_tab_cur_cat.lower()
+        topics_info = self.topics_tab_topics_info
         # Mark the first Topic of the List.
         is_first = True
         for topic_id, cat_value, description in topics_info:
@@ -905,7 +888,7 @@ class MainWindow(QMainWindow):
             # No need to do any changes to the UI.
             return
         # Update the Current Topic in the Topics Tab.
-        self.topics_tab_cur_topic = topic_id
+        self.topics_tab_top_topic = topic_id
         # Update the Displayed Documents.
         self.updateTopicsTabDocScroll()
         # Done.
@@ -918,7 +901,7 @@ class MainWindow(QMainWindow):
         Tab.
         """
         # Get the Topic to display its documents.
-        topic_id = self.topics_tab_cur_topic
+        topic_id = self.topics_tab_top_topic
 
         # Get the Info about the Documents.
         topic_docs_info = self.search_engine.topic_docs_info(topic_id=topic_id)
@@ -982,17 +965,38 @@ class MainWindow(QMainWindow):
 
         # Signal that we are Working the Documents Tab.
         self.docs_tab_working = True
-        # Get the Embedding of the Document.
-        cur_doc_id = doc_id
+
+        # Update the Variables of the Documents Tab.
+        self.updateDocsTabVariables(cur_doc_id=doc_id)
+
+        # Update Content in Widgets & Scrollable.
+        self.updateDocsTabTopicsScroll()
+        self.updateDocsTabContentArea()
+        self.updateDocsTabDocsScroll()
+
+        # Done Working on the Documents Tab.
+        self.docs_tab_working = False
+
+        # Go to the Documents Tab if we are not there.
+        if self.current_tab_index != self.docs_tab_index:
+            self.current_tab_index = self.docs_tab_index
+            self.main_tab_bar.setCurrentIndex(self.current_tab_index)
+
+    def updateDocsTabVariables(self, cur_doc_id: str, show_progress=False):
+        """
+        Update the Values of the Variables used to display information on the
+        Documents Tab based on the New Document 'doc_id'.
+        """
+        # Get the Embedding & Full Content of the Document.
         cur_doc_embed = self.search_engine.doc_embed(cur_doc_id)
-        docs_tab_doc_content = self.search_engine.doc_full_content(cur_doc_id)
+        doc_full_content = self.search_engine.doc_full_content(cur_doc_id)
 
         # Get the Top Topics and Close Documents Information.
         # Doc Num (+1) in case the search returns the document itself.
         top_topics_sims, top_docs_sims = self.search_engine.embed_query(
             embed=cur_doc_embed, topic_num=self.docs_tab_topics_num,
             doc_num=(self.docs_tab_docs_num + 1), vector_space='documents',
-            show_progress=False
+            show_progress=show_progress
         )
         docs_tab_topics_info = [
             (topic_id, topic_sim,
@@ -1012,28 +1016,18 @@ class MainWindow(QMainWindow):
         docs_tab_docs_info = docs_tab_docs_info[:self.docs_tab_docs_num]
         # Get the Top Topic.
         docs_tab_top_topic, _ = top_topics_sims[0]
-        # Save the Generated Info.
+
+        # Update Documents Tab - Variables
+        self.docs_tab_working = False
         self.docs_tab_cur_doc = cur_doc_id
         self.docs_tab_doc_embed = cur_doc_embed
-        self.docs_tab_doc_content = docs_tab_doc_content
+        self.docs_tab_doc_content = doc_full_content
+        self.docs_tab_top_topic = docs_tab_top_topic
         self.docs_tab_all_topics = False
         self.docs_tab_selected_topics = {docs_tab_top_topic}
-        self.docs_tab_top_topic = docs_tab_top_topic
-        self.docs_tab_topic_checkboxes = {}
         self.docs_tab_topics_info = docs_tab_topics_info
         self.docs_tab_docs_info = docs_tab_docs_info
-
-        # Update Content & Scrollable.
-        self.updateDocsTabTopicsScroll()
-        self.updateDocsTabContentArea()
-        self.updateDocsTabDocsScroll()
-        # Done Working on the Documents Tab.
-        self.docs_tab_working = False
-
-        # Go to the Documents Tab if we are not there.
-        if self.current_tab_index != self.docs_tab_index:
-            self.current_tab_index = self.docs_tab_index
-            self.main_tab_bar.setCurrentIndex(self.current_tab_index)
+        self.docs_tab_topic_checkboxes = {}
 
     def updateDocsTabContentArea(self):
         """
@@ -1068,6 +1062,12 @@ class MainWindow(QMainWindow):
         Create or Update the Content of the Topics being displayed in the Topics
         Scrollable in the Documents Tab.
         """
+        # Disable the 'All Topics' Checkbox if it's Enabled.
+        self.docs_tab_working = True
+        if self.docs_tab_all_checkbox and self.docs_tab_all_checkbox.isChecked():
+            self.docs_tab_all_checkbox.setChecked(False)
+        self.docs_tab_working = False
+
         # Create Layout for the List of Topics.
         top_topics_v_box = QVBoxLayout()
         top_topics_v_box.setSpacing(0)
