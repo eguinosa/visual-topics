@@ -24,7 +24,11 @@ class MainWindow(QMainWindow):
     # Supported Topic Models.
     supported_models = [
         'specter_sbert_fast_5_000_docs_25_topics',
+        'specter_sbert_fast_20_000_docs_119_topics',
+        'specter_sbert_fast_105_548_docs_533_topics',
         'sbert_fast_5_000_docs_55_topics',
+        'sbert_fast_20_000_docs_182_topics',
+        'sbert_fast_105_548_docs_745_topics',
     ]
 
     def __init__(self, default_model='', show_progress=False):
@@ -99,19 +103,35 @@ class MainWindow(QMainWindow):
         self.topics_tab_word_num = 15
         self.topics_tab_preview_size = 200
         self.topics_tab_sort_cats = ['Size', 'PWI-tf-idf', 'PWI-exact']
-        # Topics Tab - Variables
+        self.topics_tab_topics_page_size = 20
+        self.topics_tab_docs_page_size = 50
+        # Topics Tab - Topic Variables
         self.topics_tab_cur_cat = ''
         self.topics_tab_cat_index = 0
-        self.topics_tab_topics_info = None
-        self.topics_tab_top_topic = ''
-        self.topics_tab_button_group = QButtonGroup()
-        self.topics_tab_topics_radios = {}
-        self.topics_tab_topics_widgets = {}
+        self.topics_tab_cur_topic = ''
+        self.topics_tab_topics_cur_page = ''
+        self.topics_tab_topics_total_pages = ''
+        self.topics_tab_topics_pages = None
+        self.topics_tab_topics_page_info = None
+        self.topics_tab_button_group = None
+        self.topics_tab_topics_radios = None
+        self.topics_tab_topics_widgets = None
+        # Topic Tab - Doc Variables
+        self.topics_tab_docs_num = 0
+        self.topics_tab_docs_cur_page = ''
+        self.topics_tab_docs_total_pages = ''
+        self.topics_tab_docs_page_info = None
         # Topics Tab - Info Widgets
         self.topics_tab_size_combo = None
         self.topics_tab_topics_scroll = None
         self.topics_tab_docs_label = None
         self.topics_tab_docs_scroll = None
+        self.topics_tab_topics_prev_button = None
+        self.topics_tab_topics_next_button = None
+        self.topics_tab_topics_page_label = None
+        self.topics_tab_docs_prev_button = None
+        self.topics_tab_docs_next_button = None
+        self.topics_tab_docs_page_label = None
 
         # Documents Tab - Fixed Values
         self.docs_tab_index = 2
@@ -140,7 +160,7 @@ class MainWindow(QMainWindow):
         self.docs_tab_docs_scroll = None
 
         # Main Window - Information Values & Widgets
-        self.current_tab_index = self.search_tab_index
+        self.current_tab_index = self.topics_tab_index
         self.main_tab_bar = None
         self.size_combo_working = False
 
@@ -156,7 +176,8 @@ class MainWindow(QMainWindow):
         # Create the Values for the Search Tab.
         self.updateSearchTabVariables(query_text=self.search_tab_init_query)
         # Create the Values for the Topics Tab.
-        self.updateTopicsTabVariables(cur_cat_index=0)
+        self.updateTopicsTabTopicVariables(cur_cat_index=0)
+        self.updateTopicsTabDocVariables()
         # Create the Values for the Documents Tab.
         cur_doc_id = search_engine.random_doc_id()
         self.updateDocsTabVariables(cur_doc_id=cur_doc_id)
@@ -407,15 +428,37 @@ class MainWindow(QMainWindow):
             Qt.ScrollBarPolicy.ScrollBarAsNeeded
         )
         topics_scroll_area.setWidgetResizable(True)
-        # Update content of Scrollable.
-        self.updateTopicsTabTopicScroll()
+        # - Topics Page Area -
+        topic_prev_button = QPushButton("Prev")
+        self.topics_tab_topics_prev_button = topic_prev_button
+        topic_prev_button.clicked.connect(
+            lambda checked: self.prevPageTopicsTabTopicScroll()
+        )
+        topic_next_button = QPushButton("Next")
+        self.topics_tab_topics_next_button = topic_next_button
+        topic_next_button.clicked.connect(
+            lambda checked: self.nextPageTopicsTabTopicScroll()
+        )
+        topic_page_label = QLabel()
+        self.topics_tab_topics_page_label = topic_page_label
+        # Page Layout.
+        topic_page_layout = QHBoxLayout()
+        topic_page_layout.addSpacing(10)
+        topic_page_layout.addWidget(topic_prev_button)
+        topic_page_layout.addWidget(topic_next_button)
+        topic_page_layout.addStretch()
+        topic_page_layout.addWidget(topic_page_label)
+        topic_page_layout.addSpacing(10)
         # -- All the Topic Area Layout --
         topic_area_layout = QVBoxLayout()
         topic_area_layout.addLayout(size_layout)
         topic_area_layout.addLayout(sort_cats_layout)
         topic_area_layout.addWidget(topics_scroll_area)
+        topic_area_layout.addLayout(topic_page_layout)
         topic_area_container = QWidget()
         topic_area_container.setLayout(topic_area_layout)
+        # -- Update Topics Scrollable --
+        self.updateTopicsTabTopicScroll()
 
         # --- Top Docs Area ---
         # Create Topic Documents Label.
@@ -430,14 +473,36 @@ class MainWindow(QMainWindow):
             Qt.ScrollBarPolicy.ScrollBarAsNeeded
         )
         docs_scroll_area.setWidgetResizable(True)
-        # Update content of Scrollable.
-        self.updateTopicsTabDocScroll()
-        # - Top Docs Area Final Layout -
+        # - Documents Page Area -
+        doc_prev_button = QPushButton("Prev")
+        self.topics_tab_docs_prev_button = doc_prev_button
+        doc_prev_button.clicked.connect(
+            lambda checked: self.prevPageTopicsTabDocScroll()
+        )
+        doc_next_button = QPushButton("Next")
+        self.topics_tab_docs_next_button = doc_next_button
+        doc_next_button.clicked.connect(
+            lambda checked: self.nextPageTopicsTabDocScroll()
+        )
+        doc_page_label = QLabel()
+        self.topics_tab_docs_page_label = doc_page_label
+        # Doc Page Layout.
+        doc_page_layout = QHBoxLayout()
+        doc_page_layout.addSpacing(10)
+        doc_page_layout.addWidget(doc_prev_button)
+        doc_page_layout.addWidget(doc_next_button)
+        doc_page_layout.addStretch()
+        doc_page_layout.addWidget(doc_page_label)
+        doc_page_layout.addSpacing(10)
+        # -- Top Docs Area Final Layout --
         docs_area_layout = QVBoxLayout()
         docs_area_layout.addWidget(self.topics_tab_docs_label)
         docs_area_layout.addWidget(self.topics_tab_docs_scroll)
+        docs_area_layout.addLayout(doc_page_layout)
         docs_area_container = QWidget()
         docs_area_container.setLayout(docs_area_layout)
+        # -- Update Documents Scrollable --
+        self.updateTopicsTabDocScroll()
 
         # --- Topics Tab Layout ---
         topics_tab_layout = QHBoxLayout()
@@ -681,9 +746,6 @@ class MainWindow(QMainWindow):
         topic_item_container = QFrame()
         topic_item_container.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Plain)
         topic_item_container.setLayout(topic_item_layout)
-        # Topics Tab - Save the Container of the Topic.
-        if checkable_type == 'radio-button':
-            self.topics_tab_topics_widgets[topic_id] = topic_item_container
         # Item with the Info about the Topic.
         return topic_item_container
 
@@ -771,7 +833,8 @@ class MainWindow(QMainWindow):
             self.updateSearchTabTopicsScroll()
             self.updateSearchTabDocsScroll()
             # Update Topics & Documents in the Topics Tab.
-            self.updateTopicsTabVariables()
+            self.updateTopicsTabTopicVariables()
+            self.updateTopicsTabDocVariables()
             self.updateTopicsTabTopicScroll()
             self.updateTopicsTabDocScroll()
             # Update Doc Content, Topics & Documents in the Documents Tab.
@@ -854,7 +917,8 @@ class MainWindow(QMainWindow):
             self.updateSearchTabTopicsScroll()
             self.updateSearchTabDocsScroll()
             # Update Topics & Documents in the Topics Tab.
-            self.updateTopicsTabVariables()
+            self.updateTopicsTabTopicVariables()
+            self.updateTopicsTabDocVariables()
             self.updateTopicsTabTopicScroll()
             self.updateTopicsTabDocScroll()
             # Update Doc Content, Topics & Documents in the Documents Tab.
@@ -979,6 +1043,8 @@ class MainWindow(QMainWindow):
             )
             # Add to Layout.
             top_topics_v_box.addWidget(topic_info_container)
+        # Add a Stretch at the end (in case we have only a few items).
+        top_topics_v_box.addStretch()
         # Create Container for the List of Items.
         top_topics_container = QWidget()
         top_topics_container.setLayout(top_topics_v_box)
@@ -1132,11 +1198,14 @@ class MainWindow(QMainWindow):
         # Add the Documents Items to the Layout.
         for doc_id, similarity, title, abstract in docs_info:
             text_len = self.search_tab_preview_size
-            red_abstract = abstract[:text_len] + '...'
+            extra = '...' if text_len < len(abstract) else ''
+            red_abstract = abstract[:text_len] + extra
             doc_info_item = self.createDocItem(
                 doc_id=doc_id, title=title, abstract=red_abstract, sim=similarity
             )
             docs_v_box.addWidget(doc_info_item)
+        # Add a Stretch at the end (in case we have only a few items).
+        docs_v_box.addStretch()
         # Create Container for the Item List.
         docs_container = QWidget()
         docs_container.setLayout(docs_v_box)
@@ -1144,7 +1213,7 @@ class MainWindow(QMainWindow):
         # Update the Documents Scrollable in the Search Tab.
         self.search_tab_docs_scroll.setWidget(docs_container)
 
-    def updateTopicsTabVariables(self, cur_cat_index=-1):
+    def updateTopicsTabTopicVariables(self, cur_cat_index=-1):
         """
         Update the values of the Variables used in the Topics Tab.
         """
@@ -1163,13 +1232,47 @@ class MainWindow(QMainWindow):
             sort_cat=lower_sort_cat, word_num=topics_word_num
         )
         # Get the Top Topic for the Category.
-        topics_tab_top_topic, _, _ = cur_cat_topics_info[0]
+        cur_cat_top_topic, _, _ = cur_cat_topics_info[0]
 
-        # Update Topics Tab - Variables
+        # Calculate Number of Topic Pages and Topics per Page.
+        topic_page_size = self.topics_tab_topics_page_size
+        total_topics = len(cur_cat_topics_info)
+        total_topic_pages = total_topics // topic_page_size
+        if total_topics % topic_page_size > 0:
+            total_topic_pages += 1
+        # Save the Topics Info per Page.
+        topic_page_count = 0
+        current_page = 1
+        cur_page_topics_info = []
+        topic_pages = {}
+        topic_page_topics_info = {}
+        for topic_id, cat_value, description in cur_cat_topics_info:
+            # Save Page of the Topic.
+            topic_pages[topic_id] = str(current_page)
+            # Save the Topic Info of the topic.
+            topic_info_tuple = (topic_id, cat_value, description)
+            cur_page_topics_info.append(topic_info_tuple)
+            # Check if we need to go to the next Page.
+            topic_page_count += 1
+            if topic_page_count >= topic_page_size:
+                # Save the Topics Info for the current Page.
+                topic_page_topics_info[str(current_page)] = cur_page_topics_info
+                # Go to the Next Page & Reset all the Page Variables.
+                current_page += 1
+                topic_page_count = 0
+                cur_page_topics_info = []
+        # Check if we have Info <Leftovers>.
+        if cur_page_topics_info:
+            topic_page_topics_info[str(current_page)] = cur_page_topics_info
+
+        # Update Topics Tab - Topic Variables
         self.topics_tab_cur_cat = cur_sort_cat
         self.topics_tab_cat_index = cur_cat_index
-        self.topics_tab_topics_info = cur_cat_topics_info
-        self.topics_tab_top_topic = topics_tab_top_topic
+        self.topics_tab_cur_topic = cur_cat_top_topic
+        self.topics_tab_topics_cur_page = '1'
+        self.topics_tab_topics_total_pages = str(total_topic_pages)
+        self.topics_tab_topics_pages = topic_pages
+        self.topics_tab_topics_page_info = topic_page_topics_info
         self.topics_tab_button_group = QButtonGroup()
         self.topics_tab_topics_radios = {}
         self.topics_tab_topics_widgets = {}
@@ -1185,7 +1288,7 @@ class MainWindow(QMainWindow):
                 progress_msg(f"Same sorting category selected <{self.topics_tab_cur_cat}>.")
             return
         # Save Old Top Topic to see if it changes.
-        old_top_topic = self.topics_tab_top_topic
+        old_cur_topic = self.topics_tab_cur_topic
 
         # --- New Sorting Category Selected ---
         cur_sort_cat = self.topics_tab_sort_cats[sort_cat_index]
@@ -1193,12 +1296,12 @@ class MainWindow(QMainWindow):
             progress_msg(
                 f"Updating the sorting category of the topics to <{cur_sort_cat}>..."
             )
-        self.updateTopicsTabVariables(cur_cat_index=sort_cat_index)
-
-        # Topics Tab - Update Scrollable of Topics.
+        # Update Topic Variables & Scrollable
+        self.updateTopicsTabTopicVariables(cur_cat_index=sort_cat_index)
         self.updateTopicsTabTopicScroll()
         # Topics Tab - Update Scrollable of Documents if the Top Topic Changed.
-        if self.topics_tab_top_topic != old_top_topic:
+        if self.topics_tab_cur_topic != old_cur_topic:
+            self.updateTopicsTabDocVariables()
             self.updateTopicsTabDocScroll()
         # Done.
         if show_progress:
@@ -1206,11 +1309,66 @@ class MainWindow(QMainWindow):
                 f"Topics in the Topics Tab sorted by {self.topics_tab_cur_cat}!"
             )
 
+    def viewTopic(self, topic_id: str):
+        """
+        Open the Topics Tab to view the Topic 'topic_id'.
+        """
+        # See if 'topic_id' is in the current Topic Page.
+        cur_topic_page = self.topics_tab_topics_cur_page
+        new_topic_page = self.topics_tab_topics_pages[topic_id]
+        if new_topic_page == cur_topic_page:
+            # -- Same Topic Page --
+            # Get the Topic RadioButton and Container in Scrollable.
+            topic_radio_button = self.topics_tab_topics_radios[topic_id]
+            # Select the Given Topic in Scrollable.
+            topic_radio_button.setChecked(True)
+        else:
+            # -- New Topic Page --
+            self.topics_tab_cur_topic = topic_id
+            self.topics_tab_topics_cur_page = new_topic_page
+            self.updateTopicsTabTopicScroll()
+            self.updateTopicsTabDocVariables()
+            self.updateTopicsTabDocScroll()
+        # Make sure to show the Topic Widget.
+        topic_widget_item = self.topics_tab_topics_widgets[topic_id]
+        self.topics_tab_topics_scroll.ensureWidgetVisible(topic_widget_item)
+        # Go to the Topics Tab if we are not there.
+        if self.current_tab_index != self.topics_tab_index:
+            self.current_tab_index = self.topics_tab_index
+            self.main_tab_bar.setCurrentIndex(self.current_tab_index)
+
+    def nextPageTopicsTabTopicScroll(self):
+        """
+        Move the Topics Scrollable in the Topics Tab to the Next Page.
+        """
+        # Increase by 1 the page number.
+        cur_page_num = int(self.topics_tab_topics_cur_page)
+        cur_page_num += 1
+        self.topics_tab_topics_cur_page = str(cur_page_num)
+        # Update the Scrollable.
+        self.updateTopicsTabTopicScroll()
+
+    def prevPageTopicsTabTopicScroll(self):
+        """
+        Move the Topics Scrollable in the Topics Tab to the Previous Page.
+        """
+        # Decrease by 1 the page number.
+        cur_page_num = int(self.topics_tab_topics_cur_page)
+        cur_page_num -= 1
+        self.topics_tab_topics_cur_page = str(cur_page_num)
+        # Update the Scrollable.
+        self.updateTopicsTabTopicScroll()
+
     def updateTopicsTabTopicScroll(self):
         """
         Create or Update the Content of the Topics being displayed in the
         Topics Scrollable in the Topics Tab.
         """
+        # Reset the Button Group & Dictionaries with the Button & Widgets.
+        self.topics_tab_button_group = QButtonGroup()
+        self.topics_tab_topics_radios = {}
+        self.topics_tab_topics_widgets = {}
+
         # Create Layout for the List of Topics.
         top_topics_v_box = QVBoxLayout()
         top_topics_v_box.setSpacing(0)
@@ -1219,41 +1377,42 @@ class MainWindow(QMainWindow):
 
         # Get the Sorting Category and the Topics Info.
         lower_sort_cat = self.topics_tab_cur_cat.lower()
-        topics_info = self.topics_tab_topics_info
-        # Mark the first Topic of the List.
-        is_first = True
-        for topic_id, cat_value, description in topics_info:
-            topic_info_container = self.createTopicItem(
+        cur_topic_id = self.topics_tab_cur_topic
+        cur_topic_page = self.topics_tab_topics_cur_page
+        cur_page_topics_info = self.topics_tab_topics_page_info[cur_topic_page]
+        # Create the Widget Items for the Topics in the Current Page.
+        for topic_id, cat_value, description in cur_page_topics_info:
+            is_cur_topic = topic_id == cur_topic_id
+            topic_info_item = self.createTopicItem(
                 topic_id=topic_id, cat_type=lower_sort_cat, cat_value=cat_value,
                 description=description, view_type='vocabulary',
-                checkable_type='radio-button', set_checked=is_first
+                checkable_type='radio-button', set_checked=is_cur_topic
             )
-            top_topics_v_box.addWidget(topic_info_container)
-            # Do not check the rest of the topics.
-            if is_first:
-                is_first = False
+            # Save the Widget Item of the Topics in the Page.
+            self.topics_tab_topics_widgets[topic_id] = topic_info_item
+            # Add to Layout.
+            top_topics_v_box.addWidget(topic_info_item)
+        # Add a Stretch at the end (in case we have only a few items).
+        top_topics_v_box.addStretch()
         # Create Container for the List of Topics.
         top_topics_container = QWidget()
         top_topics_container.setLayout(top_topics_v_box)
 
         # Topics Tab - Update Scrollable of Topics.
         self.topics_tab_topics_scroll.setWidget(top_topics_container)
-
-    def viewTopic(self, topic_id: str):
-        """
-        Open the Topics Tab to view the Topic 'topic_id'.
-        """
-        # Go to the Topics Tab if we are not there.
-        if self.current_tab_index != self.topics_tab_index:
-            self.current_tab_index = self.topics_tab_index
-            self.main_tab_bar.setCurrentIndex(self.current_tab_index)
-        # Get the Topic RadioButton and Container in Scrollable.
-        topic_radio_button = self.topics_tab_topics_radios[topic_id]
-        topic_container = self.topics_tab_topics_widgets[topic_id]
-        # Make Visible the Topic in the Topics Scrollable.
-        self.topics_tab_topics_scroll.ensureWidgetVisible(topic_container)
-        # Select the Given Topic in Scrollable.
-        topic_radio_button.setChecked(True)
+        # Update the Topics Page Labels.
+        cur_page = int(self.topics_tab_topics_cur_page)
+        total_pages = int(self.topics_tab_topics_total_pages)
+        self.topics_tab_topics_page_label.setText(f"Page: {cur_page}/{total_pages}")
+        # Update Page Buttons.
+        if cur_page > 1:
+            self.topics_tab_topics_prev_button.setEnabled(True)
+        else:
+            self.topics_tab_topics_prev_button.setEnabled(False)
+        if cur_page < total_pages:
+            self.topics_tab_topics_next_button.setEnabled(True)
+        else:
+            self.topics_tab_topics_next_button.setEnabled(False)
 
     def newTopicSelected(self, checked: bool, topic_id: str, show_progress=False):
         """
@@ -1265,24 +1424,86 @@ class MainWindow(QMainWindow):
             # No need to do any changes to the UI.
             return
         # Update the Current Topic in the Topics Tab.
-        self.topics_tab_top_topic = topic_id
+        self.topics_tab_cur_topic = topic_id
         # Update the Displayed Documents.
+        self.updateTopicsTabDocVariables()
         self.updateTopicsTabDocScroll()
         # Done.
         if show_progress:
             progress_msg(f"Documents from <{topic_id}> ready!")
+
+    def updateTopicsTabDocVariables(self):
+        """
+        Update the value of the variables used in the Documents Section of the
+        Topics Tab.
+        """
+        # Get the Doc Info for the documents in the Current Topic.
+        cur_topic_docs_info = self.search_engine.topic_docs_info(
+            topic_id=self.topics_tab_cur_topic
+        )
+        # Calculate Number of Document Pages and Docs per Page.
+        doc_page_size = self.topics_tab_docs_page_size
+        total_docs = len(cur_topic_docs_info)
+        total_doc_pages = total_docs // doc_page_size
+        if total_docs % doc_page_size > 0:
+            total_doc_pages += 1
+        # Save the Documents Info per Page.
+        doc_page_count = 0
+        current_page = 1
+        current_page_docs_info = []
+        docs_page_info = {}
+        for doc_info_tuple in cur_topic_docs_info:
+            # Add The Info Tuple to the Current Doc Info List.
+            current_page_docs_info.append(doc_info_tuple)
+            # Check if we need to go to the next Page.
+            doc_page_count += 1
+            if doc_page_count >= doc_page_size:
+                # Save the Docs Info for the Current Page.
+                docs_page_info[str(current_page)] = current_page_docs_info
+                # Go to Next Page & Reset all the Page Variables.
+                current_page += 1
+                doc_page_count = 0
+                current_page_docs_info = []
+        # Check for any Doc Info <Leftovers>.
+        if current_page_docs_info:
+            docs_page_info[str(current_page)] = current_page_docs_info
+
+        # Update Topics Tab - Doc Variables.
+        self.topics_tab_docs_num = len(cur_topic_docs_info)
+        self.topics_tab_docs_cur_page = '1'
+        self.topics_tab_docs_total_pages = str(total_doc_pages)
+        self.topics_tab_docs_page_info = docs_page_info
+
+    def nextPageTopicsTabDocScroll(self):
+        """
+        Move the Documents Scrollable in the Topics Tab to the Next Page.
+        """
+        # Increase by 1 the page number.
+        cur_page_num = int(self.topics_tab_docs_cur_page)
+        cur_page_num += 1
+        self.topics_tab_docs_cur_page = str(cur_page_num)
+        # Update the Documents Scrollable.
+        self.updateTopicsTabDocScroll()
+
+    def prevPageTopicsTabDocScroll(self):
+        """
+        Move the Documents Scrollable in the Topics Tab to the Previous Page.
+        """
+        # Decrease by 1 the page number.
+        cur_page_num = int(self.topics_tab_docs_cur_page)
+        cur_page_num -= 1
+        self.topics_tab_docs_cur_page = str(cur_page_num)
+        # Update the Documents Scrollable.
+        self.updateTopicsTabDocScroll()
 
     def updateTopicsTabDocScroll(self):
         """
         Create & Update the Content of the Documents Scrollable in the Topics
         Tab.
         """
-        # Get the Topic to display its documents.
-        topic_id = self.topics_tab_top_topic
-
-        # Get the Info about the Documents.
-        topic_docs_info = self.search_engine.topic_docs_info(topic_id=topic_id)
-        docs_size = len(topic_docs_info)
+        # Get the Widget Items of the Documents in the Current Page.
+        doc_page_key = self.topics_tab_docs_cur_page
+        cur_page_docs_info = self.topics_tab_docs_page_info[doc_page_key]
 
         # Topic Documents Layout.
         top_docs_v_box = QVBoxLayout()
@@ -1290,22 +1511,42 @@ class MainWindow(QMainWindow):
         top_docs_v_box.setContentsMargins(0, 0, 0, 0)
         top_docs_v_box.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         # Add items to Top Documents Layout.
-        for doc_id, similarity, title, abstract in topic_docs_info:
+        for doc_id, similarity, title, abstract in cur_page_docs_info:
+            # Create the Item Widget for the Document.
             text_len = self.topics_tab_preview_size
-            red_abstract = abstract[:text_len] + '...'
-            doc_info_container = self.createDocItem(
+            extra = '...' if text_len < len(abstract) else ''
+            red_abstract = abstract[:text_len] + extra
+            doc_info_item = self.createDocItem(
                 doc_id=doc_id, title=title, abstract=red_abstract, sim=similarity
             )
-            top_docs_v_box.addWidget(doc_info_container)
+            top_docs_v_box.addWidget(doc_info_item)
+        # Add a Stretch at the end (in case we have only a few items).
+        top_docs_v_box.addStretch()
         # Create Container for the Documents Layout.
         top_docs_container = QWidget()
         top_docs_container.setLayout(top_docs_v_box)
 
-        # Update the Label and Scrollable of the Documents.
+        # Update the Label the Documents.
+        cur_topic_id = self.topics_tab_cur_topic
+        cur_topic_size = self.topics_tab_docs_num
         self.topics_tab_docs_label.setText(
-            f"Documents from {topic_id} ({docs_size} docs):"
+            f"Documents from {cur_topic_id} ({cur_topic_size} docs):"
         )
+        # Update Documents Scrollable.
         self.topics_tab_docs_scroll.setWidget(top_docs_container)
+        # Update the Page Labels.
+        cur_page = int(self.topics_tab_docs_cur_page)
+        total_pages = int(self.topics_tab_docs_total_pages)
+        self.topics_tab_docs_page_label.setText(f"Page: {cur_page}/{total_pages}")
+        # Update Page Buttons.
+        if cur_page > 1:
+            self.topics_tab_docs_prev_button.setEnabled(True)
+        else:
+            self.topics_tab_docs_prev_button.setEnabled(False)
+        if cur_page < total_pages:
+            self.topics_tab_docs_next_button.setEnabled(True)
+        else:
+            self.topics_tab_docs_next_button.setEnabled(False)
 
     def viewVocabulary(self, topic_id: str):
         """
@@ -1472,6 +1713,8 @@ class MainWindow(QMainWindow):
             )
             # Add to Layout.
             top_topics_v_box.addWidget(topic_info_container)
+        # Add a Stretch at the end (in case we have only a few items).
+        top_topics_v_box.addStretch()
         # Create Container for the List of Items.
         top_topics_container = QWidget()
         top_topics_container.setLayout(top_topics_v_box)
@@ -1641,11 +1884,14 @@ class MainWindow(QMainWindow):
         # Add Doc items to the Layout.
         for doc_id, similarity, title, abstract in docs_info:
             text_len = self.docs_tab_preview_size
-            red_abstract = abstract[:text_len] + '...'
+            extra = '...' if text_len < len(abstract) else ''
+            red_abstract = abstract[:text_len] + extra
             doc_info_item = self.createDocItem(
                 doc_id=doc_id, title=title, abstract=red_abstract, sim=similarity
             )
             docs_v_box.addWidget(doc_info_item)
+        # Add a Stretch at the end (in case we have only a few items).
+        docs_v_box.addStretch()
         # Create Container for the Item List.
         docs_container = QWidget()
         docs_container.setLayout(docs_v_box)
