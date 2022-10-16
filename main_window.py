@@ -126,11 +126,15 @@ class MainWindow(QMainWindow):
         self.topics_tab_topics_scroll = None
         self.topics_tab_docs_label = None
         self.topics_tab_docs_scroll = None
+        self.topics_tab_topics_first_button = None
         self.topics_tab_topics_prev_button = None
         self.topics_tab_topics_next_button = None
+        self.topics_tab_topics_last_button = None
         self.topics_tab_topics_page_label = None
+        self.topics_tab_docs_first_button = None
         self.topics_tab_docs_prev_button = None
         self.topics_tab_docs_next_button = None
+        self.topics_tab_docs_last_button = None
         self.topics_tab_docs_page_label = None
 
         # Documents Tab - Fixed Values
@@ -429,6 +433,11 @@ class MainWindow(QMainWindow):
         )
         topics_scroll_area.setWidgetResizable(True)
         # - Topics Page Area -
+        topic_first_button = QPushButton("<<")
+        self.topics_tab_topics_first_button = topic_first_button
+        topic_first_button.clicked.connect(
+            lambda checked: self.firstPageTopicsTabTopicScroll()
+        )
         topic_prev_button = QPushButton("Prev")
         self.topics_tab_topics_prev_button = topic_prev_button
         topic_prev_button.clicked.connect(
@@ -439,13 +448,21 @@ class MainWindow(QMainWindow):
         topic_next_button.clicked.connect(
             lambda checked: self.nextPageTopicsTabTopicScroll()
         )
+        topic_last_button = QPushButton(">>")
+        self.topics_tab_topics_last_button = topic_last_button
+        topic_last_button.clicked.connect(
+            lambda checked: self.lastPageTopicsTabTopicsScroll()
+        )
         topic_page_label = QLabel()
         self.topics_tab_topics_page_label = topic_page_label
         # Page Layout.
         topic_page_layout = QHBoxLayout()
+        topic_page_layout.setSpacing(4)
         topic_page_layout.addSpacing(10)
+        topic_page_layout.addWidget(topic_first_button)
         topic_page_layout.addWidget(topic_prev_button)
         topic_page_layout.addWidget(topic_next_button)
+        topic_page_layout.addWidget(topic_last_button)
         topic_page_layout.addStretch()
         topic_page_layout.addWidget(topic_page_label)
         topic_page_layout.addSpacing(10)
@@ -474,6 +491,11 @@ class MainWindow(QMainWindow):
         )
         docs_scroll_area.setWidgetResizable(True)
         # - Documents Page Area -
+        doc_first_button = QPushButton("<<")
+        self.topics_tab_docs_first_button = doc_first_button
+        doc_first_button.clicked.connect(
+            lambda checked: self.firstPageTopicsTabDocScroll()
+        )
         doc_prev_button = QPushButton("Prev")
         self.topics_tab_docs_prev_button = doc_prev_button
         doc_prev_button.clicked.connect(
@@ -484,13 +506,21 @@ class MainWindow(QMainWindow):
         doc_next_button.clicked.connect(
             lambda checked: self.nextPageTopicsTabDocScroll()
         )
+        doc_last_button = QPushButton(">>")
+        self.topics_tab_docs_last_button = doc_last_button
+        doc_last_button.clicked.connect(
+            lambda checked: self.lastPageTopicsTabDocScroll()
+        )
         doc_page_label = QLabel()
         self.topics_tab_docs_page_label = doc_page_label
         # Doc Page Layout.
         doc_page_layout = QHBoxLayout()
+        doc_page_layout.setSpacing(4)
         doc_page_layout.addSpacing(10)
+        doc_page_layout.addWidget(doc_first_button)
         doc_page_layout.addWidget(doc_prev_button)
         doc_page_layout.addWidget(doc_next_button)
+        doc_page_layout.addWidget(doc_last_button)
         doc_page_layout.addStretch()
         doc_page_layout.addWidget(doc_page_label)
         doc_page_layout.addSpacing(10)
@@ -1337,9 +1367,17 @@ class MainWindow(QMainWindow):
             self.current_tab_index = self.topics_tab_index
             self.main_tab_bar.setCurrentIndex(self.current_tab_index)
 
+    def firstPageTopicsTabTopicScroll(self):
+        """
+        Move the Topics Scrollable on the Topics Tab to the First Page.
+        """
+        # Set the current page on the First Page.
+        self.topics_tab_topics_cur_page = '1'
+        self.updateTopicsTabTopicScroll()
+
     def nextPageTopicsTabTopicScroll(self):
         """
-        Move the Topics Scrollable in the Topics Tab to the Next Page.
+        Move the Topics Scrollable on the Topics Tab to the Next Page.
         """
         # Increase by 1 the page number.
         cur_page_num = int(self.topics_tab_topics_cur_page)
@@ -1350,13 +1388,22 @@ class MainWindow(QMainWindow):
 
     def prevPageTopicsTabTopicScroll(self):
         """
-        Move the Topics Scrollable in the Topics Tab to the Previous Page.
+        Move the Topics Scrollable on the Topics Tab to the Previous Page.
         """
         # Decrease by 1 the page number.
         cur_page_num = int(self.topics_tab_topics_cur_page)
         cur_page_num -= 1
         self.topics_tab_topics_cur_page = str(cur_page_num)
         # Update the Scrollable.
+        self.updateTopicsTabTopicScroll()
+
+    def lastPageTopicsTabTopicsScroll(self):
+        """
+        Move the Topics Scrollable on the Topics Tab to the Last Page.
+        """
+        # Set the current page on the Last Page.
+        last_page = self.topics_tab_topics_total_pages
+        self.topics_tab_topics_cur_page = last_page
         self.updateTopicsTabTopicScroll()
 
     def updateTopicsTabTopicScroll(self):
@@ -1406,13 +1453,17 @@ class MainWindow(QMainWindow):
         self.topics_tab_topics_page_label.setText(f"Page: {cur_page}/{total_pages}")
         # Update Page Buttons.
         if cur_page > 1:
+            self.topics_tab_topics_first_button.setEnabled(True)
             self.topics_tab_topics_prev_button.setEnabled(True)
         else:
+            self.topics_tab_topics_first_button.setEnabled(False)
             self.topics_tab_topics_prev_button.setEnabled(False)
         if cur_page < total_pages:
             self.topics_tab_topics_next_button.setEnabled(True)
+            self.topics_tab_topics_last_button.setEnabled(True)
         else:
             self.topics_tab_topics_next_button.setEnabled(False)
+            self.topics_tab_topics_last_button.setEnabled(False)
 
     def newTopicSelected(self, checked: bool, topic_id: str, show_progress=False):
         """
@@ -1474,9 +1525,17 @@ class MainWindow(QMainWindow):
         self.topics_tab_docs_total_pages = str(total_doc_pages)
         self.topics_tab_docs_page_info = docs_page_info
 
+    def firstPageTopicsTabDocScroll(self):
+        """
+        Move the Documents Scrollable on the Topics Tab to the First Page.
+        """
+        # Set the current page on the First Page.
+        self.topics_tab_docs_cur_page = '1'
+        self.updateTopicsTabDocScroll()
+
     def nextPageTopicsTabDocScroll(self):
         """
-        Move the Documents Scrollable in the Topics Tab to the Next Page.
+        Move the Documents Scrollable on the Topics Tab to the Next Page.
         """
         # Increase by 1 the page number.
         cur_page_num = int(self.topics_tab_docs_cur_page)
@@ -1487,13 +1546,22 @@ class MainWindow(QMainWindow):
 
     def prevPageTopicsTabDocScroll(self):
         """
-        Move the Documents Scrollable in the Topics Tab to the Previous Page.
+        Move the Documents Scrollable on the Topics Tab to the Previous Page.
         """
         # Decrease by 1 the page number.
         cur_page_num = int(self.topics_tab_docs_cur_page)
         cur_page_num -= 1
         self.topics_tab_docs_cur_page = str(cur_page_num)
         # Update the Documents Scrollable.
+        self.updateTopicsTabDocScroll()
+
+    def lastPageTopicsTabDocScroll(self):
+        """
+        Move the Documents Scrollable on the Topics Tab to the Last Page.
+        """
+        # Set the current page on the Last Page.
+        last_page = self.topics_tab_docs_total_pages
+        self.topics_tab_docs_cur_page = last_page
         self.updateTopicsTabDocScroll()
 
     def updateTopicsTabDocScroll(self):
@@ -1540,13 +1608,17 @@ class MainWindow(QMainWindow):
         self.topics_tab_docs_page_label.setText(f"Page: {cur_page}/{total_pages}")
         # Update Page Buttons.
         if cur_page > 1:
+            self.topics_tab_docs_first_button.setEnabled(True)
             self.topics_tab_docs_prev_button.setEnabled(True)
         else:
+            self.topics_tab_docs_first_button.setEnabled(False)
             self.topics_tab_docs_prev_button.setEnabled(False)
         if cur_page < total_pages:
             self.topics_tab_docs_next_button.setEnabled(True)
+            self.topics_tab_docs_last_button.setEnabled(True)
         else:
             self.topics_tab_docs_next_button.setEnabled(False)
+            self.topics_tab_docs_last_button.setEnabled(False)
 
     def viewVocabulary(self, topic_id: str):
         """
