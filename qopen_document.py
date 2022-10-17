@@ -5,7 +5,7 @@ import sys
 from random import choice
 from PyQt6.QtWidgets import (
     QApplication, QDialog, QLabel, QLineEdit, QVBoxLayout, QHBoxLayout,
-    QDialogButtonBox
+    QDialogButtonBox, QWidget
 )
 from PyQt6.QtCore import Qt
 
@@ -15,12 +15,12 @@ class QOpenDocument(QDialog):
     Class to get the ID of the Document we have to open.
     """
 
-    def __init__(self, all_doc_ids: list):
+    def __init__(self, all_doc_ids: list, parent_widget: QWidget = None):
         """
         Initialize class and attributes.
         """
         # Initialize the base class.
-        super().__init__()
+        super().__init__(parent_widget)
         self.setModal(True)
 
         # Save Class Attributes.
