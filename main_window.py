@@ -5,7 +5,7 @@ import sys
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QComboBox, QTabWidget, QLayout, QScrollArea, QLineEdit, QPushButton, QFrame,
-    QButtonGroup, QCheckBox, QRadioButton, QDialog,
+    QButtonGroup, QCheckBox, QRadioButton, QDialog, QProgressDialog
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction
@@ -844,9 +844,19 @@ class MainWindow(QMainWindow):
         # Check if we have a new model name.
         new_model_name = self.supported_models[new_index]
         if new_model_name != self.current_model:
+            # Create the Progress Dialog.
+            progress_dialog = QProgressDialog(
+                "Changing Topic Model...", "Cancel", 0, 5, self
+            )
+            progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+            cancel_button = QPushButton("Cancel")
+            progress_dialog.setCancelButton(cancel_button)
+            cancel_button.setEnabled(False)
+            progress_dialog.setValue(1)
+
+            # Update the Topic Model of the IR System.
             if show_progress:
                 progress_msg("Changing Topic Model of the IR system...")
-            # Update the Topic Model of the IR System.
             self.search_engine.update_model(
                 new_model=new_model_name, show_progress=show_progress
             )
@@ -854,6 +864,8 @@ class MainWindow(QMainWindow):
             self.current_model = new_model_name
             # Update the Supported Sizes on the App.
             self.updateSupportedSizes()
+            # Update Progress.
+            progress_dialog.setValue(2)
 
             # Update Documents & Topics in the Search Tab.
             current_query = self.search_tab_query_text
@@ -862,11 +874,15 @@ class MainWindow(QMainWindow):
             )
             self.updateSearchTabTopicsScroll()
             self.updateSearchTabDocsScroll()
+            # Update Progress.
+            progress_dialog.setValue(3)
             # Update Topics & Documents in the Topics Tab.
             self.updateTopicsTabTopicVariables()
             self.updateTopicsTabDocVariables()
             self.updateTopicsTabTopicScroll()
             self.updateTopicsTabDocScroll()
+            # Update Progress.
+            progress_dialog.setValue(4)
             # Update Doc Content, Topics & Documents in the Documents Tab.
             cur_doc_id = self.search_engine.random_doc_id()
             self.updateDocsTabVariables(
@@ -875,6 +891,8 @@ class MainWindow(QMainWindow):
             self.updateDocsTabContentArea()
             self.updateDocsTabTopicsScroll()
             self.updateDocsTabDocsScroll()
+            # Update Progress.
+            progress_dialog.setValue(5)
 
             if show_progress:
                 progress_msg("Topic Model Updated!")
@@ -927,6 +945,16 @@ class MainWindow(QMainWindow):
 
         # Check if we have a new Size Index.
         if new_size_index != self.cur_size_index:
+            # Create the Progress Dialog.
+            progress_dialog = QProgressDialog(
+                "Changing Topic Size...", "Cancel", 0, 6, self
+            )
+            progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+            cancel_button = QPushButton("Cancel")
+            progress_dialog.setCancelButton(cancel_button)
+            cancel_button.setEnabled(False)
+            progress_dialog.setValue(1)
+
             # Update the Size Combo to the New Size.
             if new_size_index != self.search_tab_size_combo.currentIndex():
                 self.search_tab_size_combo.setCurrentIndex(new_size_index)
@@ -934,6 +962,8 @@ class MainWindow(QMainWindow):
                 self.topics_tab_size_combo.setCurrentIndex(new_size_index)
             if new_size_index != self.docs_tab_size_combo.currentIndex():
                 self.docs_tab_size_combo.setCurrentIndex(new_size_index)
+            # Update Progress.
+            progress_dialog.setValue(2)
 
             # Get the New Size.
             new_topic_size = self.supported_sizes[new_size_index]
@@ -941,21 +971,29 @@ class MainWindow(QMainWindow):
             self.search_engine.update_topic_size(
                 new_size=new_topic_size, show_progress=show_progress
             )
+            # Update Progress.
+            progress_dialog.setValue(3)
 
             # Update Documents & Topics in the Search Tab.
             self.updateSearchTabVariables(show_progress=show_progress)
             self.updateSearchTabTopicsScroll()
             self.updateSearchTabDocsScroll()
+            # Update Progress.
+            progress_dialog.setValue(4)
             # Update Topics & Documents in the Topics Tab.
             self.updateTopicsTabTopicVariables()
             self.updateTopicsTabDocVariables()
             self.updateTopicsTabTopicScroll()
             self.updateTopicsTabDocScroll()
+            # Update Progress.
+            progress_dialog.setValue(5)
             # Update Doc Content, Topics & Documents in the Documents Tab.
             self.updateDocsTabVariables(show_progress=show_progress)
             self.updateDocsTabContentArea()
             self.updateDocsTabTopicsScroll()
             self.updateDocsTabDocsScroll()
+            # Update Progress.
+            progress_dialog.setValue(6)
 
             # Update the Topic Size Attributes.
             self.topic_size = new_topic_size
