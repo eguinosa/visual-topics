@@ -11,6 +11,8 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction
 
 from ir_system import IRSystem
+from qmodel_worker import QModelWorker
+from qupdates_dialog import QUpdatesDialog
 from qvocab_dialog import QVocabDialog
 from qfull_content import QFullContent
 from qopen_document import QOpenDocument
@@ -173,7 +175,9 @@ class MainWindow(QMainWindow):
         self.open_doc = None
         self.random_doc = None
 
-        # Dialog Windows.
+        # Dialog Windows & Thread Workers.
+        self.model_worker = None
+        self.update_dialog = None
         self.vocab_window = None
         self.content_window = None
 
@@ -844,58 +848,55 @@ class MainWindow(QMainWindow):
         # Check if we have a new model name.
         new_model_name = self.supported_models[new_index]
         if new_model_name != self.current_model:
-            # Create the Progress Dialog.
-            progress_dialog = QProgressDialog(
-                "Changing Topic Model...", "Cancel", 0, 5, self
-            )
-            progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
-            cancel_button = QPushButton("Cancel")
-            progress_dialog.setCancelButton(cancel_button)
-            cancel_button.setEnabled(False)
-            progress_dialog.setValue(1)
-
             # Update the Topic Model of the IR System.
             if show_progress:
                 progress_msg("Changing Topic Model of the IR system...")
-            self.search_engine.update_model(
-                new_model=new_model_name, show_progress=show_progress
-            )
-            # Update the Name of the Current Topic Model.
-            self.current_model = new_model_name
-            # Update the Supported Sizes on the App.
-            self.updateSupportedSizes()
-            # Update Progress.
-            progress_dialog.setValue(2)
 
-            # Update Documents & Topics in the Search Tab.
-            current_query = self.search_tab_query_text
-            self.updateSearchTabVariables(
-                query_text=current_query, show_progress=show_progress
+            # Use Threads to Change the Model.
+            self.model_worker = QModelWorker(
+                search_engine=self.search_engine, new_model_name=new_model_name,
+                parent_widget=self, show_progress=show_progress
             )
-            self.updateSearchTabTopicsScroll()
-            self.updateSearchTabDocsScroll()
-            # Update Progress.
-            progress_dialog.setValue(3)
-            # Update Topics & Documents in the Topics Tab.
-            self.updateTopicsTabTopicVariables()
-            self.updateTopicsTabDocVariables()
-            self.updateTopicsTabTopicScroll()
-            self.updateTopicsTabDocScroll()
-            # Update Progress.
-            progress_dialog.setValue(4)
-            # Update Doc Content, Topics & Documents in the Documents Tab.
-            cur_doc_id = self.search_engine.random_doc_id()
-            self.updateDocsTabVariables(
-                cur_doc_id=cur_doc_id, show_progress=show_progress
+            self.update_dialog = QUpdatesDialog(
+                action_text="Updating Topic Model",
+                message_text=f"Changing to the Topic Model <{new_model_name}>...",
+                parent_widget=self
             )
-            self.updateDocsTabContentArea()
-            self.updateDocsTabTopicsScroll()
-            self.updateDocsTabDocsScroll()
-            # Update Progress.
-            progress_dialog.setValue(5)
+            self.model_worker.task_done.connect(lambda: self.update_dialog.accept())
+            # noinspection PyUnresolvedReferences
+            self.model_worker.finished.connect(self.model_worker.deleteLater)
 
-            if show_progress:
-                progress_msg("Topic Model Updated!")
+            # Start the thread and the Dialog.
+            self.model_worker.start()
+            if self.update_dialog.exec() == QDialog.DialogCode.Accepted:
+                # Update the Name of the Current Topic Model.
+                self.current_model = new_model_name
+                # Update the Supported Sizes on the App.
+                self.updateSupportedSizes()
+
+                # Update Documents & Topics in the Search Tab.
+                current_query = self.search_tab_query_text
+                self.updateSearchTabVariables(
+                    query_text=current_query, show_progress=show_progress
+                )
+                self.updateSearchTabTopicsScroll()
+                self.updateSearchTabDocsScroll()
+                # Update Topics & Documents in the Topics Tab.
+                self.updateTopicsTabTopicVariables()
+                self.updateTopicsTabDocVariables()
+                self.updateTopicsTabTopicScroll()
+                self.updateTopicsTabDocScroll()
+                # Update Doc Content, Topics & Documents in the Documents Tab.
+                cur_doc_id = self.search_engine.random_doc_id()
+                self.updateDocsTabVariables(
+                    cur_doc_id=cur_doc_id, show_progress=show_progress
+                )
+                self.updateDocsTabContentArea()
+                self.updateDocsTabTopicsScroll()
+                self.updateDocsTabDocsScroll()
+                # Done.
+                if show_progress:
+                    progress_msg("Topic Model Updated!")
         # Report that this is the same Model.
         elif show_progress:
             progress_msg("No need to update the Model.")
