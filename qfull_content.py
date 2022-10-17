@@ -4,7 +4,7 @@
 import sys
 from PyQt6.QtWidgets import (
     QApplication, QDialog, QLabel, QFrame, QPushButton, QScrollArea,
-    QVBoxLayout, QHBoxLayout
+    QVBoxLayout, QHBoxLayout, QWidget
 )
 from PyQt6.QtCore import Qt
 
@@ -14,12 +14,14 @@ class QFullContent(QDialog):
     Class to show the Full Content of a Document.
     """
 
-    def __init__(self, doc_id: str, full_content: str):
+    def __init__(
+            self, doc_id: str, full_content: str, parent_widget: QWidget = None
+    ):
         """
         Initialize class and attributes.
         """
         # Initialize the base class.
-        super().__init__()
+        super().__init__(parent_widget)
         self.setModal(False)
 
         # Save Class Attributes.
