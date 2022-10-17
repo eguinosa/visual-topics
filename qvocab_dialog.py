@@ -8,7 +8,7 @@ from os.path import isdir, isfile, join
 
 from PyQt6.QtWidgets import (
     QApplication, QDialog, QLabel, QTextEdit, QPushButton, QVBoxLayout,
-    QCheckBox,
+    QCheckBox, QWidget
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QCloseEvent
@@ -24,12 +24,14 @@ class QVocabDialog(QDialog):
     class_folder = 'qvocab_dialog_files'
     words_only_file = 'show_words_only.json'
 
-    def __init__(self, topic_id: str, word_list: list):
+    def __init__(
+            self, topic_id: str, word_list: list, parent_widget: QWidget = None
+    ):
         """
         Initialize class and Attributes.
         """
         # Initialize the base class.
-        super().__init__()
+        super().__init__(parent_widget)
         self.setModal(False)
 
         # Check if the Class Folder exists.
