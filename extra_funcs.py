@@ -96,6 +96,28 @@ def number_to_3digits(number):
         return str(mod_number)
 
 
+def number_to_digits(number, digits: int):
+    """
+    Transform a number to a number to a string representation with at least
+    'digits' number of characters before the decimal point. For example, if
+    number=1.23 and digits=3 then << result = '001.23' >>.
+    """
+    # Check we have a valid value for 'digits'.
+    if digits <= 1:
+        return str(number)
+    # Iterate through all the powers of 10 (10, 100, 1000, ...)
+    ten_powers = [10 ** x for x in range(1, digits)]
+    ten_powers.reverse()
+    prefix = ''
+    for ten_power in ten_powers:
+        # See if we need to add a zero to the prefix.
+        if number < ten_power:
+            prefix += '0'
+    # String of the number with the required digits in the whole part.
+    number_str = prefix + str(number)
+    return number_str
+
+
 def number_to_size(number: int, size: int):
     """
     Transform 'number' to a string of the given 'size', using zeros to the left
@@ -115,3 +137,29 @@ def number_to_size(number: int, size: int):
     for _ in range(size - n_size):
         number_str = '0' + number_str
     return number_str
+
+
+if __name__ == '__main__':
+    # # My own test.
+    # _number = 0.2
+    # _digits = 1
+    # # Use method.
+    # _final_str = number_to_digits(_number, _digits)
+    # print(f"Final Number: {_final_str}")
+
+    # Testing Numbers to Digits.
+    print("\n(To quit enter q/quit)")
+    while True:
+        # Get Number.
+        _input = input("\nNumber: ")
+        if _input in {'', 'q', 'quit'}:
+            break
+        _number = float(_input)
+        # Get Digits.
+        _input = input("Digits: ")
+        if _input in {'', 'q', 'quit'}:
+            break
+        _digits = int(_input)
+        # Use method.
+        _final_str = number_to_digits(_number, _digits)
+        print(f"Final Number: {_final_str}")
