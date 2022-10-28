@@ -2,13 +2,17 @@
 # 2022
 
 import sys
+import json
+from os import mkdir
+from os.path import isdir, isfile, join
+
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QComboBox, QTabWidget, QLayout, QScrollArea, QLineEdit, QPushButton, QFrame,
     QButtonGroup, QCheckBox, QRadioButton, QDialog,
 )
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QAction
+from PyQt6.QtGui import QAction, QCloseEvent
 
 from ir_system import IRSystem
 from qmodel_worker import QModelWorker
@@ -16,13 +20,18 @@ from qupdates_dialog import QUpdatesDialog
 from qvocab_dialog import QVocabDialog
 from qfull_content import QFullContent
 from qopen_document import QOpenDocument
-from extra_funcs import progress_msg
+from extra_funcs import progress_msg, number_to_digits
 
 
 class MainWindow(QMainWindow):
     """
     Main window of the IR system application.
     """
+    # Class Data Locations.
+    data_folder = 'project_data'
+    class_folder = 'main_window_files'
+    index_file = 'main_window_index.json'
+
     # Supported Topic Models.
     supported_models = [
         'specter_sbert_fast_5_000_docs_25_topics',
@@ -67,6 +76,28 @@ class MainWindow(QMainWindow):
         topic_size = str(search_engine.topic_size)
         supported_sizes = [str(x) for x in search_engine.supported_model_sizes()]
         cur_size_index = supported_sizes.index(topic_size)
+
+        # Check if the class Folder exists.
+        if not isdir(self.data_folder):
+            mkdir(self.data_folder)
+        class_folder_path = join(self.data_folder, self.class_folder)
+        if not isdir(class_folder_path):
+            mkdir(class_folder_path)
+        # Check if we have saved configurations.
+        index_path = join(class_folder_path, self.index_file)
+        if isfile(index_path):
+            # Load Index.
+            with open(index_path, 'r') as f:
+                index_dict = json.load(f)
+            # Get the Configuration Variables.
+            topic_use_percent = index_dict['topic_use_percent']
+            topic_raw_pwi = index_dict['topic_raw_pwi']
+            doc_use_percent = index_dict['doc_use_percent']
+        else:
+            # Create Default Configurations.
+            topic_use_percent = False
+            topic_raw_pwi = False
+            doc_use_percent = False
 
         # Save Class Attributes.
         self.current_model = current_model
@@ -170,10 +201,17 @@ class MainWindow(QMainWindow):
         self.main_tab_bar = None
         self.size_combo_working = False
 
-        # Menu Bar Actions.
-        self.quit_act = None
-        self.open_doc = None
-        self.random_doc = None
+        # Menu Bar - Variables.
+        self.topic_use_percent = topic_use_percent
+        self.topic_raw_pwi = topic_raw_pwi
+        self.doc_use_percent = doc_use_percent
+        # Menu Bar - Actions.
+        self.file_act_quit = None
+        self.topic_act_percent = None
+        self.topic_act_pwi = None
+        self.doc_act_open = None
+        self.doc_act_random = None
+        self.doc_act_percent = None
 
         # Dialog Windows & Thread Workers.
         self.model_worker = None
@@ -264,18 +302,43 @@ class MainWindow(QMainWindow):
         """
         Create the application's menu actions.
         """
-        # Create actions for File menu.
-        self.quit_act = QAction("&Quit")
-        self.quit_act.setShortcut("Ctrl+Q")
+        # File Menu - Quit.
+        self.file_act_quit = QAction("&Quit ")
+        self.file_act_quit.setShortcut("Ctrl+Q")
         # noinspection PyTypeChecker
-        self.quit_act.triggered.connect(self.close)
-        # Create Actions for Documents Tab.
-        self.open_doc = QAction("Open Document")
-        self.open_doc.setShortcut("Ctrl+O")
-        self.open_doc.triggered.connect(self.getDocID)
-        self.random_doc = QAction("Random Document")
-        self.random_doc.setShortcut("Ctrl+R")
-        self.random_doc.triggered.connect(self.openRandomDoc)
+        self.file_act_quit.triggered.connect(self.close)
+        # Topics Menu - Percent.
+        self.topic_act_percent = QAction("Topic Percent ")
+        self.topic_act_percent.setCheckable(True)
+        self.topic_act_percent.setChecked(self.topic_use_percent)
+        self.topic_act_percent.setShortcut("Ctrl+T")
+        self.topic_act_percent.triggered.connect(
+            lambda checked: self.updateTopicPercent(checked=checked)
+        )
+        # Topic Menu - PWI.
+        self.topic_act_pwi = QAction("Raw PWI ")
+        self.topic_act_pwi.setCheckable(True)
+        self.topic_act_pwi.setChecked(self.topic_raw_pwi)
+        self.topic_act_pwi.setShortcut("Ctrl+I")
+        self.topic_act_pwi.triggered.connect(
+            lambda checked: self.updateTopicPWI(checked=checked)
+        )
+        # Documents Menu - Open Doc.
+        self.doc_act_open = QAction("Open Document ")
+        self.doc_act_open.setShortcut("Ctrl+O")
+        self.doc_act_open.triggered.connect(self.getDocID)
+        # Documents Menu - Random Doc.
+        self.doc_act_random = QAction("Random Document ")
+        self.doc_act_random.setShortcut("Ctrl+R")
+        self.doc_act_random.triggered.connect(self.openRandomDoc)
+        # Documents Menu - Percent.
+        self.doc_act_percent = QAction("Doc Percent ")
+        self.doc_act_percent.setCheckable(True)
+        self.doc_act_percent.setChecked(self.doc_use_percent)
+        self.doc_act_percent.setShortcut("Ctrl+D")
+        self.doc_act_percent.triggered.connect(
+            lambda checked: self.updateDocPercent(checked=checked)
+        )
 
         if show_progress:
             progress_msg("Actions Created!")
@@ -285,13 +348,19 @@ class MainWindow(QMainWindow):
         Create the application's menu bar.
         """
         self.menuBar().setNativeMenuBar(False)
-        # Create File Menu and actions.
+        # Create File Menu.
         file_menu = self.menuBar().addMenu("File")
-        file_menu.addAction(self.quit_act)
-        # Create Documents Tab Menu.
+        file_menu.addAction(self.file_act_quit)
+        # Create Topic Menu.
+        topic_menu = self.menuBar().addMenu("Topics")
+        topic_menu.addAction(self.topic_act_percent)
+        topic_menu.addAction(self.topic_act_pwi)
+        # Create Documents Menu.
         doc_menu = self.menuBar().addMenu("Docs")
-        doc_menu.addAction(self.open_doc)
-        doc_menu.addAction(self.random_doc)
+        doc_menu.addAction(self.doc_act_open)
+        doc_menu.addAction(self.doc_act_random)
+        doc_menu.addSeparator()
+        doc_menu.addAction(self.doc_act_percent)
         if show_progress:
             progress_msg("Menu Created!")
 
@@ -707,14 +776,32 @@ class MainWindow(QMainWindow):
         topic_descript = f"""<p>{description}</p>"""
         # Create the Topic Header String.
         topic_header = topic_id
-        if cat_type == 'similarity':
-            topic_header += f" (Similarity: {round(cat_value, 3)})"
-        elif cat_type == 'pwi-tf-idf':
-            topic_header += f" (PWI-tf-idf: {round(cat_value, 4)})"
-        elif cat_type == 'pwi-exact':
-            topic_header += f" (PWI-exact: {round(cat_value, 4)})"
-        elif cat_type == 'size':
+        if cat_type == 'size':
             topic_header += f" (Size: {cat_value} docs)"
+        elif cat_type == 'similarity':
+            # Check if we are using Percent or Float.
+            if self.topic_use_percent:
+                number = round(cat_value * 100, 1)
+                number_str = number_to_digits(number=number, digits=2)
+                sim_str = f"{number_str}%"
+            else:
+                sim_str = f"{round(cat_value, 3)}"
+            # Update Header.
+            topic_header += f" (Similarity: {sim_str})"
+        elif cat_type in {'pwi-tf-idf', 'pwi-exact'}:
+            # Create PWI value (Raw or Formatted).
+            if self.topic_raw_pwi:
+                pwi_value = round(cat_value, 4)
+            else:
+                new_pwi_value = cat_value * 1000
+                pwi_value = round(new_pwi_value, 1)
+            # Update Header.
+            if cat_type == 'pwi-tf-idf':
+                topic_header += f" (PWI-tf-idf: {pwi_value})"
+            else:
+                topic_header += f" (PWI-exact: {pwi_value})"
+        else:
+            raise NameError(f"Category <{cat_type}> not supported.")
 
         # Create Header Checkbox or Radio Button.
         if checkable_type in {'search-checkbox', 'doc-checkbox'}:
@@ -791,8 +878,16 @@ class MainWindow(QMainWindow):
         """
         # Build Document Header Text.
         doc_header = f"Doc<{doc_id}>"
+        # Check if we have to add the similarity.
         if sim:
-            doc_header += f" (Similarity: {round(sim, 3)})"
+            # Check if we are using percent or float.
+            if self.doc_use_percent:
+                number = round(sim * 100, 1)
+                number_str = number_to_digits(number=number, digits=2)
+                doc_header += f" (Similarity: {number_str}%)"
+            # Use float value.
+            else:
+                doc_header += f" (Similarity: {round(sim, 3)})"
         # Build Document Content.
         if abstract:
             doc_content = f"""
@@ -1004,6 +1099,26 @@ class MainWindow(QMainWindow):
             progress_msg("No need to update the size of the Topic Model.")
         # We are Done.
         self.size_combo_working = False
+
+    def updateTopicPercent(self, checked: bool):
+        """
+        Update the way we show the similarity of the topics, depending on the
+        value of 'checked' it can be float or percentage.
+        """
+        self.topic_use_percent = checked
+        self.updateSearchTabTopicsScroll()
+        self.updateTopicsTabTopicScroll()
+        self.updateDocsTabTopicsScroll()
+
+    def updateDocPercent(self, checked: bool):
+        """
+        Update the way we show the similarity of the documents, depending on the
+        value of 'checked' it can be float or percentage.
+        """
+        self.doc_use_percent = checked
+        self.updateSearchTabDocsScroll()
+        self.updateTopicsTabDocScroll()
+        self.updateDocsTabDocsScroll()
 
     def searchRequested(self):
         """
@@ -1374,6 +1489,14 @@ class MainWindow(QMainWindow):
             progress_msg(
                 f"Topics in the Topics Tab sorted by {self.topics_tab_cur_cat}!"
             )
+
+    def updateTopicPWI(self, checked: bool):
+        """
+        Update the way we show the PWI value of the Topics in the Topics Tab.
+        """
+        self.topic_raw_pwi = checked
+        if self.topics_tab_cur_cat.lower() != 'size':
+            self.updateTopicsTabTopicScroll()
 
     def viewTopic(self, topic_id: str):
         """
@@ -2019,6 +2142,24 @@ class MainWindow(QMainWindow):
             doc_id=doc_id, full_content=full_content, parent_widget=self
         )
         self.content_window.show()
+
+    def closeEvent(self, event: QCloseEvent):
+        """
+        Reimplement the closing event to save the necessary configuration files.
+        """
+        # Create Index Dictionary.
+        index_dict = {
+            'topic_use_percent': self.topic_use_percent,
+            'topic_raw_pwi': self.topic_raw_pwi,
+            'doc_use_percent': self.doc_use_percent,
+        }
+        # Save Index.
+        class_folder_path = join(self.data_folder, self.class_folder)
+        index_path = join(class_folder_path, self.index_file)
+        with open(index_path, 'w') as f:
+            json.dump(index_dict, f)
+        # Accept the Closing Event.
+        event.accept()
 
 
 # Run Application.
