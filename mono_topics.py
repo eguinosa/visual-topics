@@ -862,7 +862,7 @@ if __name__ == '__main__':
     #     # print(f"\n{_topic_id} ({big_number(_value)} docs):")
     #     # ----------------------------------------
     #     # Show Homogeneity & Size
-    #     print(f"\n{_topic_id} (Homogeneity: {_value}:")
+    #     print(f"\n{_topic_id} (Homogeneity: {_value}):")
     #     print(f"<{big_number(len(_loaded_model.topic_docs[_topic_id]))} docs>")
     #     # ----------------------------------------
     #     _top_varied_words = _loaded_model.cur_topic_varied_words(_topic_id, _top_n)
@@ -922,12 +922,12 @@ if __name__ == '__main__':
     # # ----------------------------------------
     # print(f"\nTop {_top_n} words per topic:")
     # for _topic_id, _value in _sorted_cur_topics:
-    #     # # Show Size
-    #     # print(f"\n{_topic_id} ({big_number(_value)} docs):")
+    #     # Show Size
+    #     print(f"\n{_topic_id} ({big_number(_value)} docs):")
     #     # ----------------------------------------
-    #     # Show Homogeneity & Size
-    #     print(f"\n{_topic_id} (Homogeneity: {_value}:")
-    #     print(f"<{big_number(len(_loaded_model.base_cur_topic_docs[_topic_id]))} docs>")
+    #     # # Show Homogeneity & Size
+    #     # print(f"\n{_topic_id} (Homogeneity: {_value}):")
+    #     # print(f"<{big_number(len(_loaded_model.base_cur_topic_docs[_topic_id]))} docs>")
     #     # ----------------------------------------
     #     _sim_words = _loaded_model.top_words_cur_topic(_topic_id, _top_n, 'cos-sim')
     #     print("Top Words by Cosine Similarity:")
