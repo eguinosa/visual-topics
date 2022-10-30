@@ -16,7 +16,8 @@ from model_manager import ModelManager
 from vocabulary import Vocabulary
 from extra_funcs import progress_bar, progress_msg, number_to_size
 from util_funcs import (
-    closest_vector, cosine_sim, find_top_n, dict_list2ndarray, dict_ndarray2list
+    closest_vector, cosine_sim, find_top_n, dict_list2ndarray,
+    dict_ndarray2list, mean_similarity
 )
 
 
@@ -364,6 +365,36 @@ class BaseTopics(ABC):
         cur_topic_sizes.sort(key=lambda id_size: id_size[1], reverse=True)
         return cur_topic_sizes
 
+    def cur_topic_by_homogeneity(self, show_progress=False):
+        """
+        Create List of Tuples with the ID and Homogeneity of each of the current
+        topics.
+
+        Returns: List[Tuples(str, float)] with the current topics and their
+            homogeneity.
+        """
+        if show_progress:
+            cur_topics_homogeneity = []
+            for cur_topic_id in self.cur_topic_ids:
+                progress_msg(f"Calculating Homogeneity of <{cur_topic_id}>...")
+                homogeneity = self.cur_topic_homogeneity(
+                    cur_topic_id=cur_topic_id, parallelism=True,
+                    show_progress=show_progress
+                )
+                cur_topics_homogeneity.append((cur_topic_id, homogeneity))
+        else:
+            cur_topics_homogeneity = [
+                (cur_topic_id,
+                 self.cur_topic_homogeneity(
+                     cur_topic_id=cur_topic_id, parallelism=True,
+                     show_progress=show_progress
+                 ))
+                for cur_topic_id in self.cur_topic_ids
+            ]
+        # Topics & their Homogeneity.
+        cur_topics_homogeneity.sort(key=lambda id_homo: id_homo[1], reverse=True)
+        return cur_topics_homogeneity
+
     def cur_topic_by_pwi(self, word_num=-1, pwi_type='exact'):
         """
         Create List of Tuples with the ID and PWI value for each of the current
@@ -494,6 +525,146 @@ class BaseTopics(ABC):
         # Dictionary with Top N words per topic.
         return result_dict
 
+    def cur_topic_varied_words(self, cur_topic_id: str, top_n=10, sample_size=33):
+        """
+        Create a diversified description of the current topic 'cur_topic_id'
+        with 'top_n' words, taking the words from the closest 'sample_size'
+        words to the topic in the vector space.
+        """
+        # Get the Embeddings of the Word in the Vocabulary.
+        word_embeds = self.base_corpus_vocab.word_embeds
+
+        # Get the words used to create the Varied Description.
+        topic_words_sims = self.base_cur_topic_words[cur_topic_id]
+        # Get the Top Word Info.
+        top_word_tuple = topic_words_sims[0]
+        top_word = top_word_tuple[0]
+        top_word_embed = word_embeds[top_word]
+
+        # Add the most diverse word in every iteration.
+        sample_words = topic_words_sims[1:sample_size]
+        varied_words_tuples = [top_word_tuple]
+        varied_words_embeds = [top_word_embed]
+        for _ in range(top_n - 1):
+            # - Make sure we have at least one word available -
+            if not sample_words:
+                break
+            # - Get the Info about the available words -
+            sample_words_info = []
+            for i in range(len(sample_words)):
+                cur_word_tuple = sample_words[i]
+                cur_word = cur_word_tuple[0]
+                word_embed = word_embeds[cur_word]
+                with_word_homo = mean_similarity(
+                    vectors_ndarray=varied_words_embeds + [word_embed],
+                    parallelism=True, show_progress=False
+                )
+                # Create Dictionary with the Info of the Word.
+                cur_word_info = {
+                    'word': cur_word,
+                    'word_index': i,
+                    'word_sim_tuple': cur_word_tuple,
+                    'word_embed': word_embed,
+                    'with_word_homo': with_word_homo,
+                }
+                # Save Info in list.
+                sample_words_info.append(cur_word_info)
+            # - Select the word with the lowest Homogeneity -
+            best_varied_word = min(
+                sample_words_info, key=lambda x_dict: x_dict['with_word_homo']
+            )
+            # - Update the Info about Selected Words -
+            varied_words_tuples.append(best_varied_word['word_sim_tuple'])
+            varied_words_embeds.append(best_varied_word['word_embed'])
+            del sample_words[best_varied_word['word_index']]
+
+        # Sort the Selected Word by their similarity to the Topic.
+        varied_words_tuples.sort(key=lambda word_sim: word_sim[1], reverse=True)
+        # The Group of Diverse Words that best describes the Topic.
+        return varied_words_tuples
+
+    def model_homogeneity(self, parallelism=True, show_progress=False):
+        """
+        Get the Homogeneity of the Topic Model. The sum of the homogeneity of
+        the topics in the model.
+
+        Args:
+            parallelism: Bool indicating if we can use multiprocessing to speed
+                up the execution of the program.
+            show_progress: A Bool representing whether we show the progress of
+                the method or not.
+        Returns:
+            Float with the Homogeneity of the Topic Model.
+        """
+        total_homogeneity = sum(
+            self.topic_homogeneity(
+                topic_id=topic_id, parallelism=parallelism, show_progress=show_progress
+            )
+            for topic_id in self.topic_ids
+        )
+        return total_homogeneity
+
+    def cur_model_homogeneity(self, parallelism=True, show_progress=False):
+        """
+        Get the Homogeneity of the Current Topic Model. The sum of the
+        homogeneity of the topics in the model.
+
+        Args:
+            parallelism: Bool indicating if we can use multiprocessing to speed
+                up the execution of the program.
+            show_progress: A Bool representing whether we show the progress of
+                the method or not.
+        Returns:
+            Float with the Homogeneity of the Topic Model.
+        """
+        cur_total_homogeneity = sum(
+            self.cur_topic_homogeneity(
+                cur_topic_id=cur_topic_id, parallelism=parallelism,
+                show_progress=show_progress
+            )
+            for cur_topic_id in self.cur_topic_ids
+        )
+        return cur_total_homogeneity
+
+    def topic_homogeneity(
+            self, topic_id: str, parallelism=True, show_progress=False
+    ):
+        """
+        Get the Average similarity between the Documents of the Topic.
+        """
+        # Get the Embeddings of the Documents.
+        doc_embeds = [
+            self.base_doc_embeds[doc_id]
+            for doc_id, _ in self.base_topic_docs[topic_id]
+        ]
+        # Find the Mean Similarity.
+        mean_sim = mean_similarity(
+            vectors_ndarray=doc_embeds, parallelism=parallelism,
+            show_progress=show_progress
+        )
+        # The Homogeneity of the Topic - Average Similarity.
+        return mean_sim
+
+    def cur_topic_homogeneity(
+            self, cur_topic_id: str, parallelism=True, show_progress=False
+    ):
+        """
+        Get the Average similarity between the Document of the Current Topic
+        'cur_topic_id'.
+        """
+        # Get the Embeddings of the Documents.
+        doc_embeds = [
+            self.base_doc_embeds[doc_id]
+            for doc_id, _ in self.base_cur_topic_docs[cur_topic_id]
+        ]
+        # Find the Mean Similarity.
+        mean_sim = mean_similarity(
+            vectors_ndarray=doc_embeds, parallelism=parallelism,
+            show_progress=show_progress
+        )
+        # The Homogeneity of the Topic - Average Similarity.
+        return mean_sim
+
     def cur_topics_top_words(self, top_n=10, comparer='cos-sim'):
         """
         Get the 'n' top words that best describe each of the current topics in
@@ -574,7 +745,7 @@ class BaseTopics(ABC):
 
     def cur_topic_pwi(self, cur_topic_id: str, word_num=-1, pwi_type='exact'):
         """
-        Get the current topic 'topic_id' descriptive value for its documents
+        Get the current topic 'cur_topic_id' descriptive value for its documents
         using the mutual information formula.
 
         If 'word_num' is different from -1, then select the number 'word_num' of
@@ -629,20 +800,20 @@ class BaseTopics(ABC):
         # Dictionary with the PWI for each word of the topic.
         return word_pwi_dict
 
-    def cur_topic_words_pwi(self, topic_id: str, pwi_type='exact'):
+    def cur_topic_words_pwi(self, cur_topic_id: str, pwi_type='exact'):
         """
         Get the PWI of the words in the vocabulary of the current topic
         'topic_id'.
 
         Args:
-            topic_id: String with the ID of a current topic.
+            cur_topic_id: String with the ID of a current topic.
             pwi_type: String with the PWI formula to use 'exact' or 'tf-idf'.
         Returns:
             Dictionary with the PWIs of each word in the topic.
         """
         # Get Current Topic's Attributes.
-        word_list = [word for word, _ in self.base_cur_topic_words[topic_id]]
-        doc_list = [doc_id for doc_id, _ in self.base_cur_topic_docs[topic_id]]
+        word_list = [word for word, _ in self.base_cur_topic_words[cur_topic_id]]
+        doc_list = [doc_id for doc_id, _ in self.base_cur_topic_docs[cur_topic_id]]
         corpus_vocab = self.base_corpus_vocab
         # Get the function to calculate the PWI (exact or tf-idf)
         if pwi_type == 'exact':
