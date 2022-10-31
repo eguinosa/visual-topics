@@ -386,6 +386,8 @@ class IRSystem:
         # Get the Current Topics.
         if sort_cat == 'size':
             topics_cat_values = self.topic_model.cur_topic_by_size()
+        elif sort_cat == 'homogeneity':
+            topics_cat_values = self.topic_model.cur_topic_by_homogeneity()
         elif sort_cat in {'pwi-tf-idf', 'pwi-exact'}:
             pwi_type = sort_cat[4:]
             topics_cat_values = self.topic_model.cur_topic_by_pwi(
@@ -529,6 +531,13 @@ class IRSystem:
             doc_content = doc_content[:len_limit] + "..."
         # Formatted content of the document.
         return doc_content
+
+    def is_original_size(self):
+        """
+        Check if the Topic Model of the IR System has currently the original
+        size of the model a.k.a. it has the maximum number of topics possible.
+        """
+        return not self.topic_model.has_reduced_topics
 
 
 if __name__ == '__main__':
