@@ -525,12 +525,19 @@ class BaseTopics(ABC):
         # Dictionary with Top N words per topic.
         return result_dict
 
-    def cur_topic_varied_words(self, cur_topic_id: str, top_n=10, sample_size=33):
+    def cur_topic_varied_words(self, cur_topic_id: str, top_n=10, sample_ratio=1.6):
         """
         Create a diversified description of the current topic 'cur_topic_id'
         with 'top_n' words, taking the words from the closest 'sample_size'
         words to the topic in the vector space.
         """
+        # Check we have a valid sample ration, above 1.2.
+        if sample_ratio < 1.2:
+            raise Exception(
+                "The Value of sample_ration needs to be higher than 1.2."
+            )
+        # Create the sample size.
+        sample_size = round(top_n * sample_ratio)
         # Get the Embeddings of the Word in the Vocabulary.
         word_embeds = self.base_corpus_vocab.word_embeds
 
@@ -540,12 +547,15 @@ class BaseTopics(ABC):
         top_word_tuple = topic_words_sims[0]
         top_word = top_word_tuple[0]
         top_word_embed = word_embeds[top_word]
+        second_word_tuple = topic_words_sims[1]
+        second_word = second_word_tuple[0]
+        second_word_embed = word_embeds[second_word]
 
         # Add the most diverse word in every iteration.
-        sample_words = topic_words_sims[1:sample_size]
-        varied_words_tuples = [top_word_tuple]
-        varied_words_embeds = [top_word_embed]
-        for _ in range(top_n - 1):
+        sample_words = topic_words_sims[2:sample_size]
+        varied_words_tuples = [top_word_tuple, second_word_tuple]
+        varied_words_embeds = [top_word_embed, second_word_embed]
+        for _ in range(top_n - 2):
             # - Make sure we have at least one word available -
             if not sample_words:
                 break
