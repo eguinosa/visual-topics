@@ -96,6 +96,7 @@ class MonoTopics(BaseTopics):
             text_model_name = topic_model_index['text_model_name']
             topic_docs = topic_model_index['topic_docs']
             topic_words = topic_model_index['topic_words']
+            topics_homogeneity = topic_model_index['topics_homogeneity']
 
             # Load Topic Embeddings.
             if show_progress:
@@ -140,6 +141,7 @@ class MonoTopics(BaseTopics):
             self.topic_embeds = topic_embeds
             self.topic_docs = topic_docs
             self.topic_words = topic_words
+            self.topics_homogeneity = topics_homogeneity
 
         # -- Create New Topic Model --
         else:
@@ -190,6 +192,8 @@ class MonoTopics(BaseTopics):
                 topic_embeds=topic_embeds, topic_docs=topic_docs,
                 corpus_vocab=corpus_vocab, show_progress=show_progress
             )
+            # Don't Calculate the Topics Homogeneity - You can do it later.
+            topics_homogeneity = None
 
             # Corpus & Text Model Attributes.
             self.corpus_id = corpus_id
@@ -201,6 +205,7 @@ class MonoTopics(BaseTopics):
             self.topic_embeds = topic_embeds
             self.topic_docs = topic_docs
             self.topic_words = topic_words
+            self.topics_homogeneity = topics_homogeneity
             # Model ID (create a name if none was provided).
             self.model_id = model_id if model_id else self._create_model_id()
 
@@ -277,6 +282,17 @@ class MonoTopics(BaseTopics):
         describe the topics as values.
         """
         return self.topic_words
+
+    @property
+    def base_topics_homogeneity(self):
+        """
+        Dictionary with the Homogeneity of the Topics in the Model.
+        """
+        return self.topics_homogeneity
+
+    @base_topics_homogeneity.setter
+    def base_topics_homogeneity(self, value):
+        self.topics_homogeneity = value
 
     @property
     def base_cur_topic_words(self):
@@ -491,16 +507,7 @@ class MonoTopics(BaseTopics):
         # Save Topic Model's Index with the basic Attributes.
         if show_progress:
             progress_msg("Saving Topic Model's Index...")
-        topic_model_index = {
-            'corpus_id': self.corpus_id,
-            'text_model_name': self.text_model_name,
-            'topic_docs': self.topic_docs,
-            'topic_words': self.topic_words,
-        }
-        # Create Index path and Save.
-        model_index_path = join(model_folder_path, self.model_index_file)
-        with open(model_index_path, 'w') as f:
-            json.dump(topic_model_index, f)
+        self.save_model_index()
 
         # Transform the Topic Embeddings.
         if show_progress:
@@ -528,6 +535,30 @@ class MonoTopics(BaseTopics):
         if show_progress:
             progress_msg("Saving Vocabulary...")
         self.corpus_vocab.save(topic_dir_path=model_folder_path, show_progress=show_progress)
+
+    def save_model_index(self):
+        """
+        Save the Main Index of the Topic Model.
+        """
+        # Create Path to the Topic Model folder.
+        model_folder_path = join(self.class_folder, self.model_folder_name)
+        # Error - If the Model folder does not exist.
+        if not isdir(model_folder_path):
+            raise NameError(
+                f"The Topic Model <{self.model_id}> doesn't have a folder."
+            )
+        # Create Index Dictionary.
+        topic_model_index = {
+            'corpus_id': self.corpus_id,
+            'text_model_name': self.text_model_name,
+            'topic_docs': self.topic_docs,
+            'topic_words': self.topic_words,
+            'topics_homogeneity': self.topics_homogeneity,
+        }
+        # Create Index path and Save.
+        model_index_path = join(model_folder_path, self.model_index_file)
+        with open(model_index_path, 'w') as f:
+            json.dump(topic_model_index, f)
 
     def save_reduced_topics(self, parallelism=False, override=False, show_progress=False):
         """
@@ -821,13 +852,13 @@ if __name__ == '__main__':
     # print("Done.")
     # print(f"[{_stopwatch.formatted_runtime()}]")
 
-    # # -- Test Loading Topic Model --
-    # # _loading_id = _topic_model.model_id
-    # _loading_id = 'sbert_fast_105_548_docs_745_topics'
-    # print(f"\nLoading Topic Model with ID <{_loading_id}>...")
-    # _loaded_model = MonoTopics.load(model_id=_loading_id, show_progress=True)
-    # print("Done.")
-    # print(f"[{_stopwatch.formatted_runtime()}]")
+    # -- Test Loading Topic Model --
+    # _loading_id = _topic_model.model_id
+    _loading_id = 'sbert_fast_105_548_docs_745_topics'
+    print(f"\nLoading Topic Model with ID <{_loading_id}>...")
+    _loaded_model = MonoTopics.load(model_id=_loading_id, show_progress=True)
+    print("Done.")
+    print(f"[{_stopwatch.formatted_runtime()}]")
     # # ---------------------------------------------
     # # Show Loaded Topics.
     # print(f"\nThe Loaded Topic Model has {_loaded_model.topic_size} topics.")
@@ -846,8 +877,15 @@ if __name__ == '__main__':
     #     print(f"\n-----> {_topic_id}:")
     #     pprint(_topic_words)
 
+    # # -- Create the Homogeneity Dictionary --
+    # print("\nCreating Dictionary with Homogeneity of Model...")
+    # _loaded_model.calc_topics_homogeneity(show_progress=True)
+    # # Update the Index of the Model.
+    # print("\nRe-saving the Model Index...")
+    # _loaded_model.save_model_index()
+
     # # -- Topics' Words using PWI & Cosine Similarity --
-    # _top_n = 15
+    # _top_n = 10
     # # ----------------------------------------
     # # # Topics By Size.
     # # _sorted_topics = _loaded_model.topic_by_size()
@@ -865,13 +903,13 @@ if __name__ == '__main__':
     #     print(f"\n{_topic_id} (Homogeneity: {_value}):")
     #     print(f"<{big_number(len(_loaded_model.topic_docs[_topic_id]))} docs>")
     #     # ----------------------------------------
+    #     # _sim_words = _loaded_model.top_words_topic(_topic_id, _top_n, 'cos-sim')
+    #     # print("Top Words by Cosine Similarity:")
+    #     # pprint(_sim_words)
+    #     # ----------------------------------------
     #     _top_varied_words = _loaded_model.cur_topic_varied_words(_topic_id, _top_n)
     #     print("Top Words in Diverse Description:")
     #     pprint(_top_varied_words)
-    #     # ----------------------------------------
-    #     _sim_words = _loaded_model.top_words_topic(_topic_id, _top_n, 'cos-sim')
-    #     print("Top Words by Cosine Similarity:")
-    #     pprint(_sim_words)
     #     # ----------------------------------------
     #     # _pwi_words = _loaded_model.top_words_topic(_topic_id, _top_n, 'pwi-exact')
     #     # print("Top Words by PWI-exact:")
