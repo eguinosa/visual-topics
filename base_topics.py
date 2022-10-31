@@ -107,6 +107,24 @@ class BaseTopics(ABC):
 
     @property
     @abstractmethod
+    def base_topics_homogeneity(self) -> dict:
+        """
+        Dictionary with the Homogeneity of the Topics in the Model.
+        """
+        pass
+
+    @base_topics_homogeneity.setter
+    @abstractmethod
+    def base_topics_homogeneity(self, value):
+        pass
+
+    # @base_topics_homogeneity.deleter
+    # @abstractmethod
+    # def base_topics_homogeneity(self):
+    #     pass
+
+    @property
+    @abstractmethod
     def base_cur_topic_words(self):
         """
         Dictionary the list of words that best describe each of the current
@@ -636,7 +654,45 @@ class BaseTopics(ABC):
         )
         return cur_total_homogeneity
 
+    def calc_topics_homogeneity(self, parallelism=True, show_progress=False):
+        """
+        Calculate the homogeneity of all the original topics in the model and
+        save them in the base_topics_homogeneity dictionary.
+        """
+        # Calculate the Homogeneity of the Topics.
+        topics_homogeneity = {}
+        for topic_id in self.topic_ids:
+            if show_progress:
+                progress_msg(f"Calculating Homogeneity of <{topic_id}>...")
+            new_homogeneity = self._topic_homogeneity(
+                topic_id=topic_id, parallelism=parallelism,
+                show_progress=show_progress
+            )
+            # Save the new Homogeneity.
+            topics_homogeneity[topic_id] = new_homogeneity
+        # Save the Homogeneity of the topics in the Model.
+        self.base_topics_homogeneity = topics_homogeneity
+
     def topic_homogeneity(
+            self, topic_id: str, parallelism=True, show_progress=False
+    ):
+        """
+        Get the Average similarity between the Documents of the Topic.
+        """
+        # Check if the Model has the Homogeneity Saved.
+        if self.base_topics_homogeneity:
+            # Use Previously Calculated Homogeneity.
+            if show_progress:
+                progress_msg("Using Previously calculated Homogeneity values.")
+            return self.base_topics_homogeneity[topic_id]
+        else:
+            # Calculate the Homogeneity for the Topic.
+            return self._topic_homogeneity(
+                topic_id=topic_id, parallelism=parallelism,
+                show_progress=show_progress
+            )
+
+    def _topic_homogeneity(
             self, topic_id: str, parallelism=True, show_progress=False
     ):
         """
@@ -662,6 +718,12 @@ class BaseTopics(ABC):
         Get the Average similarity between the Document of the Current Topic
         'cur_topic_id'.
         """
+        # Check if the current topics are the original topics.
+        if not self.has_reduced_topics:
+            return self.topic_homogeneity(
+                topic_id=cur_topic_id, parallelism=parallelism,
+                show_progress=show_progress
+            )
         # Get the Embeddings of the Documents.
         doc_embeds = [
             self.base_doc_embeds[doc_id]
