@@ -92,11 +92,13 @@ class MainWindow(QMainWindow):
             # Get the Configuration Variables.
             topic_use_percent = index_dict['topic_use_percent']
             topic_raw_pwi = index_dict['topic_raw_pwi']
+            topic_varied_vocab = index_dict['topic_varied_vocab']
             doc_use_percent = index_dict['doc_use_percent']
         else:
             # Create Default Configurations.
             topic_use_percent = False
             topic_raw_pwi = False
+            topic_varied_vocab = False
             doc_use_percent = False
 
         # Save Class Attributes.
@@ -204,11 +206,13 @@ class MainWindow(QMainWindow):
         # Menu Bar - Variables.
         self.topic_use_percent = topic_use_percent
         self.topic_raw_pwi = topic_raw_pwi
+        self.topic_varied_vocab = topic_varied_vocab
         self.doc_use_percent = doc_use_percent
         # Menu Bar - Actions.
         self.file_act_quit = None
         self.topic_act_percent = None
         self.topic_act_pwi = None
+        self.topic_act_varied = None
         self.doc_act_open = None
         self.doc_act_random = None
         self.doc_act_percent = None
@@ -323,6 +327,13 @@ class MainWindow(QMainWindow):
         self.topic_act_pwi.triggered.connect(
             lambda checked: self.updateTopicPWI(checked=checked)
         )
+        # Topic Menu - Varied Vocabulary.
+        self.topic_act_varied = QAction("Varied Vocab ")
+        self.topic_act_varied.setCheckable(True)
+        self.topic_act_varied.setChecked(self.topic_varied_vocab)
+        self.topic_act_varied.triggered.connect(
+            lambda checked: self.updateTopicVocab(checked=checked)
+        )
         # Documents Menu - Open Doc.
         self.doc_act_open = QAction("Open Document ")
         self.doc_act_open.setShortcut("Ctrl+O")
@@ -355,6 +366,7 @@ class MainWindow(QMainWindow):
         topic_menu = self.menuBar().addMenu("Topics")
         topic_menu.addAction(self.topic_act_percent)
         topic_menu.addAction(self.topic_act_pwi)
+        topic_menu.addAction(self.topic_act_varied)
         # Create Documents Menu.
         doc_menu = self.menuBar().addMenu("Docs")
         doc_menu.addAction(self.doc_act_open)
@@ -772,7 +784,9 @@ class MainWindow(QMainWindow):
 
         # Check we have a description.
         if not description:
-            description = self.search_engine.topic_description(topic_id=topic_id)
+            description = self.search_engine.topic_description(
+                topic_id=topic_id, use_varied_vocab=self.topic_varied_vocab
+            )
         topic_descript = f"""<p>{description}</p>"""
         # Create the Topic Header String.
         topic_header = topic_id
@@ -1110,6 +1124,24 @@ class MainWindow(QMainWindow):
         self.updateTopicsTabTopicScroll()
         self.updateDocsTabTopicsScroll()
 
+    def updateTopicVocab(self, checked: bool):
+        """
+        Update the words used to describe the Topics in each of the app tabs.
+        """
+        # Update the value of the Varied Vocab variable.
+        self.topic_varied_vocab = checked
+        progress_msg("Changing Vocab!")
+        # -- Update all the Tabs with the New Vocab --
+        # Update Topics in the Search Tab.
+        self.updateSearchTabVariables()
+        self.updateSearchTabTopicsScroll()
+        # Update Topics in the Topics Tab.
+        self.updateTopicsTabTopicVariables()
+        self.updateTopicsTabTopicScroll()
+        # Update Topics in the Docs Tab.
+        self.updateDocsTabVariables()
+        self.updateDocsTabTopicsScroll()
+
     def updateDocPercent(self, checked: bool):
         """
         Update the way we show the similarity of the documents, depending on the
@@ -1171,7 +1203,10 @@ class MainWindow(QMainWindow):
         topic_word_num = self.search_tab_topics_num
         search_tab_topics_info = [
             (topic_id, topic_sim,
-             self.search_engine.topic_description(topic_id, topic_word_num))
+             self.search_engine.topic_description(
+                 topic_id=topic_id, word_num=topic_word_num,
+                 use_varied_vocab=self.topic_varied_vocab
+             ))
             for topic_id, topic_sim in top_topics_sims
         ]
         # Get Information of the Top Documents.
@@ -1410,7 +1445,8 @@ class MainWindow(QMainWindow):
         lower_sort_cat = cur_sort_cat.lower()
         topics_word_num = self.topics_tab_word_num
         cur_cat_topics_info = self.search_engine.topics_info(
-            sort_cat=lower_sort_cat, word_num=topics_word_num
+            sort_cat=lower_sort_cat, word_num=topics_word_num,
+            use_varied_vocab=self.topic_varied_vocab
         )
         # Get the Top Topic for the Category.
         cur_cat_top_topic, _, _ = cur_cat_topics_info[0]
@@ -1857,7 +1893,8 @@ class MainWindow(QMainWindow):
         docs_tab_topics_info = [
             (topic_id, topic_sim,
              self.search_engine.topic_description(
-                 topic_id=topic_id, word_num=self.docs_tab_word_num
+                 topic_id=topic_id, word_num=self.docs_tab_word_num,
+                 use_varied_vocab=self.topic_varied_vocab
              ))
             for topic_id, topic_sim in top_topics_sims
         ]
@@ -2151,6 +2188,7 @@ class MainWindow(QMainWindow):
         index_dict = {
             'topic_use_percent': self.topic_use_percent,
             'topic_raw_pwi': self.topic_raw_pwi,
+            'topic_varied_vocab': self.topic_varied_vocab,
             'doc_use_percent': self.doc_use_percent,
         }
         # Save Index.
