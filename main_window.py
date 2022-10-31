@@ -138,8 +138,12 @@ class MainWindow(QMainWindow):
         self.topics_tab_word_num = 15
         self.topics_tab_preview_size = 200
         self.topics_tab_sort_cats = ['Size', 'PWI-tf-idf', 'PWI-exact']
+        self.topics_tab_full_cats = self.topics_tab_sort_cats + ['Homogeneity']
         self.topics_tab_topics_page_size = 20
         self.topics_tab_docs_page_size = 50
+        # Topics Tab - Category Variables
+        self.topics_tab_full_cats_active = True
+        self.topics_tab_cats_combo_working = False
         # Topics Tab - Topic Variables
         self.topics_tab_cur_cat = ''
         self.topics_tab_cat_index = 0
@@ -158,6 +162,7 @@ class MainWindow(QMainWindow):
         self.topics_tab_docs_page_info = None
         # Topics Tab - Info Widgets
         self.topics_tab_size_combo = None
+        self.topics_tab_cats_combo = None
         self.topics_tab_topics_scroll = None
         self.topics_tab_docs_label = None
         self.topics_tab_docs_scroll = None
@@ -498,8 +503,8 @@ class MainWindow(QMainWindow):
         # Category used to sort the Topics.
         sort_cat_label = QLabel("Topics by:")
         sort_cats_combo = QComboBox()
-        sort_cats_combo.addItems(self.topics_tab_sort_cats)
-        sort_cats_combo.setCurrentIndex(self.topics_tab_cat_index)
+        self.topics_tab_cats_combo = sort_cats_combo
+        self.updateTopicsTabCategoryCombo()
         sort_cats_combo.activated.connect(
             lambda index: self.changeTopicSorting(index, show_progress=show_progress)
         )
@@ -792,12 +797,20 @@ class MainWindow(QMainWindow):
         topic_header = topic_id
         if cat_type == 'size':
             topic_header += f" (Size: {cat_value} docs)"
+        elif cat_type == 'homogeneity':
+            # Check if we are using Percent or Float.
+            if self.topic_use_percent:
+                homo_value = round(cat_value * 100, 1)
+                homo_str = f"{number_to_digits(number=homo_value, digits=2)}%"
+            else:
+                homo_str = f"{round(cat_value, 3)}"
+            # Update Header.
+            topic_header += f" (Homogeneity: {homo_str})"
         elif cat_type == 'similarity':
             # Check if we are using Percent or Float.
             if self.topic_use_percent:
-                number = round(cat_value * 100, 1)
-                number_str = number_to_digits(number=number, digits=2)
-                sim_str = f"{number_str}%"
+                sim_value = round(cat_value * 100, 1)
+                sim_str = f"{number_to_digits(number=sim_value, digits=2)}%"
             else:
                 sim_str = f"{round(cat_value, 3)}"
             # Update Header.
@@ -1086,12 +1099,25 @@ class MainWindow(QMainWindow):
                     self.topics_tab_size_combo.setCurrentIndex(new_size_index)
                 if new_size_index != self.docs_tab_size_combo.currentIndex():
                     self.docs_tab_size_combo.setCurrentIndex(new_size_index)
+                # Check if we can use all the Sorting Categories in the Topics Tab.
+                old_cats_active = self.topics_tab_full_cats_active
+                if self.search_engine.is_original_size():
+                    self.topics_tab_full_cats_active = True
+                else:
+                    self.topics_tab_full_cats_active = False
+                    if self.topics_tab_cat_index == 3:
+                        self.topics_tab_cat_index = 0
+                # Update the Categories ComboBox if necessary.
+                if old_cats_active != self.topics_tab_full_cats_active:
+                    self.updateTopicsTabCategoryCombo()
                 # Update Documents & Topics in the Search Tab.
                 self.updateSearchTabVariables(show_progress=show_progress)
                 self.updateSearchTabTopicsScroll()
                 self.updateSearchTabDocsScroll()
                 # Update Topics & Documents in the Topics Tab.
-                self.updateTopicsTabTopicVariables()
+                self.updateTopicsTabTopicVariables(
+                    cur_cat_index=self.topics_tab_cat_index
+                )
                 self.updateTopicsTabDocVariables()
                 self.updateTopicsTabTopicScroll()
                 self.updateTopicsTabDocScroll()
@@ -1429,6 +1455,67 @@ class MainWindow(QMainWindow):
         # Update the Documents Scrollable in the Search Tab.
         self.search_tab_docs_scroll.setWidget(docs_container)
 
+    def updateTopicsTabCategoryCombo(self):
+        """
+        Set the options for the Category Combo Box in the Topics Tab.
+        """
+        # Signal that we are working on the Category Combo Box.
+        self.topics_tab_cats_combo_working = True
+
+        # Clean Category Combo Box.
+        while self.topics_tab_cats_combo.count() > 0:
+            self.topics_tab_cats_combo.removeItem(0)
+        # Set the Categories.
+        if self.topics_tab_full_cats_active:
+            self.topics_tab_cats_combo.addItems(self.topics_tab_full_cats)
+        else:
+            self.topics_tab_cats_combo.addItems(self.topics_tab_sort_cats)
+        # Set the Index.
+        self.topics_tab_cats_combo.setCurrentIndex(self.topics_tab_cat_index)
+
+        # We are done working on the Category Combo Box.
+        self.topics_tab_cats_combo_working = False
+
+    def changeTopicSorting(self, sort_cat_index: int, show_progress=False):
+        """
+        Change the sorting category use to rank the topics in the Topics Tab.
+        """
+        # Do not Respond to the Signal if we are working on the ComboBox.
+        if self.topics_tab_cats_combo_working:
+            return
+
+        # Check if we have a new sorting category.
+        if sort_cat_index == self.topics_tab_cat_index:
+            # Same Sorting Category.
+            if show_progress:
+                progress_msg(f"Same sorting category selected <{self.topics_tab_cur_cat}>.")
+            return
+        # Save Old Top Topic to see if it changes.
+        old_cur_topic = self.topics_tab_cur_topic
+
+        # --- New Sorting Category Selected ---
+        # Get the New Sorting Category.
+        if self.topics_tab_full_cats_active:
+            cur_sort_cat = self.topics_tab_full_cats[sort_cat_index]
+        else:
+            cur_sort_cat = self.topics_tab_sort_cats[sort_cat_index]
+        if show_progress:
+            progress_msg(
+                f"Updating the sorting category of the topics to <{cur_sort_cat}>..."
+            )
+        # Update Topic Variables & Scrollable
+        self.updateTopicsTabTopicVariables(cur_cat_index=sort_cat_index)
+        self.updateTopicsTabTopicScroll()
+        # Topics Tab - Update Scrollable of Documents if the Top Topic Changed.
+        if self.topics_tab_cur_topic != old_cur_topic:
+            self.updateTopicsTabDocVariables()
+            self.updateTopicsTabDocScroll()
+        # Done.
+        if show_progress:
+            progress_msg(
+                f"Topics in the Topics Tab sorted by {self.topics_tab_cur_cat}!"
+            )
+
     def updateTopicsTabTopicVariables(self, cur_cat_index=-1):
         """
         Update the values of the Variables used in the Topics Tab.
@@ -1436,7 +1523,10 @@ class MainWindow(QMainWindow):
         # Check if we have to update the Variables with a new Category.
         if cur_cat_index != -1:
             # Get Index of the Sorting Category.
-            cur_sort_cat = self.topics_tab_sort_cats[cur_cat_index]
+            if self.topics_tab_full_cats_active:
+                cur_sort_cat = self.topics_tab_full_cats[cur_cat_index]
+            else:
+                cur_sort_cat = self.topics_tab_sort_cats[cur_cat_index]
         else:
             cur_sort_cat = self.topics_tab_cur_cat
             cur_cat_index = self.topics_tab_cat_index
@@ -1493,38 +1583,6 @@ class MainWindow(QMainWindow):
         self.topics_tab_button_group = QButtonGroup()
         self.topics_tab_topics_radios = {}
         self.topics_tab_topics_widgets = {}
-
-    def changeTopicSorting(self, sort_cat_index: int, show_progress=False):
-        """
-        Change the sorting category use to rank the topics in the Topics Tab.
-        """
-        # Check if we have a new sorting category.
-        if sort_cat_index == self.topics_tab_cat_index:
-            # Same Sorting Category.
-            if show_progress:
-                progress_msg(f"Same sorting category selected <{self.topics_tab_cur_cat}>.")
-            return
-        # Save Old Top Topic to see if it changes.
-        old_cur_topic = self.topics_tab_cur_topic
-
-        # --- New Sorting Category Selected ---
-        cur_sort_cat = self.topics_tab_sort_cats[sort_cat_index]
-        if show_progress:
-            progress_msg(
-                f"Updating the sorting category of the topics to <{cur_sort_cat}>..."
-            )
-        # Update Topic Variables & Scrollable
-        self.updateTopicsTabTopicVariables(cur_cat_index=sort_cat_index)
-        self.updateTopicsTabTopicScroll()
-        # Topics Tab - Update Scrollable of Documents if the Top Topic Changed.
-        if self.topics_tab_cur_topic != old_cur_topic:
-            self.updateTopicsTabDocVariables()
-            self.updateTopicsTabDocScroll()
-        # Done.
-        if show_progress:
-            progress_msg(
-                f"Topics in the Topics Tab sorted by {self.topics_tab_cur_cat}!"
-            )
 
     def updateTopicPWI(self, checked: bool):
         """
