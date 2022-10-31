@@ -356,7 +356,7 @@ class IRSystem:
         ]
         return doc_ids
 
-    def topics_info(self, sort_cat='size', word_num=10):
+    def topics_info(self, sort_cat='size', word_num=10, use_varied_vocab=False):
         """
         Create a list of tuples with the information about the current topics
         in the Topic Model, including:
@@ -373,12 +373,15 @@ class IRSystem:
         descriptive value of their topic.
 
         Args:
-            word_num: Int with the number of words in the description of the
-                Topic.
             sort_cat: String with the category of the parameters to rank the
                 topics in the list.
+            word_num: Int with the number of words in the description of the
+                Topic.
+            use_varied_vocab: Indicates if we are going to use a Varied Vocab to
+                describe the topic.
         Returns:
-            List[Tuple(ID, Category_Value, Description)] with the info of the topics.
+            List[Tuple(ID, Category_Value, Description)] with the info of the
+                topics.
         """
         # Get the Current Topics.
         if sort_cat == 'size':
@@ -394,7 +397,10 @@ class IRSystem:
         # Add the Descriptions of the Topics to the List.
         topics_info = [
             (topic_id, cat_value,
-             self.topic_description(topic_id=topic_id, word_num=word_num))
+             self.topic_description(
+                 topic_id=topic_id, word_num=word_num,
+                 use_varied_vocab=use_varied_vocab
+             ))
             for topic_id, cat_value in topics_cat_values
         ]
         # List with the Topics Info: (ID, Size, Description)
@@ -424,20 +430,28 @@ class IRSystem:
         # List with the Doc's Info: (ID, Similarity, Title, Abstract)
         return docs_info
 
-    def topic_description(self, topic_id: str, word_num=10):
+    def topic_description(self, topic_id: str, word_num=10, use_varied_vocab=False):
         """
         Create a string with the words that best describe the topic 'topic_id'.
 
         Args:
             topic_id: String with the ID of the topic.
             word_num: Int with the number of words we want to describe the word.
+            use_varied_vocab: Indicates if we are going to use a Varied Vocab to
+                describe the topic.
         Returns:
             String with the words that describe the topic.
         """
-        # Get the Top Words.
-        top_words = self.topic_model.top_words_cur_topic(
-            cur_topic_id=topic_id, top_n=word_num
-        )
+        # Check if we have to create a Varied Description.
+        if use_varied_vocab:
+            top_words = self.topic_model.cur_topic_varied_words(
+                cur_topic_id=topic_id, top_n=word_num
+            )
+        # Use the Closest Words to the Topic.
+        else:
+            top_words = self.topic_model.top_words_cur_topic(
+                cur_topic_id=topic_id, top_n=word_num
+            )
         # Create String with the description.
         first_word, _ = top_words[0]
         descript_text = first_word
@@ -547,7 +561,9 @@ if __name__ == '__main__':
         print(f"\n<<<--- Top {_result_num} Topics in search --->>>")
         _count = 0
         for _topic_id, _sim in _topics_sims:
-            _topic_descript = _ir_sys.topic_description(topic_id=_topic_id, word_num=10)
+            _topic_descript = _ir_sys.topic_description(
+                topic_id=_topic_id, word_num=10, use_varied_vocab=True
+            )
             _count += 1
             print(f"\n-- Result {_count} --")
             print(f"{_topic_id} ({round(_sim, 3)} similar):")
