@@ -852,13 +852,13 @@ if __name__ == '__main__':
     # print("Done.")
     # print(f"[{_stopwatch.formatted_runtime()}]")
 
-    # -- Test Loading Topic Model --
-    # _loading_id = _topic_model.model_id
-    _loading_id = 'sbert_fast_105_548_docs_745_topics'
-    print(f"\nLoading Topic Model with ID <{_loading_id}>...")
-    _loaded_model = MonoTopics.load(model_id=_loading_id, show_progress=True)
-    print("Done.")
-    print(f"[{_stopwatch.formatted_runtime()}]")
+    # # -- Test Loading Topic Model --
+    # # _loading_id = _topic_model.model_id
+    # _loading_id = 'sbert_fast_105_548_docs_745_topics'
+    # print(f"\nLoading Topic Model with ID <{_loading_id}>...")
+    # _loaded_model = MonoTopics.load(model_id=_loading_id, show_progress=True)
+    # print("Done.")
+    # print(f"[{_stopwatch.formatted_runtime()}]")
     # # ---------------------------------------------
     # # Show Loaded Topics.
     # print(f"\nThe Loaded Topic Model has {_loaded_model.topic_size} topics.")
