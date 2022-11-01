@@ -645,13 +645,25 @@ class BaseTopics(ABC):
         Returns:
             Float with the Homogeneity of the Topic Model.
         """
-        cur_total_homogeneity = sum(
-            self.cur_topic_homogeneity(
-                cur_topic_id=cur_topic_id, parallelism=parallelism,
-                show_progress=show_progress
+        if show_progress:
+            topics_homogeneity = []
+            for cur_topic_id in self.cur_topic_ids:
+                progress_msg(f"Calculating the Homogeneity of <{cur_topic_id}>...")
+                new_homogeneity = self.cur_topic_homogeneity(
+                    cur_topic_id=cur_topic_id, parallelism=parallelism,
+                    show_progress=show_progress
+                )
+                topics_homogeneity.append(new_homogeneity)
+            # Calculate the Sum of Topics' Homogeneity
+            cur_total_homogeneity = sum(topics_homogeneity)
+        else:
+            cur_total_homogeneity = sum(
+                self.cur_topic_homogeneity(
+                    cur_topic_id=cur_topic_id, parallelism=parallelism,
+                    show_progress=show_progress
+                )
+                for cur_topic_id in self.cur_topic_ids
             )
-            for cur_topic_id in self.cur_topic_ids
-        )
         return cur_total_homogeneity
 
     def calc_topics_homogeneity(self, parallelism=True, show_progress=False):
