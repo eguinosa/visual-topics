@@ -346,6 +346,16 @@ class IRSystem:
         words_sims_list = self.topic_model.base_cur_topic_words[topic_id]
         return words_sims_list
 
+    def topic_varied_vocab(self, topic_id: str, word_num=50):
+        """
+        Get the list of varied words that best describe the topic and their
+        similarity to the topic.
+        """
+        top_words_sims = self.topic_model.cur_topic_varied_words(
+            cur_topic_id=topic_id, top_n=word_num
+        )
+        return top_words_sims
+
     def topic_doc_ids(self, topic_id: str):
         """
         Get the Document IDs of the Topic 'topic_id'.
