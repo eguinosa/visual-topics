@@ -18,6 +18,7 @@ from ir_system import IRSystem
 from qmodel_worker import QModelWorker
 from qupdates_dialog import QUpdatesDialog
 from qvocab_dialog import QVocabDialog
+from qwordcloud_dialog import QWordCloudDialog
 from qfull_content import QFullContent
 from qopen_document import QOpenDocument
 from extra_funcs import progress_msg, number_to_digits
@@ -93,12 +94,14 @@ class MainWindow(QMainWindow):
             topic_use_percent = index_dict['topic_use_percent']
             topic_raw_pwi = index_dict['topic_raw_pwi']
             topic_varied_vocab = index_dict['topic_varied_vocab']
+            topic_use_wordcloud = index_dict['topic_use_wordcloud']
             doc_use_percent = index_dict['doc_use_percent']
         else:
             # Create Default Configurations.
             topic_use_percent = False
             topic_raw_pwi = False
             topic_varied_vocab = False
+            topic_use_wordcloud = False
             doc_use_percent = False
 
         # Save Class Attributes.
@@ -212,12 +215,14 @@ class MainWindow(QMainWindow):
         self.topic_use_percent = topic_use_percent
         self.topic_raw_pwi = topic_raw_pwi
         self.topic_varied_vocab = topic_varied_vocab
+        self.topic_use_wordcloud = topic_use_wordcloud
         self.doc_use_percent = doc_use_percent
         # Menu Bar - Actions.
         self.file_act_quit = None
         self.topic_act_percent = None
         self.topic_act_pwi = None
         self.topic_act_varied = None
+        self.topic_act_wordcloud = None
         self.doc_act_open = None
         self.doc_act_random = None
         self.doc_act_percent = None
@@ -339,6 +344,13 @@ class MainWindow(QMainWindow):
         self.topic_act_varied.triggered.connect(
             lambda checked: self.updateTopicVocab(checked=checked)
         )
+        # Topic Menu - Word Cloud.
+        self.topic_act_wordcloud = QAction("Use Word Cloud")
+        self.topic_act_wordcloud.setCheckable(True)
+        self.topic_act_wordcloud.setChecked(self.topic_use_wordcloud)
+        self.topic_act_wordcloud.triggered.connect(
+            lambda checked: self.updateUseWordCloud(checked=checked)
+        )
         # Documents Menu - Open Doc.
         self.doc_act_open = QAction("Open Document ")
         self.doc_act_open.setShortcut("Ctrl+O")
@@ -372,6 +384,7 @@ class MainWindow(QMainWindow):
         topic_menu.addAction(self.topic_act_percent)
         topic_menu.addAction(self.topic_act_pwi)
         topic_menu.addAction(self.topic_act_varied)
+        topic_menu.addAction(self.topic_act_wordcloud)
         # Create Documents Menu.
         doc_menu = self.menuBar().addMenu("Docs")
         doc_menu.addAction(self.doc_act_open)
@@ -506,7 +519,7 @@ class MainWindow(QMainWindow):
         self.topics_tab_cats_combo = sort_cats_combo
         self.updateTopicsTabCategoryCombo()
         sort_cats_combo.activated.connect(
-            lambda index: self.changeTopicSorting(index, show_progress=show_progress)
+            lambda index: self.updateTopicSorting(index, show_progress=show_progress)
         )
         sort_cats_layout = QHBoxLayout()
         sort_cats_layout.addWidget(sort_cat_label)
@@ -1074,7 +1087,7 @@ class MainWindow(QMainWindow):
             if show_progress:
                 progress_msg("Changing the Size of the Topic Model...")
 
-            # Use Threads to Change the Size of the Model with freezing the App.
+            # Use Threads to change size of the Model without freezing the App.
             new_topic_size = self.supported_sizes[new_size_index]
             self.model_worker = QModelWorker(
                 search_engine=self.search_engine, new_topic_size=new_topic_size,
@@ -1476,7 +1489,7 @@ class MainWindow(QMainWindow):
         # We are done working on the Category Combo Box.
         self.topics_tab_cats_combo_working = False
 
-    def changeTopicSorting(self, sort_cat_index: int, show_progress=False):
+    def updateTopicSorting(self, sort_cat_index: int, show_progress=False):
         """
         Change the sorting category use to rank the topics in the Topics Tab.
         """
@@ -1873,15 +1886,30 @@ class MainWindow(QMainWindow):
             self.topics_tab_docs_next_button.setEnabled(False)
             self.topics_tab_docs_last_button.setEnabled(False)
 
+    def updateUseWordCloud(self, checked: bool):
+        """
+        Update the variable in charge of indicating which dialog we need to
+        open to show the Topic's Vocabulary.
+        """
+        self.topic_use_wordcloud = checked
+
     def viewVocabulary(self, topic_id: str):
         """
         Show a new Dialog with the Vocabulary of the given Topic 'topic_id'.
         """
         progress_msg("Opening Vocabulary...")
-        word_list = self.search_engine.topic_vocab(topic_id)
-        self.vocab_window = QVocabDialog(
-            topic_id=topic_id, word_list=word_list, parent_widget=self
-        )
+        if self.topic_use_wordcloud:
+            words_sims = self.search_engine.topic_varied_vocab(
+                topic_id=topic_id, word_num=40
+            )
+            self.vocab_window = QWordCloudDialog(
+                topic_id=topic_id, words_sims_list=words_sims, parent_widget=self
+            )
+        else:
+            word_sims_list = self.search_engine.topic_vocab(topic_id)
+            self.vocab_window = QVocabDialog(
+                topic_id=topic_id, word_list=word_sims_list, parent_widget=self
+            )
         self.vocab_window.show()
 
     def getDocID(self):
@@ -2247,6 +2275,7 @@ class MainWindow(QMainWindow):
             'topic_use_percent': self.topic_use_percent,
             'topic_raw_pwi': self.topic_raw_pwi,
             'topic_varied_vocab': self.topic_varied_vocab,
+            'topic_use_wordcloud': self.topic_use_wordcloud,
             'doc_use_percent': self.doc_use_percent,
         }
         # Save Index.
