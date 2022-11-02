@@ -140,8 +140,10 @@ class MainWindow(QMainWindow):
         self.topics_tab_index = 1
         self.topics_tab_word_num = 15
         self.topics_tab_preview_size = 200
-        self.topics_tab_sort_cats = ['Size', 'PWI-tf-idf', 'PWI-exact']
-        self.topics_tab_full_cats = self.topics_tab_sort_cats + ['Homogeneity']
+        self.topics_tab_sort_cats = [
+            'Size', 'PWI-tf-idf', 'PWI-exact', 'Homogeneity-topic-doc'
+        ]
+        self.topics_tab_full_cats = self.topics_tab_sort_cats + ['Homogeneity-doc-doc']
         self.topics_tab_topics_page_size = 20
         self.topics_tab_docs_page_size = 50
         # Topics Tab - Category Variables
@@ -278,7 +280,7 @@ class MainWindow(QMainWindow):
         model_combo.addItems(self.supported_models)
         model_combo.setCurrentIndex(current_index)
         model_combo.activated.connect(
-            lambda index: self.switchModel(index, show_progress=show_progress)
+            lambda index: self.changeModel(index, show_progress=show_progress)
         )
 
         # Create Search, Topics & Documents Layout Widgets.
@@ -810,15 +812,6 @@ class MainWindow(QMainWindow):
         topic_header = topic_id
         if cat_type == 'size':
             topic_header += f" (Size: {cat_value} docs)"
-        elif cat_type == 'homogeneity':
-            # Check if we are using Percent or Float.
-            if self.topic_use_percent:
-                homo_value = round(cat_value * 100, 1)
-                homo_str = f"{number_to_digits(number=homo_value, digits=2)}%"
-            else:
-                homo_str = f"{round(cat_value, 3)}"
-            # Update Header.
-            topic_header += f" (Homogeneity: {homo_str})"
         elif cat_type == 'similarity':
             # Check if we are using Percent or Float.
             if self.topic_use_percent:
@@ -828,6 +821,15 @@ class MainWindow(QMainWindow):
                 sim_str = f"{round(cat_value, 3)}"
             # Update Header.
             topic_header += f" (Similarity: {sim_str})"
+        elif cat_type in {'homogeneity-topic-doc', 'homogeneity-doc-doc'}:
+            # Check if we are using Percent or Float.
+            if self.topic_use_percent:
+                homo_value = round(cat_value * 100, 1)
+                homo_str = f"{number_to_digits(number=homo_value, digits=2)}%"
+            else:
+                homo_str = f"{round(cat_value, 3)}"
+            # Update Header.
+            topic_header += f" (Homogeneity: {homo_str})"
         elif cat_type in {'pwi-tf-idf', 'pwi-exact'}:
             # Create PWI value (Raw or Formatted).
             if self.topic_raw_pwi:
@@ -975,7 +977,7 @@ class MainWindow(QMainWindow):
         """
         self.current_tab_index = new_index
 
-    def switchModel(self, new_index, show_progress=False):
+    def changeModel(self, new_index, show_progress=False):
         """
         The ComboBox to manage the Topic Models has been activated, change the
         current model.
@@ -1008,6 +1010,18 @@ class MainWindow(QMainWindow):
                 self.current_model = new_model_name
                 # Update the Supported Sizes on the App.
                 self.updateSupportedSizes()
+                # -- Update Topics Tab Sorting Categories --
+                # Check if we can use all the Sorting Categories in the Topics Tab.
+                old_cats_active = self.topics_tab_full_cats_active
+                if self.search_engine.is_original_size():
+                    self.topics_tab_full_cats_active = True
+                else:
+                    self.topics_tab_full_cats_active = False
+                    if self.topics_tab_cat_index >= len(self.topics_tab_sort_cats):
+                        self.topics_tab_cat_index = 0
+                # Update the Categories ComboBox if necessary.
+                if old_cats_active != self.topics_tab_full_cats_active:
+                    self.updateTopicsTabCategoryCombo()
                 # Update Documents & Topics in the Search Tab.
                 current_query = self.search_tab_query_text
                 self.updateSearchTabVariables(
@@ -1118,7 +1132,7 @@ class MainWindow(QMainWindow):
                     self.topics_tab_full_cats_active = True
                 else:
                     self.topics_tab_full_cats_active = False
-                    if self.topics_tab_cat_index == 3:
+                    if self.topics_tab_cat_index >= len(self.topics_tab_sort_cats):
                         self.topics_tab_cat_index = 0
                 # Update the Categories ComboBox if necessary.
                 if old_cats_active != self.topics_tab_full_cats_active:
