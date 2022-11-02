@@ -102,9 +102,7 @@ class MixTopics(BaseMixTopics):
             vocab_model_name = topic_model_index['vocab_model_name']
             topic_docs = topic_model_index['topic_docs']
             topic_words = topic_model_index['topic_words']
-            topics_homog_doc_doc = topic_model_index.get(
-                'topics_homog_doc_doc', topic_model_index['topics_homogeneity']
-            )
+            topics_homog_doc_doc = topic_model_index['topics_homog_doc_doc']
 
             # Load Topic Embeddings.
             if show_progress:
