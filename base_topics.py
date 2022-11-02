@@ -107,15 +107,15 @@ class BaseTopics(ABC):
 
     @property
     @abstractmethod
-    def base_topics_homogeneity(self) -> dict:
+    def base_topics_homog_doc_doc(self) -> dict:
         """
         Dictionary with the Homogeneity of the Topics in the Model.
         """
         pass
 
-    @base_topics_homogeneity.setter
+    @base_topics_homog_doc_doc.setter
     @abstractmethod
-    def base_topics_homogeneity(self, value):
+    def base_topics_homog_doc_doc(self, value):
         pass
 
     # @base_topics_homogeneity.deleter
@@ -383,7 +383,7 @@ class BaseTopics(ABC):
         cur_topic_sizes.sort(key=lambda id_size: id_size[1], reverse=True)
         return cur_topic_sizes
 
-    def cur_topic_by_homogeneity(self, show_progress=False):
+    def cur_topic_by_homogeneity(self, homog_type: str, show_progress=False):
         """
         Create List of Tuples with the ID and Homogeneity of each of the current
         topics.
@@ -396,16 +396,16 @@ class BaseTopics(ABC):
             for cur_topic_id in self.cur_topic_ids:
                 progress_msg(f"Calculating Homogeneity of <{cur_topic_id}>...")
                 homogeneity = self.cur_topic_homogeneity(
-                    cur_topic_id=cur_topic_id, parallelism=True,
-                    show_progress=show_progress
+                    cur_topic_id=cur_topic_id, homog_type=homog_type,
+                    parallelism=True, show_progress=show_progress
                 )
                 cur_topics_homogeneity.append((cur_topic_id, homogeneity))
         else:
             cur_topics_homogeneity = [
                 (cur_topic_id,
                  self.cur_topic_homogeneity(
-                     cur_topic_id=cur_topic_id, parallelism=True,
-                     show_progress=show_progress
+                     cur_topic_id=cur_topic_id, homog_type=homog_type,
+                     parallelism=True, show_progress=show_progress
                  ))
                 for cur_topic_id in self.cur_topic_ids
             ]
@@ -611,12 +611,16 @@ class BaseTopics(ABC):
         # The Group of Diverse Words that best describes the Topic.
         return varied_words_tuples
 
-    def model_homogeneity(self, parallelism=True, show_progress=False):
+    def model_homogeneity(
+            self, homog_type: str, parallelism=True, show_progress=False
+    ):
         """
         Get the Homogeneity of the Topic Model. The sum of the homogeneity of
         the topics in the model.
 
         Args:
+            homog_type: The type of Homogeneity we want to use to get the
+                Homogeneity of the Model.
             parallelism: Bool indicating if we can use multiprocessing to speed
                 up the execution of the program.
             show_progress: A Bool representing whether we show the progress of
@@ -626,18 +630,23 @@ class BaseTopics(ABC):
         """
         total_homogeneity = sum(
             self.topic_homogeneity(
-                topic_id=topic_id, parallelism=parallelism, show_progress=show_progress
+                topic_id=topic_id, homog_type=homog_type,
+                parallelism=parallelism, show_progress=show_progress
             )
             for topic_id in self.topic_ids
         )
         return total_homogeneity
 
-    def cur_model_homogeneity(self, parallelism=True, show_progress=False):
+    def cur_model_homogeneity(
+            self, homog_type: str, parallelism=True, show_progress=False
+    ):
         """
         Get the Homogeneity of the Current Topic Model. The sum of the
         homogeneity of the topics in the model.
 
         Args:
+            homog_type: The type of Homogeneity we want to use to get the
+                Homogeneity of the Model.
             parallelism: Bool indicating if we can use multiprocessing to speed
                 up the execution of the program.
             show_progress: A Bool representing whether we show the progress of
@@ -650,8 +659,8 @@ class BaseTopics(ABC):
             for cur_topic_id in self.cur_topic_ids:
                 progress_msg(f"Calculating the Homogeneity of <{cur_topic_id}>...")
                 new_homogeneity = self.cur_topic_homogeneity(
-                    cur_topic_id=cur_topic_id, parallelism=parallelism,
-                    show_progress=show_progress
+                    cur_topic_id=cur_topic_id, homog_type=homog_type,
+                    parallelism=parallelism, show_progress=show_progress
                 )
                 topics_homogeneity.append(new_homogeneity)
             # Calculate the Sum of Topics' Homogeneity
@@ -659,8 +668,8 @@ class BaseTopics(ABC):
         else:
             cur_total_homogeneity = sum(
                 self.cur_topic_homogeneity(
-                    cur_topic_id=cur_topic_id, parallelism=parallelism,
-                    show_progress=show_progress
+                    cur_topic_id=cur_topic_id, homog_type=homog_type,
+                    parallelism=parallelism, show_progress=show_progress
                 )
                 for cur_topic_id in self.cur_topic_ids
             )
@@ -676,35 +685,47 @@ class BaseTopics(ABC):
         for topic_id in self.topic_ids:
             if show_progress:
                 progress_msg(f"Calculating Homogeneity of <{topic_id}>...")
-            new_homogeneity = self._topic_homogeneity(
-                topic_id=topic_id, parallelism=parallelism,
-                show_progress=show_progress
-            )
+            new_homogeneity = self._topic_homog_doc_doc(topic_id=topic_id, parallelism=parallelism,
+                                                        show_progress=show_progress)
             # Save the new Homogeneity.
             topics_homogeneity[topic_id] = new_homogeneity
         # Save the Homogeneity of the topics in the Model.
-        self.base_topics_homogeneity = topics_homogeneity
+        self.base_topics_homog_doc_doc = topics_homogeneity
 
     def topic_homogeneity(
-            self, topic_id: str, parallelism=True, show_progress=False
+            self, topic_id: str, homog_type: str, parallelism=True,
+            show_progress=False
     ):
         """
-        Get the Average similarity between the Documents of the Topic.
+        Get the Homogeneity of the topic 'topic_id' using the given type
+        'homog_type'.
         """
-        # Check if the Model has the Homogeneity Saved.
-        if self.base_topics_homogeneity:
-            # Use Previously Calculated Homogeneity.
-            if show_progress:
-                progress_msg("Using Previously calculated Homogeneity values.")
-            return self.base_topics_homogeneity[topic_id]
+        # -- See the type of Homogeneity being requested --
+        # Homogeneity Doc-Doc
+        if homog_type == 'doc-doc':
+            # Check if the Model has the Homogeneity Saved.
+            if self.base_topics_homog_doc_doc:
+                # Use Previously Calculated Homogeneity.
+                if show_progress:
+                    progress_msg("Using Previously calculated Homogeneity values.")
+                homogeneity = self.base_topics_homog_doc_doc[topic_id]
+            else:
+                # Calculate the Homogeneity for the Topic.
+                homogeneity = self._topic_homog_doc_doc(
+                    topic_id=topic_id, parallelism=parallelism,
+                    show_progress=show_progress
+                )
+        # Homogeneity Topic-Doc
+        elif homog_type == 'topic-doc':
+            homogeneity = self._topic_homog_topic_doc(topic_id)
+        # Not Supported Homogeneity Type.
         else:
-            # Calculate the Homogeneity for the Topic.
-            return self._topic_homogeneity(
-                topic_id=topic_id, parallelism=parallelism,
-                show_progress=show_progress
-            )
+            raise NameError(f"The Homogeneity Type <{homog_type}> is not supported.")
 
-    def _topic_homogeneity(
+        # The Homogeneity of the Requested Type.
+        return homogeneity
+
+    def _topic_homog_doc_doc(
             self, topic_id: str, parallelism=True, show_progress=False
     ):
         """
@@ -723,19 +744,53 @@ class BaseTopics(ABC):
         # The Homogeneity of the Topic - Average Similarity.
         return mean_sim
 
+    def _topic_homog_topic_doc(self, topic_id: str):
+        """
+        Get the Average similarity between the Topic and its Documents.
+        """
+        topic_doc_sims = [sim for _, sim in self.base_topic_docs[topic_id]]
+        mean_sim = sum(topic_doc_sims) / len(topic_doc_sims)
+        return mean_sim
+
     def cur_topic_homogeneity(
-            self, cur_topic_id: str, parallelism=True, show_progress=False
+            self, cur_topic_id: str, homog_type: str, parallelism=True,
+            show_progress=False
     ):
         """
-        Get the Average similarity between the Document of the Current Topic
-        'cur_topic_id'.
+        Get the Homogeneity of the current topic 'cur_topic_id' using the given
+        type 'homog_type'.
         """
         # Check if the current topics are the original topics.
         if not self.has_reduced_topics:
             return self.topic_homogeneity(
-                topic_id=cur_topic_id, parallelism=parallelism,
+                topic_id=cur_topic_id, homog_type=homog_type,
+                parallelism=parallelism, show_progress=show_progress
+            )
+
+        # -- See the type of Homogeneity being requested --
+        # Homogeneity Doc-Doc.
+        if homog_type == 'doc-doc':
+            homogeneity = self._cur_topic_homog_doc_doc(
+                cur_topic_id=cur_topic_id, parallelism=parallelism,
                 show_progress=show_progress
             )
+        # Homogeneity Topic-Doc.
+        elif homog_type == 'topic-doc':
+            homogeneity = self._cur_topic_homog_topic_doc(cur_topic_id)
+        # Not Supported Homogeneity Type.
+        else:
+            raise NameError(f"The Homogeneity Type <{homog_type}> is not supported.")
+
+        # The Homogeneity of the requested type.
+        return homogeneity
+
+    def _cur_topic_homog_doc_doc(
+            self, cur_topic_id: str, parallelism=True, show_progress=False
+    ):
+        """
+        Get the Average similarity between the Documents of the Current Topic
+        'cur_topic_id'.
+        """
         # Get the Embeddings of the Documents.
         doc_embeds = [
             self.base_doc_embeds[doc_id]
@@ -747,6 +802,18 @@ class BaseTopics(ABC):
             show_progress=show_progress
         )
         # The Homogeneity of the Topic - Average Similarity.
+        return mean_sim
+
+    def _cur_topic_homog_topic_doc(self, cur_topic_id: str):
+        """
+        Get the average similarity between the current topic 'cur_topic_id' and
+        its documents.
+        """
+        cur_topic_doc_sims = [
+            sim
+            for _, sim in self.base_cur_topic_docs[cur_topic_id]
+        ]
+        mean_sim = sum(cur_topic_doc_sims) / len(cur_topic_doc_sims)
         return mean_sim
 
     def cur_topics_top_words(self, top_n=10, comparer='cos-sim'):
