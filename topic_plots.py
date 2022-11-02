@@ -3,7 +3,7 @@
 
 import matplotlib.pyplot as plt
 
-from topic_utils import pwi_plot_data, homogeneity_plot_data
+from topic_utils import pwi_plot_data, homogeneity_plot_data, embeds_2d_data
 
 
 def generate_homogeneity_plot(homog_type: str, save_plot=False):
@@ -82,16 +82,66 @@ def generate_pwi_plot(pwi_type: str, save_plot=False, other_models=False):
         plt.show()
 
 
+def generate_vector_space(data_name: str):
+    """
+    Create an image of the Vector Space of a Topic Model.
+    """
+    # Get Dictionary with the 2D Info of the Topic Model.
+    model_2d_info = embeds_2d_data(data_name)
+
+    # -- Create Image with only the Documents --
+    # Create Figure & Axes.
+    fig, ax = plt.subplots()
+    # Create Document X, Y values.
+    topic_ids = list(model_2d_info.keys())
+
+    # First Topic ID.
+    first_id = topic_ids[0]
+    topic_info = model_2d_info[first_id]
+    doc_2d_embeds = topic_info['doc_embeds']
+    doc_x_values = []
+    doc_y_values = []
+    # Extract Doc Embeds Values.
+    for x, y in doc_2d_embeds.values():
+        doc_x_values.append(x)
+        doc_y_values.append(y)
+    # Plot the Vectors in the Topic 'topic_id'.
+    ax.scatter(doc_x_values, doc_y_values, color='orangered', s=0.1)
+
+    # Rest of Topic IDs.
+    doc_x_values = []
+    doc_y_values = []
+    for topic_id in topic_ids[1:]:
+        # Extract the 2D Info.
+        topic_info = model_2d_info[topic_id]
+        # topic_2d_embed = topic_info['topic_embed']
+        doc_2d_embeds = topic_info['doc_embeds']
+        # topic_top_words = topic_info['top_words']
+
+        # Extract Doc Embeds Values.
+        for x, y in doc_2d_embeds.values():
+            doc_x_values.append(x)
+            doc_y_values.append(y)
+    # Plot the Vectors in the Topic 'topic_id'.
+    ax.scatter(doc_x_values, doc_y_values, color='gainsboro', s=0.5)
+
+    # Name the Image.
+    ax.set_title("Vector Space Sentence-BERT")
+    plt.show()
+
+
 if __name__ == '__main__':
-    # Create PWI Plot.
-    print("\nCreating PWI Plot...")
-    generate_pwi_plot(pwi_type='tf-idf_50', save_plot=False, other_models=True)
-    # generate_pwi_plot(pwi_type='exact_50', save_plot=False, other_models=True)
+    # # Create PWI Plot.
+    # print("\nCreating PWI Plot...")
+    # generate_pwi_plot(pwi_type='tf-idf_50', save_plot=False, other_models=True)
+    # # generate_pwi_plot(pwi_type='exact_50', save_plot=False, other_models=True)
 
     # # Create Homogeneity Plot.
     # print("\nCreating Homogeneity Plot...")
     # generate_homogeneity_plot(homog_type='topic-doc', save_plot=True)
     # generate_homogeneity_plot(homog_type='doc-doc', save_plot=True)
 
-    print("\nDone.\n")
+    # Create Vector Space Image.
+    generate_vector_space('mono_20')
 
+    print("\nDone.\n")
