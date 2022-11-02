@@ -657,7 +657,8 @@ class BaseTopics(ABC):
         if show_progress:
             topics_homogeneity = []
             for cur_topic_id in self.cur_topic_ids:
-                progress_msg(f"Calculating the Homogeneity of <{cur_topic_id}>...")
+                if homog_type == 'doc-doc':
+                    progress_msg(f"Calculating the Homogeneity of <{cur_topic_id}>...")
                 new_homogeneity = self.cur_topic_homogeneity(
                     cur_topic_id=cur_topic_id, homog_type=homog_type,
                     parallelism=parallelism, show_progress=show_progress
