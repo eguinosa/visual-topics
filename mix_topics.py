@@ -102,7 +102,9 @@ class MixTopics(BaseMixTopics):
             vocab_model_name = topic_model_index['vocab_model_name']
             topic_docs = topic_model_index['topic_docs']
             topic_words = topic_model_index['topic_words']
-            topics_homogeneity = topic_model_index['topics_homogeneity']
+            topics_homog_doc_doc = topic_model_index.get(
+                'topics_homog_doc_doc', topic_model_index['topics_homogeneity']
+            )
 
             # Load Topic Embeddings.
             if show_progress:
@@ -173,7 +175,7 @@ class MixTopics(BaseMixTopics):
             self.topic_embeds_words = topic_embeds_words
             self.topic_docs = topic_docs
             self.topic_words = topic_words
-            self.topics_homogeneity = topics_homogeneity
+            self.topics_homog_doc_doc = topics_homog_doc_doc
 
         # -- Create New Topic Model --
         else:
@@ -233,7 +235,7 @@ class MixTopics(BaseMixTopics):
                 corpus_vocab=corpus_vocab, show_progress=show_progress
             )
             # Don't Calculate the Topics Homogeneity - You can do it later.
-            topics_homogeneity = None
+            topics_homog_doc_doc = None
 
             # Corpus & Text Model Attributes.
             self.corpus_id = corpus_id
@@ -247,7 +249,7 @@ class MixTopics(BaseMixTopics):
             self.topic_embeds_words = topic_embeds_words
             self.topic_docs = topic_docs
             self.topic_words = topic_words
-            self.topics_homogeneity = topics_homogeneity
+            self.topics_homog_doc_doc = topics_homog_doc_doc
             # Model ID (create a name if none was provided).
             self.model_id = model_id if model_id else self._create_model_id()
 
@@ -364,15 +366,15 @@ class MixTopics(BaseMixTopics):
         return self.topic_words
 
     @property
-    def base_topics_homogeneity(self):
+    def base_topics_homog_doc_doc(self):
         """
         Dictionary with the Homogeneity of the Topics in the Model.
         """
-        return self.topics_homogeneity
+        return self.topics_homog_doc_doc
 
-    @base_topics_homogeneity.setter
-    def base_topics_homogeneity(self, value):
-        self.topics_homogeneity = value
+    @base_topics_homog_doc_doc.setter
+    def base_topics_homog_doc_doc(self, value):
+        self.topics_homog_doc_doc = value
 
     @property
     def base_cur_topic_words(self):
@@ -639,7 +641,7 @@ class MixTopics(BaseMixTopics):
             'vocab_model_name': self.vocab_model_name,
             'topic_docs': self.topic_docs,
             'topic_words': self.topic_words,
-            'topics_homogeneity': self.topics_homogeneity,
+            'topics_homog_doc_doc': self.topics_homog_doc_doc,
         }
         # Create Path & Save.
         model_index_path = join(model_folder_path, self.model_index_file)
@@ -952,7 +954,7 @@ if __name__ == '__main__':
     # _loaded_model = MixTopics.load(model_id=_loading_id, show_progress=True)
     # print("Done.")
     # print(f"[{_stopwatch.formatted_runtime()}]")
-    # # # ---------------------------------------------
+    # # ---------------------------------------------
     # # Show Loaded Topics.
     # print(f"\nThe Loaded Topic Model has {_loaded_model.topic_size} topics.")
     # # ---------------------------------------------
@@ -973,6 +975,7 @@ if __name__ == '__main__':
     # # -- Create the Homogeneity Dictionary --
     # print("\nCreating Dictionary with Homogeneity of Model...")
     # _loaded_model.calc_topics_homogeneity(show_progress=True)
+    # ----------------------------------------
     # # Update the Index of the Model.
     # print("\nRe-saving the Model Index...")
     # _loaded_model.save_model_index()
