@@ -396,8 +396,11 @@ class IRSystem:
         # Get the Current Topics.
         if sort_cat == 'size':
             topics_cat_values = self.topic_model.cur_topic_by_size()
-        elif sort_cat == 'homogeneity':
-            topics_cat_values = self.topic_model.cur_topic_by_homogeneity()
+        elif sort_cat in {'homogeneity-topic-doc', 'homogeneity-doc-doc'}:
+            homogeneity_type = sort_cat[12:]
+            topics_cat_values = self.topic_model.cur_topic_by_homogeneity(
+                homog_type=homogeneity_type
+            )
         elif sort_cat in {'pwi-tf-idf', 'pwi-exact'}:
             pwi_type = sort_cat[4:]
             topics_cat_values = self.topic_model.cur_topic_by_pwi(
