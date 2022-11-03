@@ -19,6 +19,7 @@ from time_keeper import TimeKeeper
 # Topic Model's Files.
 temp_folder = 'temp_data'
 embeds_2d_files = {
+    'test_20': 'test_20_topics_2d_embeds_index.json',
     'mono_20': 'sbert_fast_105_548_docs_745_topics_20_topics_2d_embeds_index.json',
     'mix_20': 'specter_sbert_fast_105_548_docs_533_topics_20_topics_2d_embeds_index.json',
 }
@@ -271,8 +272,21 @@ def generate_2d_embeds(model_id: str, topic_size: int, show_progress=False):
     # UMAP - Reduce Dimensions
     if show_progress:
         progress_msg("UMAP - Reducing dimensions of all the embeddings...")
+    # -------------------------------------------------------------
+    # Doing only one reduction.
     umap_model = umap.UMAP(n_neighbors=15, n_components=2, metric='cosine')
     reduced_embeds = umap_model.fit_transform(all_space_embeds)
+    # -------------------------------------------------------------
+    # # Reduction with double number of neighbors.
+    # umap_model = umap.UMAP(n_neighbors=30, n_components=2, metric='cosine')
+    # reduced_embeds = umap_model.fit_transform(all_space_embeds)
+    # -------------------------------------------------------------
+    # # Doing a double reduction.
+    # umap_model = umap.UMAP(n_neighbors=15, n_components=5, metric='cosine')
+    # first_red_embeds = umap_model.fit_transform(all_space_embeds)
+    # second_umap_model = umap.UMAP(n_neighbors=30, n_components=2, metric='cosine')
+    # reduced_embeds = second_umap_model.fit_transform(first_red_embeds)
+
     # Topics - Reduced Embeddings.
     topic_section = reduced_embeds[:len(topics_embeds)]
     topic_red_embeds = dict(
@@ -316,6 +330,7 @@ def generate_2d_embeds(model_id: str, topic_size: int, show_progress=False):
         red_embeds_index[topic_id] = topic_index
     # Save the 2D Embeddings Index of the Model.
     index_file = f"{model_id}_{topic_size}_topics_2d_embeds_index.json"
+    # index_file = embeds_2d_files['test_20']
     index_path = join('temp_data', index_file)
     if show_progress:
         progress_msg("Savin the 2D Embeds Index...")
@@ -355,14 +370,14 @@ if __name__ == '__main__':
     _args = sys.argv
 
     # Select Model.
-    _model_id = 'sbert_fast_105_548_docs_745_topics'
+    # _model_id = 'sbert_fast_105_548_docs_745_topics'
     # _model_id = 'specter_sbert_fast_105_548_docs_533_topics'
     # _model_id = 'sbert_fast_5_000_docs_55_topics'
     # _model_id = 'specter_sbert_fast_5_000_docs_25_topics'
 
-    # --- Create 2D Embeddings Index ---
-    print(f"\nCreating 2D Index for {_model_id}...")
-    generate_2d_embeds(model_id=_model_id, topic_size=20, show_progress=True)
+    # # --- Create 2D Embeddings Index ---
+    # print(f"\nCreating 2D Index for {_model_id}...")
+    # generate_2d_embeds(model_id=_model_id, topic_size=20, show_progress=True)
 
     # # --- Generate the Homogeneity Values of the Topic Model ---
     # # Homogeneity Type.
@@ -432,6 +447,26 @@ if __name__ == '__main__':
     # print(f"\nSaving the PWI Values in the Temp Data Folder:\nFile -> {_pwi_file}")
     # with open(_pwi_path, 'w') as f:
     #     json.dump(_pwi_dict, f)
+
+    # -- Compare Homogeneity Values between Models --
+    # Homogeneity Doc-Doc.
+    _, _mono_values, _mix_values = homogeneity_plot_data(
+        data_type='homog_doc-doc', add_zero=False
+    )
+    _mean_mono = sum(_mono_values) / len(_mono_values)
+    _mean_mix = sum(_mix_values) / len(_mix_values)
+    # The Difference between the Homogeneity Doc-Doc.
+    print("\nHomogeneity Doc-Doc increase from to Mono to Mix Topics:")
+    print(f"{round(_mean_mix / _mean_mono * 100, 2)}%")
+    # Homogeneity Topic-Doc.
+    _, _mono_values, _mix_values = homogeneity_plot_data(
+        data_type='homog_topic-doc', add_zero=False
+    )
+    _mean_mono = sum(_mono_values) / len(_mono_values)
+    _mean_mix = sum(_mix_values) / len(_mix_values)
+    # The Difference between the Homogeneity Doc-Doc.
+    print("\nHomogeneity Topic-Doc increase from to Mono to Mix Topics:")
+    print(f"{round(_mean_mix / _mean_mono * 100, 2)}%")
 
     # Program Finished.
     print("\nDone.")
