@@ -6,7 +6,91 @@ import matplotlib.pyplot as plt
 from topic_utils import pwi_plot_data, homogeneity_plot_data, embeds_2d_data
 
 
-def generate_homogeneity_plot(homog_type: str, save_plot=False):
+# Vector Space Names.
+space_names = {
+    'mono_20': 'SBERT',
+    'mix_20': 'SPECTER-SBERT',
+    'test_20': 'Test Model',
+}
+# Colors Info.
+empty_embed_color = 'gainsboro'
+distinct_colors = {
+    'red': '#e6194B',
+    'green': '#3cb44b',
+    'yellow': '#ffe119',
+    'blue': '#4363d8',
+    'orange': '#f58231',
+    'purple': '#911eb4',
+    'cyan': '#42d4f4',
+    'magenta': '#f032e6',
+    'lime': '#bfef45',
+    'pink': '#fabed4',
+    'teal': '#469990',
+    'lavender': '#dcbeff',
+    'brown': '#9A6324',
+    'beige': '#fffac8',
+    'maroon': '#800000',
+    'mint': '#aaffc3',
+    'olive': '#808000',
+    'apricot': '#ffd8b1',
+    'navy': '#000075',
+    'grey': '#a9a9a9',
+    'white': '#ffffff',
+    'black': '#000000',
+}
+accessibility_order = [
+    'white', 'black', 'grey', 'blue', 'yellow', 'navy', 'maroon', 'lavender',
+    'orange', 'mint', 'beige', 'brown', 'teal', 'pink', 'magenta', 'cyan',
+    'green', 'red', 'apricot', 'olive', 'lime', 'purple',
+]
+# Topic colors.
+all_topics_colors = {
+    'Topic_01': 'grey',
+    'Topic_02': 'blue',
+    'Topic_03': 'yellow',
+    'Topic_04': 'navy',
+    'Topic_05': 'maroon',
+    'Topic_06': 'lavender',
+    'Topic_07': 'orange',
+    'Topic_08': 'mint',
+    'Topic_09': 'beige',
+    'Topic_10': 'brown',
+    'Topic_11': 'teal',
+    'Topic_12': 'pink',
+    'Topic_13': 'magenta',
+    'Topic_14': 'cyan',
+    'Topic_15': 'green',
+    'Topic_16': 'red',
+    'Topic_17': 'apricot',
+    'Topic_18': 'olive',
+    'Topic_19': 'lime',
+    'Topic_20': 'purple',
+}
+solo_topics_colors = {
+    'Topic_01': 'black',
+    'Topic_02': 'blue',
+    'Topic_03': 'yellow',
+    'Topic_04': 'navy',
+    'Topic_05': 'maroon',
+    'Topic_06': 'lavender',
+    'Topic_07': 'orange',
+    'Topic_08': 'mint',
+    'Topic_09': 'beige',
+    'Topic_10': 'brown',
+    'Topic_11': 'teal',
+    'Topic_12': 'pink',
+    'Topic_13': 'magenta',
+    'Topic_14': 'cyan',
+    'Topic_15': 'green',
+    'Topic_16': 'red',
+    'Topic_17': 'apricot',
+    'Topic_18': 'olive',
+    'Topic_19': 'lime',
+    'Topic_20': 'purple',
+}
+
+
+def generate_homogeneity_plot(homog_type: str, save_plot=False, f_format='pdf'):
     """
     Show or Save a Homogeneity Plot comparing the Mono and Mix Topic Models.
     """
@@ -27,12 +111,15 @@ def generate_homogeneity_plot(homog_type: str, save_plot=False):
     ax.legend()
     # Show or Save Model.
     if save_plot:
-        plt.savefig(f"temp_data/comparison_homogeneity_{homog_type}.pdf", format='pdf')
+        plt.savefig(
+            f"temp_data/comparison_homogeneity_{homog_type}.{f_format}",
+            format=f_format
+        )
     else:
         plt.show()
 
 
-def generate_pwi_plot(pwi_type: str, save_plot=False, other_models=False):
+def generate_pwi_plot(pwi_type: str, save_plot=False, f_format='pdf', other_models=False):
     """
     Show or Save a PWI Plot comparing the Mono and Mix Topic Models. It can also
     include data from the LDA and Doc2Vec Models (50 words).
@@ -77,57 +164,135 @@ def generate_pwi_plot(pwi_type: str, save_plot=False, other_models=False):
     ax.legend()
     # - Show or Save Model -
     if save_plot:
-        plt.savefig(f'temp_data/comparison_pwi_{pwi_type}_words.pdf', format='pdf')
+        plt.savefig(
+            f"temp_data/comparison_pwi_{pwi_type}_words.{f_format}",
+            format=f_format
+        )
     else:
         plt.show()
 
 
-def generate_vector_space(data_name: str):
+def generate_vector_space(data_name: str, save_plot=False, f_format='pdf'):
     """
     Create an image of the Vector Space of a Topic Model.
     """
     # Get Dictionary with the 2D Info of the Topic Model.
     model_2d_info = embeds_2d_data(data_name)
-
-    # -- Create Image with only the Documents --
     # Create Figure & Axes.
-    fig, ax = plt.subplots()
-    # Create Document X, Y values.
-    topic_ids = list(model_2d_info.keys())
-
-    # First Topic ID.
-    first_id = topic_ids[0]
-    topic_info = model_2d_info[first_id]
-    doc_2d_embeds = topic_info['doc_embeds']
-    doc_x_values = []
-    doc_y_values = []
-    # Extract Doc Embeds Values.
-    for x, y in doc_2d_embeds.values():
-        doc_x_values.append(x)
-        doc_y_values.append(y)
-    # Plot the Vectors in the Topic 'topic_id'.
-    ax.scatter(doc_x_values, doc_y_values, color='orangered', s=0.1)
+    fig, ax = plt.subplots(figsize=(8, 6))
 
     # Rest of Topic IDs.
-    doc_x_values = []
-    doc_y_values = []
-    for topic_id in topic_ids[1:]:
+    for topic_id in model_2d_info.keys():
         # Extract the 2D Info.
         topic_info = model_2d_info[topic_id]
-        # topic_2d_embed = topic_info['topic_embed']
+        topic_2d_embed = topic_info['topic_embed']
         doc_2d_embeds = topic_info['doc_embeds']
         # topic_top_words = topic_info['top_words']
 
-        # Extract Doc Embeds Values.
+        # Topic Values.
+        topic_x_value = topic_2d_embed[0]
+        topic_y_value = topic_2d_embed[1]
+        # Document Values.
+        doc_x_values = []
+        doc_y_values = []
         for x, y in doc_2d_embeds.values():
             doc_x_values.append(x)
             doc_y_values.append(y)
-    # Plot the Vectors in the Topic 'topic_id'.
-    ax.scatter(doc_x_values, doc_y_values, color='gainsboro', s=0.5)
 
-    # Name the Image.
-    ax.set_title("Vector Space Sentence-BERT")
-    plt.show()
+        # Plot the Vectors in the Topic 'topic_id'.
+        topic_color = solo_topics_colors[topic_id]
+        color_code = distinct_colors[topic_color]
+        ax.scatter(
+            doc_x_values, doc_y_values,
+            color=color_code, s=0.1
+        )
+        # Plot the Text Name.
+        plt.text(
+            topic_x_value, topic_y_value, s=topic_id,
+            fontdict=dict(color='black', size=6),
+            bbox=dict(facecolor='white', alpha=0.65)
+        )
+
+    # Name the Plot.
+    space_name = space_names[data_name]
+    ax.set_title(f"Vector Space {space_name}")
+    ax.tick_params(
+        left=False, right=False, labelleft=False, labelbottom=False, bottom=False
+    )
+    # Show or Save the Model.
+    plt.tight_layout()
+    if save_plot:
+        plt.savefig(
+            f"temp_data/vector_space_{data_name}.{f_format}",
+            format=f_format
+        )
+    else:
+        plt.show()
+
+
+def generate_topic_space(
+        data_name: str, main_topic: str, save_plot=False, f_format='pdf'
+):
+    """
+    Create an image of Vector Space from the Topic Model in 'data_name'
+    highlighting the given Topic 'main_topic'.
+    """
+    # Get Dictionary with the 2D Info of the Topic Model.
+    model_2d_info = embeds_2d_data(data_name)
+    # Create Figure and Axes.
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    # Iterate through the data of the Topics and plot them.
+    for topic_id in model_2d_info.keys():
+        # Extract the 2D Info.
+        topic_info = model_2d_info[topic_id]
+        topic_2d_embed = topic_info['topic_embed']
+        doc_2d_embeds = topic_info['doc_embeds']
+        # topic_top_words = topic_info['top_words']
+
+        # Topic Values.
+        topic_x_value = topic_2d_embed[0]
+        topic_y_value = topic_2d_embed[1]
+        # Document Values.
+        doc_x_values = []
+        doc_y_values = []
+        for x, y in doc_2d_embeds.values():
+            doc_x_values.append(x)
+            doc_y_values.append(y)
+
+        # Plot the Documents.
+        if topic_id == main_topic:
+            # Plot the Highlighted Topic.
+            topic_color = solo_topics_colors[topic_id]
+            color_code = distinct_colors[topic_color]
+            ax.scatter(doc_x_values, doc_y_values, color=color_code, s=0.1)
+            # Add Label for the Highlighted Topic.
+            plt.text(
+                topic_x_value, topic_y_value, s=topic_id,
+                fontdict=dict(color='black', size=6),
+                bbox=dict(facecolor='white', alpha=0.65)
+            )
+        else:
+            # Plot the Background Topics.
+            ax.scatter(
+                doc_x_values, doc_y_values, color=empty_embed_color, s=0.1
+            )
+
+    # Name the Plot.
+    space_name = space_names[data_name]
+    ax.set_title(f"{main_topic} in the Vector Space {space_name}")
+    ax.tick_params(
+        left=False, right=False, labelleft=False, labelbottom=False, bottom=False
+    )
+    # Show or Save the Model.
+    plt.tight_layout()
+    if save_plot:
+        plt.savefig(
+            f"temp_data/vector_space_{data_name}_{main_topic}.{f_format}",
+            format=f_format
+        )
+    else:
+        plt.show()
 
 
 if __name__ == '__main__':
@@ -138,10 +303,29 @@ if __name__ == '__main__':
 
     # # Create Homogeneity Plot.
     # print("\nCreating Homogeneity Plot...")
-    # generate_homogeneity_plot(homog_type='topic-doc', save_plot=True)
-    # generate_homogeneity_plot(homog_type='doc-doc', save_plot=True)
+    # _f_format = 'png'
+    # generate_homogeneity_plot(
+    #     homog_type='topic-doc', save_plot=True, f_format=_f_format
+    # )
+    # generate_homogeneity_plot(
+    #     homog_type='doc-doc', save_plot=True, f_format=_f_format
+    # )
 
     # Create Vector Space Image.
-    generate_vector_space('mono_20')
+    _data_name = 'mono_20'
+    _save = True
+    _f_format = 'png'
+    # -----------------------------------------------------
+    # Plot Vector Space.
+    print(f"\nCreating Vector Space for Topic Model {_data_name}")
+    generate_vector_space(data_name=_data_name, save_plot=_save, f_format=_f_format)
+    # -----------------------------------------------------
+    # # Create Topic Image in Vector Space.
+    # _topic_id = 'Topic_04'
+    # print(f"\nCreating Topic Vector Space for <{_topic_id}> in data <{_data_name}>...")
+    # generate_topic_space(
+    #     data_name=_data_name, main_topic=_topic_id,
+    #     save_plot=_save, f_format=_f_format
+    # )
 
     print("\nDone.\n")
