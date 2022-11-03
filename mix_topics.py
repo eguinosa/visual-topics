@@ -1045,29 +1045,31 @@ if __name__ == '__main__':
     # # -- Topics' Words in Reduced Topics using PWI or Cosine Similarity --
     # _top_n = 15  # 10 for latex
     # # ----------------------------------------
-    # # Current Topics By Size.
-    # _sorted_cur_topics = _loaded_model.cur_topic_by_size()
+    # # # Current Topics By Size.
+    # # _sorted_cur_topics = _loaded_model.cur_topic_by_size()
     # # ----------------------------------------
-    # # # Topics By Homogeneity.
-    # # _sorted_cur_topics = _loaded_model.cur_topic_by_homogeneity(show_progress=True)
+    # # Topics By Homogeneity.
+    # _sorted_cur_topics = _loaded_model.cur_topic_by_homogeneity(
+    #     homog_type='topic-doc', show_progress=True
+    # )
     # # _cur_model_homogeneity = sum(homogeneity for _, homogeneity in _sorted_cur_topics)
     # # ----------------------------------------
     # print(f"\nTop {_top_n} words per topic:")
     # for _topic_id, _value in _sorted_cur_topics:
-    #     # Show Size
-    #     print(f"\n{_topic_id} ({big_number(_value)} docs):")
+    #     # # Show Size
+    #     # print(f"\n{_topic_id} ({big_number(_value)} docs):")
     #     # ----------------------------------------
-    #     # # Show Homogeneity & Size
-    #     # print(f"\n{_topic_id} (Homogeneity: {_value}):")
-    #     # print(f"<{big_number(len(_loaded_model.base_cur_topic_docs[_topic_id]))} docs>")
+    #     # Show Homogeneity & Size
+    #     print(f"\n{_topic_id} (Homogeneity: {_value}):")
+    #     print(f"<{big_number(len(_loaded_model.base_cur_topic_docs[_topic_id]))} docs>")
     #     # ----------------------------------------
-    #     _sim_words = _loaded_model.top_words_cur_topic(_topic_id, _top_n, 'cos-sim')
-    #     print("Top Words by Cosine Similarity:")
-    #     pprint(_sim_words)
+    #     # _sim_words = _loaded_model.top_words_cur_topic(_topic_id, _top_n, 'cos-sim')
+    #     # print("Top Words by Cosine Similarity:")
+    #     # pprint(_sim_words)
     #     # ---------------------------------------------
-    #     _top_varied_words = _loaded_model.cur_topic_varied_words(_topic_id, _top_n)
-    #     print("Top Words in Diverse Description:")
-    #     pprint(_top_varied_words)
+    #     # _top_varied_words = _loaded_model.cur_topic_varied_words(_topic_id, _top_n)
+    #     # print("Top Words in Diverse Description:")
+    #     # pprint(_top_varied_words)
     #     # ----------------------------------------
     #     # _pwi_words = _loaded_model.top_words_cur_topic(_topic_id, _top_n, 'pwi-exact')
     #     # print("Top Words by PWI-exact:")
@@ -1082,9 +1084,9 @@ if __name__ == '__main__':
     #     # print(f"    {_latex_str}")
     #     # print("}\\\\")
     #     # print("\\hline")
-    # # ----------------------------------------
-    # # # -- Model Homogeneity --
-    # # print(f"\nHomogeneity - Topic Model: {round(_cur_model_homogeneity, 3)}")
+    # ----------------------------------------
+    # # -- Model Homogeneity --
+    # print(f"\nHomogeneity - Topic Model: {round(_cur_model_homogeneity, 3)}")
 
     # # -- Show the Topic Model Descriptive Value (PWI) --
     # _num = 20
