@@ -1003,6 +1003,15 @@ if __name__ == '__main__':
     # print(f"  PWI-tf-idf: {_pwi_tf_idf}")
     # print(f"  PWI-exact: {_pwi_exact}")
 
+    # # -- Show the Most Common Term in the Topic Model Corpus --
+    # _top_words, _max_freq = _loaded_model.corpus_vocab.most_common_term()
+    # _top_word = _top_words[0]
+    # _doc_count = _loaded_model.corpus_vocab.word_docs_count[_top_word]
+    # print("\nMost Common Word:")
+    # print(_top_words)
+    # print(f"Max Frequency: {_max_freq}")
+    # print(f"Documents (first term): {_doc_count}")
+
     # -- Show Saved Models --
     _saved_topic_models = MonoTopics.saved_models()
     if _saved_topic_models:
