@@ -400,6 +400,27 @@ class Vocabulary:
         pwi_result = summation / corpus_length
         return pwi_result
 
+    def most_common_term(self):
+        """
+        Find the word(s) with the highest frequency in the corpus.
+        """
+        # Extract the words and their frequencies.
+        words_freqs = list(self.corpus_freqs.items())
+        # Create Reference values.
+        first_word, first_freq = words_freqs[0]
+        top_words = [first_word]
+        max_freq = first_freq
+        for new_word, new_freq in words_freqs[1:]:
+            # Check - New Max.
+            if new_freq > max_freq:
+                top_words = [new_word]
+                max_freq = new_freq
+            # Check - Same Max Frequency.
+            elif new_freq == max_freq:
+                top_words.append(new_word)
+        # The Top Frequency Words.
+        return top_words, max_freq
+
     def save(self, topic_dir_path: str, show_progress=False):
         """
         Save the Vocabulary data.
