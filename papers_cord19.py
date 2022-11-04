@@ -14,7 +14,7 @@ from extra_funcs import progress_bar, progress_msg, number_to_3digits
 from random import choice
 from time_keeper import TimeKeeper
 from extra_funcs import big_number
-# from pprint import pprint
+from pprint import pprint
 
 
 class PapersCord19(CorpusCord19):
@@ -624,30 +624,52 @@ if __name__ == '__main__':
     cord19_ids = the_papers.papers_cord_uids()
     rand_cord_uid = choice(cord19_ids)
 
-    # Getting the embedding of one of the papers.
-    print(f"\nGetting the Embedding for the Paper <{rand_cord_uid}>...")
-    result = the_papers.paper_embedding(rand_cord_uid)
-    print(f"The Embedding is:")
-    print(result)
+    # # Getting the embedding of one of the papers.
+    # print(f"\nGetting the Embedding for the Paper <{rand_cord_uid}>...")
+    # result = the_papers.paper_embedding(rand_cord_uid)
+    # print(f"The Embedding is:")
+    # print(result)
 
-    # Getting the text of one of the papers.
-    print(f"\nGetting the content of the Paper <{rand_cord_uid}>...")
-    result = the_papers.formatted_paper_content(rand_cord_uid)
-    # Trim the size of the paper's content.
-    if len(result) > 1_500:
-        result = result[:1_500] + '...'
-    print("The Content of the paper:")
-    print(result)
+    # # Getting the text of one of the papers.
+    # print(f"\nGetting the content of the Paper <{rand_cord_uid}>...")
+    # result = the_papers.formatted_paper_content(rand_cord_uid)
+    # # Trim the size of the paper's content.
+    # if len(result) > 1_500:
+    #     result = result[:1_500] + '...'
+    # print("The Content of the paper:")
+    # print(result)
 
-    # Display the Information of the Paper.
-    print(f"\nInformation of the Paper <{rand_cord_uid}>:")
-    the_paper_info = the_papers.papers_index[rand_cord_uid]
-    the_title = the_paper_info['title']
-    the_time = the_paper_info['publish_time']
-    the_authors = the_paper_info['authors']
-    print(f"  Title: {the_title}")
-    print(f"  Publish Time: {the_time}")
-    print(f"  Authors: {the_authors}")
+    # # Display the Information of the Paper.
+    # print(f"\nInformation of the Paper <{rand_cord_uid}>:")
+    # the_paper_info = the_papers.papers_index[rand_cord_uid]
+    # the_title = the_paper_info['title']
+    # the_time = the_paper_info['publish_time']
+    # the_authors = the_paper_info['authors']
+    # print(f"  Title: {the_title}")
+    # print(f"  Publish Time: {the_time}")
+    # print(f"  Authors: {the_authors}")
+
+    # Get the Oldest and Newest Publish Date.
+    _first_paper_id = cord19_ids[0]
+    _oldest_date_dict = the_papers.paper_publish_date(_first_paper_id)
+    _newest_date_dict = _oldest_date_dict
+    for _paper_id in cord19_ids[1:]:
+        # Get Date Dict.
+        _date_dict = the_papers.paper_publish_date(_paper_id)
+        # Skip if we don't have data data.
+        if not _date_dict:
+            continue
+        # Check if this is the oldest paper.
+        if _date_dict['year'] < _oldest_date_dict['year']:
+            _oldest_date_dict = _date_dict
+        # Check if this is the newest paper.
+        if _date_dict['year'] > _newest_date_dict['year']:
+            _newest_date_dict = _date_dict
+    # Show the Newest & Oldest Dates.
+    print("\nNewest Publication:")
+    pprint(_newest_date_dict)
+    print("\nOldest Publication:")
+    pprint(_oldest_date_dict)
 
     # # Test Formatted Paper's Author & Publish Date.
     # print("\nFormatted Author Info: ")
