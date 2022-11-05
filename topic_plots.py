@@ -208,14 +208,14 @@ def generate_vector_space(data_name: str, save_plot=False, f_format='pdf'):
         )
         # Plot the Text Name.
         plt.text(
-            topic_x_value, topic_y_value, s=topic_id,
+            topic_x_value, topic_y_value, s=topic_id.replace('_', ' '),
             fontdict=dict(color='black', size=6),
             bbox=dict(facecolor='white', alpha=0.65)
         )
 
     # Name the Plot.
     space_name = space_names[data_name]
-    ax.set_title(f"Vector Space {space_name}")
+    ax.set_title(f"Espacio Vectorial {space_name}")
     ax.tick_params(
         left=False, right=False, labelleft=False, labelbottom=False, bottom=False
     )
@@ -231,16 +231,19 @@ def generate_vector_space(data_name: str, save_plot=False, f_format='pdf'):
 
 
 def generate_topic_space(
-        data_name: str, main_topic: str, save_plot=False, f_format='pdf'
+        data_name: str, main_topic: str, save_plot=False, f_format='pdf',
+        custom_ax=False, ax=None
 ):
     """
     Create an image of Vector Space from the Topic Model in 'data_name'
-    highlighting the given Topic 'main_topic'.
+    highlighting the given Topic 'main_topic'. When 'custom_ax' is true, we are
+    adding this image to an existing plot.
     """
     # Get Dictionary with the 2D Info of the Topic Model.
     model_2d_info = embeds_2d_data(data_name)
     # Create Figure and Axes.
-    fig, ax = plt.subplots(figsize=(8, 6))
+    if not custom_ax:
+        fig, ax = plt.subplots(figsize=(8, 6))
 
     # Iterate through the data of the Topics and plot them.
     for topic_id in model_2d_info.keys():
@@ -267,11 +270,12 @@ def generate_topic_space(
             color_code = distinct_colors[topic_color]
             ax.scatter(doc_x_values, doc_y_values, color=color_code, s=0.1)
             # Add Label for the Highlighted Topic.
-            plt.text(
-                topic_x_value, topic_y_value, s=topic_id,
-                fontdict=dict(color='black', size=6),
-                bbox=dict(facecolor='white', alpha=0.65)
-            )
+            if not custom_ax:
+                plt.text(
+                    topic_x_value, topic_y_value, s=topic_id,
+                    fontdict=dict(color='black', size=6),
+                    bbox=dict(facecolor='white', alpha=0.65)
+                )
         else:
             # Plot the Background Topics.
             ax.scatter(
@@ -280,19 +284,20 @@ def generate_topic_space(
 
     # Name the Plot.
     space_name = space_names[data_name]
-    ax.set_title(f"{main_topic} in the Vector Space {space_name}")
+    ax.set_title(f"{main_topic.replace('_', ' ')} in the Vector Space {space_name}")
     ax.tick_params(
         left=False, right=False, labelleft=False, labelbottom=False, bottom=False
     )
     # Show or Save the Model.
-    plt.tight_layout()
-    if save_plot:
-        plt.savefig(
-            f"temp_data/vector_space_{data_name}_{main_topic}.{f_format}",
-            format=f_format
-        )
-    else:
-        plt.show()
+    if not custom_ax:
+        plt.tight_layout()
+        if save_plot:
+            plt.savefig(
+                f"temp_data/vector_space_{data_name}_{main_topic}.{f_format}",
+                format=f_format
+            )
+        else:
+            plt.show()
 
 
 if __name__ == '__main__':
@@ -311,14 +316,14 @@ if __name__ == '__main__':
     #     homog_type='doc-doc', save_plot=True, f_format=_f_format
     # )
 
-    # Create Vector Space Image.
-    _data_name = 'mono_20'
-    _save = True
-    _f_format = 'png'
-    # -----------------------------------------------------
-    # Plot Vector Space.
-    print(f"\nCreating Vector Space for Topic Model {_data_name}")
-    generate_vector_space(data_name=_data_name, save_plot=_save, f_format=_f_format)
+    # # Create Vector Space Image.
+    # _data_name = 'mono_20'
+    # _save = False
+    # _f_format = 'png'
+    # # -----------------------------------------------------
+    # # Plot Vector Space.
+    # print(f"\nCreating Vector Space for Topic Model {_data_name}")
+    # generate_vector_space(data_name=_data_name, save_plot=_save, f_format=_f_format)
     # -----------------------------------------------------
     # # Create Topic Image in Vector Space.
     # _topic_id = 'Topic_04'
@@ -327,5 +332,14 @@ if __name__ == '__main__':
     #     data_name=_data_name, main_topic=_topic_id,
     #     save_plot=_save, f_format=_f_format
     # )
+
+    # # Generate the Joint Representation of the Topics.
+    # _fig, _axs = plt.subplots(2, 2, layout='constrained')
+    # for _topic_id, _ax in zip(all_topics_colors, _axs.flat):
+    #     generate_topic_space(
+    #         data_name='mix_20', main_topic=_topic_id,
+    #         custom_ax=True, ax=_ax
+    #     )
+    # plt.show()
 
     print("\nDone.\n")
