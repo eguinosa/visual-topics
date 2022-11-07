@@ -9,7 +9,7 @@ from topic_utils import pwi_plot_data, homogeneity_plot_data, embeds_2d_data
 # Vector Space Names.
 space_names = {
     'mono_20': 'SBERT',
-    'mix_20': 'SPECTER-SBERT',
+    'mix_20': 'SPECTER',
     'test_20': 'Test Model',
 }
 # Colors Info.
@@ -284,7 +284,7 @@ def generate_topic_space(
 
     # Name the Plot.
     space_name = space_names[data_name]
-    ax.set_title(f"{main_topic.replace('_', ' ')} in the Vector Space {space_name}")
+    ax.set_title(f"{main_topic.replace('_', ' ')} en espacio vectorial {space_name}")
     ax.tick_params(
         left=False, right=False, labelleft=False, labelbottom=False, bottom=False
     )
@@ -316,22 +316,22 @@ if __name__ == '__main__':
     #     homog_type='doc-doc', save_plot=True, f_format=_f_format
     # )
 
-    # # Create Vector Space Image.
-    # _data_name = 'mono_20'
-    # _save = False
-    # _f_format = 'png'
-    # # -----------------------------------------------------
+    # Create Vector Space Image.
+    _data_name = 'mono_20'
+    _save = False
+    _f_format = 'pdf'
+    # -----------------------------------------------------
     # # Plot Vector Space.
     # print(f"\nCreating Vector Space for Topic Model {_data_name}")
     # generate_vector_space(data_name=_data_name, save_plot=_save, f_format=_f_format)
     # -----------------------------------------------------
-    # # Create Topic Image in Vector Space.
-    # _topic_id = 'Topic_04'
-    # print(f"\nCreating Topic Vector Space for <{_topic_id}> in data <{_data_name}>...")
-    # generate_topic_space(
-    #     data_name=_data_name, main_topic=_topic_id,
-    #     save_plot=_save, f_format=_f_format
-    # )
+    # Create Topic Image in Vector Space.
+    _topic_id = 'Topic_07'
+    print(f"\nCreating Topic Vector Space for <{_topic_id}> in data <{_data_name}>...")
+    generate_topic_space(
+        data_name=_data_name, main_topic=_topic_id,
+        save_plot=_save, f_format=_f_format
+    )
 
     # # Generate the Joint Representation of the Topics.
     # _fig, _axs = plt.subplots(2, 2, layout='constrained')
