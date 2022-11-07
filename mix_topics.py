@@ -1045,13 +1045,18 @@ if __name__ == '__main__':
     # # -- Topics' Words in Reduced Topics using PWI or Cosine Similarity --
     # _top_n = 10  # 10 for latex
     # # ----------------------------------------
-    # # Current Topics By Size.
-    # _sorted_cur_topics = _loaded_model.cur_topic_by_size()
+    # # # Current Topics By Size.
+    # # _sorted_cur_topics = _loaded_model.cur_topic_by_size()
     # # ----------------------------------------
-    # # # Topics By Homogeneity.
-    # # _sorted_cur_topics = _loaded_model.cur_topic_by_homogeneity(
-    # #     homog_type='topic-doc', show_progress=True
+    # # # Topics By PWI
+    # # _sorted_cur_topics = _loaded_model.cur_topic_by_pwi(
+    # #     word_num=50, pwi_type='exact'
     # # )
+    # # ----------------------------------------
+    # # Topics By Homogeneity.
+    # _sorted_cur_topics = _loaded_model.cur_topic_by_homogeneity(
+    #     homog_type='doc-doc', show_progress=True
+    # )
     # # _cur_model_homogeneity = sum(homogeneity for _, homogeneity in _sorted_cur_topics)
     # # ----------------------------------------
     # print(f"\nTop {_top_n} words per topic:")
@@ -1076,7 +1081,9 @@ if __name__ == '__main__':
     #     # pprint(_pwi_words)
     #     # ---------------------------------------------
     #     # For Latex
-    #     print(f"{_topic_id.replace('_', ' ')} & {big_number(_value)} docs", "& {")
+    #     # print(f"{_topic_id.replace('_', ' ')} & {big_number(_value)} docs", "& {")
+    #     # print(f"{_topic_id.replace('_', ' ')} & {round(_value * 1000, 1)}", "& {")
+    #     print(f"{_topic_id.replace('_', ' ')} & {round(_value * 100, 1)}", "& {")
     #     # _sim_words = _loaded_model.top_words_cur_topic(_topic_id, _top_n, 'cos-sim')
     #     _sim_words = _loaded_model.cur_topic_varied_words(_topic_id, _top_n)
     #     _latex_str = str(_sim_words[0][0])
