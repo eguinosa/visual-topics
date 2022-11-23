@@ -9,6 +9,7 @@ from topic_corpus import TopicCorpus
 # Testing Imports.
 import sys
 from pprint import pprint
+from extra_funcs import big_number
 from time_keeper import TimeKeeper
 
 
@@ -139,15 +140,24 @@ if __name__ == '__main__':
     _args = sys.argv
 
     # Create Custom Corpus.
-    _custom_corpus = CustomCorpus('temp_data')
-    for _doc_id in _custom_corpus.doc_ids:
-        print(f"\nDoc <{_doc_id}>:")
-        # --------------------------------------------------
-        # print("Title:", _custom_corpus.doc_title(_doc_id))
-        # print("Abstract:")
-        # print(_custom_corpus.doc_abstract(_doc_id))
-        # --------------------------------------------------
-        pprint(_custom_corpus.doc_title_abstract(_doc_id))
+    print("\nCreating Custom Corpus...")
+    _corpus_path = join('temp_data', 'cord19_3000_docs')
+    _custom_corpus = CustomCorpus(_corpus_path)
+    print("Done.")
+    print(f"[{_stopwatch.formatted_runtime()}]")
+
+    # Report the Amount of Documents Loaded.
+    print(f"\n{big_number(len(_custom_corpus))} documents loaded.")
+
+    # # Show Documents Content.
+    # for _doc_id in _custom_corpus.doc_ids:
+    #     print(f"\nDoc <{_doc_id}>:")
+    #     # --------------------------------------------------
+    #     # print("Title:", _custom_corpus.doc_title(_doc_id))
+    #     # print("Abstract:")
+    #     # print(_custom_corpus.doc_abstract(_doc_id))
+    #     # --------------------------------------------------
+    #     pprint(_custom_corpus.doc_title_abstract(_doc_id))
 
     print("\nDone.")
     print(f"[{_stopwatch.formatted_runtime()}]\n")
