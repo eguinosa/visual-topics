@@ -20,8 +20,9 @@ from extra_funcs import progress_msg, big_number
 # Testing Imports.
 import sys
 # from pprint import pprint
-from sample_manager import SampleManager
 from time_keeper import TimeKeeper
+from sample_manager import SampleManager
+from custom_corpus import CustomCorpus
 
 
 class MonoTopics(BaseTopics):
@@ -808,14 +809,19 @@ if __name__ == '__main__':
     # _sample_id = '500_docs'
     # print(f"\nLoading the Corpus Sample <{_sample_id}>...")
     # _corpus = SampleManager.load(sample_id=_sample_id, show_progress=True)
+    # ---------------------------------------------
+    # # Using Custom Corpus.
+    # _corpus_path = join('temp_data', 'cord19_3000_docs')
+    # print("\nCreating Custom Corpus...")
+    # print(f"Custom Corpus Path: {_corpus_path}")
+    # _corpus = CustomCorpus(_corpus_path)
     # # ---------------------------------------------
     # print("Done.")
     # print(f"[{_stopwatch.formatted_runtime()}]")
 
     # # Report amount of papers in the loaded Corpus
-    # _paper_count = len(_corpus)
-    # print(f"\n{big_number(_paper_count)} documents loaded.")
-    #
+    # print(f"\n{big_number(len(_corpus))} documents loaded.")
+
     # # Load Text Model.
     # _model_id = 'sbert_fast'
     # print(f"\nLoading the model in ModelManager <{_model_id}>...")
@@ -828,7 +834,7 @@ if __name__ == '__main__':
     # _topic_model = MonoTopics(corpus=_corpus, text_model=_text_model, show_progress=True)
     # print("Done.")
     # print(f"[{_stopwatch.formatted_runtime()}]")
-
+    #
     # # Report Number of Topics found.
     # print(f"\n{_topic_model.topic_size} topics found.")
     # # ---------------------------------------------
