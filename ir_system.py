@@ -3,14 +3,16 @@
 
 from random import choice
 from numpy import ndarray
+from os.path import join
 
 from mono_topics import MonoTopics
 from mix_topics import MixTopics
 from corpora_manager import CorporaManager
 from sample_manager import SampleManager
+from custom_corpus import CustomCorpus
 from model_manager import ModelManager
 from util_funcs import cosine_sim, find_top_n
-from extra_funcs import progress_msg
+from extra_funcs import progress_msg, big_number
 
 # Testing Imports.
 import sys
@@ -106,6 +108,60 @@ class IRSystem:
         IDs of the documents in the Topic Model of the System.
         """
         return self.corpus.doc_ids
+
+    def use_custom_model(
+            self, corpus_dir_path: str, use_mono_topics=True,
+            model_name_sbert='sbert_fast', model_name_specter='default_specter',
+            show_progress=False
+    ):
+        """
+        Create a Custom Topic Model using the documents of the corpus inside the
+        folder 'corpus_dir_path'. The Topic Model can be created with custom
+        Text Models too.
+        """
+        # Create Corpus.
+        new_corpus = CustomCorpus(corpus_dir_path)
+        if show_progress:
+            progress_msg(
+                f"New Corpus loaded with {big_number(len(new_corpus))} documents."
+            )
+        # Load SBERT Text Model.
+        if show_progress:
+            progress_msg(f"Loading SBERT Text Model <{model_name_sbert}>...")
+        sbert_text_model = ModelManager(
+            model_name=model_name_sbert, show_progress=show_progress
+        )
+
+        # Create Topic Model.
+        if use_mono_topics:
+            # Creating a SBERT Topic Model.
+            if show_progress:
+                progress_msg("Creating SBERT Topic Model...")
+            topic_model = MonoTopics(
+                corpus=new_corpus, text_model=sbert_text_model,
+                show_progress=show_progress
+            )
+        else:
+            # -- Load the Specter Text Model --
+            if show_progress:
+                progress_msg(f"Loading SPECTER Text Model <{model_name_specter}>...")
+            # specter_text_model = ModelManager(
+            #     model_name=model_name_specter, show_progress=show_progress
+            # )
+            # -- Creating a SPECTER-SBERT Topic Model --
+            topic_model = MixTopics(
+                corpus=new_corpus, vocab_model=sbert_text_model,
+                show_progress=show_progress
+            )
+
+        # Update Topic Model Attributes.
+        self.model_name = topic_model.model_id
+        self.topic_model = topic_model
+        # Update Corpus Attributes.
+        self.main_corpus = new_corpus
+        self.corpus = new_corpus
+        # Text Model Attributes.
+        self.text_model = sbert_text_model
 
     def update_model(self, new_model: str, show_progress=False):
         """
@@ -561,8 +617,17 @@ if __name__ == '__main__':
 
     # Create IR system.
     print(f"\nCreating the IR System instance...")
-    _topic_model_id = 'sbert_fast_20_000_docs_182_topics'
+    # _topic_model_id = 'sbert_fast_20_000_docs_182_topics'
+    _topic_model_id = 'sbert_fast_5_000_docs_55_topics'
     _ir_sys = IRSystem(model_name=_topic_model_id, show_progress=True)
+    print("Done.")
+    print(f"[{_stopwatch.formatted_runtime()}]")
+
+    # Use a Custom Corpus.
+    _corpus_path = join('temp_data', 'cord19_3000_docs')
+    print(f"\nLoading a Custom Corpus for the IR system...")
+    print(f"Custom Corpus Path: {_corpus_path}")
+    _ir_sys.use_custom_model(corpus_dir_path=_corpus_path, show_progress=True)
     print("Done.")
     print(f"[{_stopwatch.formatted_runtime()}]")
 
