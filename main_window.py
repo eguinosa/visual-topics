@@ -253,7 +253,7 @@ class MainWindow(QMainWindow):
         # Create Window Size and Name.
         self.setMinimumSize(1000, 800)
         self.setGeometry(10, 80, 1280, 800)
-        self.setWindowTitle("Scientific Search")
+        self.setWindowTitle("SRI-TOP User Interface")
         # Change the Location of the Window.
         # self.move(10, 80)
         # self.resize(1280, 800)
