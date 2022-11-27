@@ -80,7 +80,7 @@ expand their search once a document of interest is found.
 
 ## Citation
 
-Please cite my [thesis](https://github.com/eguinosa/visual-topics/blob/main/project_thesis/thesis_gelin_eguinosa.pdf) as:
+Please cite my [thesis](project_thesis/thesis_gelin_eguinosa.pdf) as:
 
 ```
 @mastersthesis{eguinosa:2022,
