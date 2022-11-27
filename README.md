@@ -4,7 +4,7 @@ App developed for the Diploma Work of my Bachelor's degree in Computer Science,
 at the Faculty of Mathematics and Computer Science in the University of Havana, 
 Cuba.
 
-## Thesis' Abstract
+## Abstract
 
 Information retrieval is one of the main ways to access information today. In 
 order to guarantee access to quality information when necessary, innovative 
@@ -18,7 +18,7 @@ terms of the quality and descriptive capacity of their topics. As a visual
 interface for SRI-TOP, we created an application that allows queries and user 
 interaction with the topics and documents in the corpus.
 
-## Application
+## Visual App
 
 SRI-TOP was built with a visual interface that allows users to perform queries, 
 examine the content of documents, and explore the topics found in the corpus by 
@@ -80,7 +80,7 @@ expand their search once a document of interest is found.
 
 ## Citation
 
-Please cite my [thesis](project_thesis/thesis_gelin_eguinosa.pdf) as:
+Please cite my [thesis](https://github.com/eguinosa/visual-topics/blob/main/project_thesis/thesis_gelin_eguinosa.pdf) as:
 
 ```
 @mastersthesis{eguinosa:2022,
