@@ -1015,11 +1015,16 @@ class MainWindow(QMainWindow):
                 progress_msg("Info Collected !!!")
                 # Use Threads to Create New Model.
                 self.createNewModel(model_info=info_dict, show_progress=True)
+                # Freeze the Models Combo Box.
+                self.using_custom_corpus = True
+                self.model_combo.setEnabled(False)
             else:
                 # Reset the Value of the Custom Corpus Checkable.
                 self.file_custom_corpus.setChecked(False)
         elif self.using_custom_corpus:
             # Go back to using the preprocessed Models.
+            self.restoreOldModels(show_progress=True)
+            # Unfreeze the Models Combo Box.
             self.using_custom_corpus = False
             self.model_combo.setEnabled(True)
             progress_msg("Going back to using preprocessed Models!")
@@ -1053,15 +1058,54 @@ class MainWindow(QMainWindow):
             while self.model_combo.count() > 0:
                 self.model_combo.removeItem(0)
             self.model_combo.addItem(self.current_model)
-            # Freeze the Models Combo Box.
-            self.using_custom_corpus = True
-            self.model_combo.setEnabled(False)
             # Update All Tabs with the New Topic Model Info.
             self.finishModelUpdate(show_progress=show_progress)
             # Done.
             if show_progress:
                 progress_msg("New Topic Model Created!")
         # The Topic Model creation was canceled.
+        else:
+            self.close()
+
+    def restoreOldModels(self, show_progress=False):
+        """
+        Restore the Preprocessed Topic Models.
+        """
+        if show_progress:
+            progress_msg("Restoring Preprocessed Topic Models...")
+        # Restore the Topic Models Combo Box.
+        while self.model_combo.count() > 0:
+            self.model_combo.removeItem(0)
+        self.model_combo.addItems(self.supported_models)
+        self.model_combo.setCurrentIndex(0)
+
+        # Change the Model.
+        new_model_name = self.supported_models[0]
+        # Use Threads to Change the Model.
+        self.model_worker = QModelWorker(
+            search_engine=self.search_engine, new_model_name=new_model_name,
+            parent_widget=self, show_progress=show_progress
+        )
+        self.update_dialog = QUpdatesDialog(
+            action_text="Updating Topic Model",
+            message_text=f"Changing to the Topic Model <{new_model_name}>...",
+            parent_widget=self
+        )
+        self.model_worker.task_done.connect(lambda: self.update_dialog.accept())
+        # noinspection PyUnresolvedReferences
+        self.model_worker.finished.connect(self.model_worker.deleteLater)
+
+        # Start the thread and the Dialog.
+        self.model_worker.start()
+        if self.update_dialog.exec() == QDialog.DialogCode.Accepted:
+            # Update the Name of the Current Topic Model.
+            self.current_model = new_model_name
+            # Update Tabs with the Info of the New Topic Model.
+            self.finishModelUpdate(show_progress=show_progress)
+            # Done.
+            if show_progress:
+                progress_msg("Topic Models Restored !!!")
+        # The Update of the Topic Model was canceled.
         else:
             self.close()
 
