@@ -8,8 +8,6 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 
-from ir_system import IRSystem
-
 
 class QLoadCorpusDialog(QDialog):
     """
@@ -17,7 +15,7 @@ class QLoadCorpusDialog(QDialog):
     """
 
     def __init__(
-            self, ir_system: IRSystem, sbert_names: list, specter_names: list,
+            self, sbert_names: list, specter_names: list,
             parent_widget: QWidget = None
     ):
         """
@@ -28,7 +26,6 @@ class QLoadCorpusDialog(QDialog):
         self.setModal(True)
 
         # Save class attributes.
-        self.ir_system = ir_system
         self.sbert_names = sbert_names
         self.specter_names = specter_names
 
@@ -43,8 +40,6 @@ class QLoadCorpusDialog(QDialog):
 
         # Create the UI.
         self.initializeUI()
-        # Check if we can have the Specter Combo Box enabled.
-        self.checkModelType()
 
     def initializeUI(self):
         """
@@ -107,6 +102,7 @@ class QLoadCorpusDialog(QDialog):
         specter_combo = QComboBox()
         self.specter_combo = specter_combo
         specter_combo.addItems(self.specter_names)
+        specter_combo.setEnabled(False)
 
         # Button - Load Corpus & Create New Topic Model.
         load_button = QPushButton("Load")
@@ -186,12 +182,31 @@ class QLoadCorpusDialog(QDialog):
             print("No Corpus provided!")
             self.reject()
 
+    def collectedInfoDict(self):
+        """
+        Create a Dictionary with the Info about the new Corpus and the language
+        models of the Topic Model.
+        """
+        # Corpus & Topic Model Data.
+        topic_model_type = self.topic_group.checkedButton().text().lower()
+        new_corpus_path = self.new_corpus_path
+        sbert_model_name = self.sbert_combo.currentText()
+        specter_model_name = self.specter_combo.currentText()
+        # Create Dict.
+        new_data_dict = {
+            'corpus_path': new_corpus_path,
+            'topic_model': topic_model_type,
+            'sbert_model': sbert_model_name,
+            'specter_model': specter_model_name,
+        }
+        # Dictionary with the Info about Corpus & Topic Model.
+        return new_data_dict
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     # noinspection PyTypeChecker
     window = QLoadCorpusDialog(
-        ir_system=None,
         sbert_names=['sbert_fast', 'sbert_best', 'sbert_multilingual'],
         specter_names=['specter_default', 'specter_new']
     )
