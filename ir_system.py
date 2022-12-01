@@ -202,7 +202,7 @@ class IRSystem:
         corpus_id = topic_model.base_corpus_id
         doc_ids = list(topic_model.base_doc_embeds.keys())
         # Check if we have to upload a new Main corpus.
-        if corpus_id != self.main_corpus.corpus_id:
+        if corpus_id != self.main_corpus.corpus_identifier():
             main_corpus = CorporaManager(
                 corpus_id=corpus_id, show_progress=show_progress
             )
