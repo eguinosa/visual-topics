@@ -17,6 +17,7 @@ from PyQt6.QtGui import QAction, QCloseEvent
 from ir_system import IRSystem
 from qmodel_worker import QModelWorker
 from qupdates_dialog import QUpdatesDialog
+from qload_corpus import QLoadCorpusDialog
 from qvocab_dialog import QVocabDialog
 from qwordcloud_dialog import QWordCloudDialog
 from qfull_content import QFullContent
@@ -41,6 +42,13 @@ class MainWindow(QMainWindow):
         'sbert_fast_5_000_docs_55_topics',
         'sbert_fast_20_000_docs_182_topics',
         'sbert_fast_105_548_docs_745_topics',
+    ]
+    # Supported Language Models.
+    sbert_models = [
+        'sbert_fast', 'sbert_best', 'multilingual_fast', 'multilingual_best',
+    ]
+    specter_models = [
+        'specter_default',
     ]
 
     def __init__(self, default_model='', show_progress=False):
@@ -208,10 +216,13 @@ class MainWindow(QMainWindow):
         self.docs_tab_text_widget = None
         self.docs_tab_docs_scroll = None
 
-        # Main Window - Information Values & Widgets
-        self.current_tab_index = self.search_tab_index
-        self.main_tab_bar = None
+        # Main Window - Variables & Widgets
+        self.using_custom_corpus = False
         self.size_combo_working = False
+        self.current_tab_index = self.search_tab_index
+        # Main Window - Widgets
+        self.model_combo = None
+        self.main_tab_bar = None
 
         # Menu Bar - Variables.
         self.topic_use_percent = topic_use_percent
@@ -220,6 +231,7 @@ class MainWindow(QMainWindow):
         self.topic_use_wordcloud = topic_use_wordcloud
         self.doc_use_percent = doc_use_percent
         # Menu Bar - Actions.
+        self.file_custom_corpus = None
         self.file_act_quit = None
         self.topic_act_percent = None
         self.topic_act_pwi = None
@@ -277,6 +289,7 @@ class MainWindow(QMainWindow):
         model_label = QLabel("Topic Model:")
         # Topic Model - Combo Box.
         model_combo = QComboBox()
+        self.model_combo = model_combo
         model_combo.addItems(self.supported_models)
         model_combo.setCurrentIndex(current_index)
         model_combo.activated.connect(
@@ -318,6 +331,12 @@ class MainWindow(QMainWindow):
         """
         Create the application's menu actions.
         """
+        # File Menu - Custom Corpus
+        self.file_custom_corpus = QAction("Custom Corpus")
+        self.file_custom_corpus.setCheckable(True)
+        self.file_custom_corpus.triggered.connect(
+            lambda checked: self.loadCustomCorpus(checked=checked)
+        )
         # File Menu - Quit.
         self.file_act_quit = QAction("&Quit ")
         self.file_act_quit.setShortcut("Ctrl+Q")
@@ -380,6 +399,7 @@ class MainWindow(QMainWindow):
         self.menuBar().setNativeMenuBar(False)
         # Create File Menu.
         file_menu = self.menuBar().addMenu("File")
+        file_menu.addAction(self.file_custom_corpus)
         file_menu.addAction(self.file_act_quit)
         # Create Topic Menu.
         topic_menu = self.menuBar().addMenu("Topics")
@@ -977,6 +997,113 @@ class MainWindow(QMainWindow):
         """
         self.current_tab_index = new_index
 
+    def loadCustomCorpus(self, checked: bool):
+        """
+        Load a new Corpus and use it to create a new Topic Model for the IR
+        System.
+        """
+        if checked:
+            # Get the Info about the New Corpus & Topic Model.
+            progress_msg("Opening Dialog to get info about new Corpus & Topic Model...")
+            new_corpus_window = QLoadCorpusDialog(
+                sbert_names=self.sbert_models, specter_names=self.specter_models,
+                parent_widget=self
+            )
+            if new_corpus_window.exec() == QDialog.DialogCode.Accepted:
+                # Collect the New Info.
+                info_dict = new_corpus_window.collectedInfoDict()
+                progress_msg("Info Collected !!!")
+                # Use Threads to Create New Model.
+                self.createNewModel(model_info=info_dict, show_progress=True)
+            else:
+                # Reset the Value of the Custom Corpus Checkable.
+                self.file_custom_corpus.setChecked(False)
+        elif self.using_custom_corpus:
+            # Go back to using the preprocessed Models.
+            self.using_custom_corpus = False
+            self.model_combo.setEnabled(True)
+            progress_msg("Going back to using preprocessed Models!")
+
+    def createNewModel(self, model_info: dict, show_progress=False):
+        """
+        Create a new Topic Model for the IR System using a Custom Corpus.
+        """
+        if show_progress:
+            progress_msg("Creating new Topic Model with Custom Corpus...")
+        # Use Threads to Create the Model.
+        self.model_worker = QModelWorker(
+            search_engine=self.search_engine, new_model_info=model_info,
+            parent_widget=self, show_progress=show_progress
+        )
+        self.update_dialog = QUpdatesDialog(
+            action_text="Creating New Topic Model",
+            message_text="Using Custom Corpus to create New Model...",
+            parent_widget=self
+        )
+        self.model_worker.task_done.connect(lambda: self.update_dialog.accept())
+        # noinspection PyUnresolvedReferences
+        self.model_worker.finished.connect(self.model_worker.deleteLater)
+
+        # Start the thread and the Dialog.
+        self.model_worker.start()
+        if self.update_dialog.exec() == QDialog.DialogCode.Accepted:
+            # Update the Name of the Topic Model.
+            self.current_model = self.search_engine.model_name
+            # Display the Name on the Models Combo Box.
+            while self.model_combo.count() > 0:
+                self.model_combo.removeItem(0)
+            self.model_combo.addItem(self.current_model)
+            # Freeze the Models Combo Box.
+            self.using_custom_corpus = True
+            self.model_combo.setEnabled(False)
+            # Update All Tabs with the New Topic Model Info.
+            self.finishModelUpdate(show_progress=show_progress)
+            # Done.
+            if show_progress:
+                progress_msg("New Topic Model Created!")
+        # The Topic Model creation was canceled.
+        else:
+            self.close()
+
+    def finishModelUpdate(self, show_progress=False):
+        """
+        Update the App Tabs with the info of the new Topic Model.
+        """
+        # Update Supported Sizes on the App.
+        self.updateSupportedSizes()
+        # Update Topics Tab Sorting Categories.
+        # Check if we can use all the Sorting Categories in the Topics Tab.
+        old_cats_active = self.topics_tab_full_cats_active
+        if self.search_engine.is_original_size():
+            self.topics_tab_full_cats_active = True
+        else:
+            self.topics_tab_full_cats_active = False
+            if self.topics_tab_cat_index >= len(self.topics_tab_sort_cats):
+                self.topics_tab_cat_index = 0
+        # Update the Categories ComboBox if necessary.
+        if old_cats_active != self.topics_tab_full_cats_active:
+            self.updateTopicsTabCategoryCombo()
+        # Update Documents & Topics in the Search Tab.
+        current_query = self.search_tab_query_text
+        self.updateSearchTabVariables(
+            query_text=current_query, show_progress=show_progress
+        )
+        self.updateSearchTabTopicsScroll()
+        self.updateSearchTabDocsScroll()
+        # Update Topics & Documents in the Topics Tab.
+        self.updateTopicsTabTopicVariables()
+        self.updateTopicsTabDocVariables()
+        self.updateTopicsTabTopicScroll()
+        self.updateTopicsTabDocScroll()
+        # Update Doc Content, Topics & Documents in the Documents Tab.
+        cur_doc_id = self.search_engine.random_doc_id()
+        self.updateDocsTabVariables(
+            cur_doc_id=cur_doc_id, show_progress=show_progress
+        )
+        self.updateDocsTabContentArea()
+        self.updateDocsTabTopicsScroll()
+        self.updateDocsTabDocsScroll()
+
     def changeModel(self, new_index, show_progress=False):
         """
         The ComboBox to manage the Topic Models has been activated, change the
@@ -1008,40 +1135,8 @@ class MainWindow(QMainWindow):
             if self.update_dialog.exec() == QDialog.DialogCode.Accepted:
                 # Update the Name of the Current Topic Model.
                 self.current_model = new_model_name
-                # Update the Supported Sizes on the App.
-                self.updateSupportedSizes()
-                # -- Update Topics Tab Sorting Categories --
-                # Check if we can use all the Sorting Categories in the Topics Tab.
-                old_cats_active = self.topics_tab_full_cats_active
-                if self.search_engine.is_original_size():
-                    self.topics_tab_full_cats_active = True
-                else:
-                    self.topics_tab_full_cats_active = False
-                    if self.topics_tab_cat_index >= len(self.topics_tab_sort_cats):
-                        self.topics_tab_cat_index = 0
-                # Update the Categories ComboBox if necessary.
-                if old_cats_active != self.topics_tab_full_cats_active:
-                    self.updateTopicsTabCategoryCombo()
-                # Update Documents & Topics in the Search Tab.
-                current_query = self.search_tab_query_text
-                self.updateSearchTabVariables(
-                    query_text=current_query, show_progress=show_progress
-                )
-                self.updateSearchTabTopicsScroll()
-                self.updateSearchTabDocsScroll()
-                # Update Topics & Documents in the Topics Tab.
-                self.updateTopicsTabTopicVariables()
-                self.updateTopicsTabDocVariables()
-                self.updateTopicsTabTopicScroll()
-                self.updateTopicsTabDocScroll()
-                # Update Doc Content, Topics & Documents in the Documents Tab.
-                cur_doc_id = self.search_engine.random_doc_id()
-                self.updateDocsTabVariables(
-                    cur_doc_id=cur_doc_id, show_progress=show_progress
-                )
-                self.updateDocsTabContentArea()
-                self.updateDocsTabTopicsScroll()
-                self.updateDocsTabDocsScroll()
+                # Update Tabs with the Info of the New Topic Model.
+                self.finishModelUpdate(show_progress=show_progress)
                 # Done.
                 if show_progress:
                     progress_msg("Topic Model Updated!")
